@@ -1,14 +1,27 @@
 {
   "name": "@ukwhatn/wikidot",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Library for requesting data to Wikidot",
+  "homepage": "https://github.com/ukwhatn/wikidot-ts",
+  "bugs": {
+    "url": "https://github.com/ukwhatn/wikidot-ts/issues",
+    "email": "report@mail.ukwhatn.com"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "keywords": [
     "wikidot"
   ],
-  "author": "ukwhatn",
+  "author": {
+    "name": "ukwhatn",
+    "email": "contact@mail.ukwhatn.com",
+    "url": "https://github.com/ukwhatn"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ukwhatn/wikidot-ts.git"
+  },
   "dependencies": {
     "async-mutex": "^0.5.0",
     "axios": "^1.6.8",

@@ -80,8 +80,10 @@ class PageCollection extends Array<Page> {
             const is5starRating = pageElement("span.rating span.page-rate-list-pages-start").length > 0;
 
             for (const setElement of pageElement("span.set").toArray()) {
-                let key = cheerio.load(setElement)("span.name").text().trim();
-                const valueElement = cheerio.load(setElement)("span.value");
+                // setElementからspan.nameを取得し、innerTextをkeyとして、span.valueのinnerTextをvalueとして取得
+                const setElementCheerio = cheerio.load(setElement.children);
+                let key = setElementCheerio("span.name").text().trim();
+                const valueElement = setElementCheerio("span.value");
 
                 let value: any = undefined;
 
