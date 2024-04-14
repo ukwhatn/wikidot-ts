@@ -6,20 +6,19 @@ const exceptions_1 = require("../common/exceptions");
 const ajax_1 = require("../connector/ajax");
 const auth_1 = require("./auth");
 const privateMessage_1 = require("./privateMessage");
-// import { Site } from './module/site';
-// import { User, UserCollection } from './module/user';
-//
-// class ClientUserMethods {
-//   constructor(private client: Client) {}
-//
-//   get(name: string, raiseWhenNotFound: boolean = false): User {
-//     return User.fromName(this.client, name, raiseWhenNotFound);
-//   }
-//
-//   getBulk(names: string[], raiseWhenNotFound: boolean = false): User[] {
-//     return UserCollection.fromNames(this.client, names, raiseWhenNotFound);
-//   }
-// }
+const site_1 = require("./site");
+const user_1 = require("./user");
+class ClientUserMethods {
+    constructor(client) {
+        this.client = client;
+    }
+    async get(name, raiseWhenNotFound = false) {
+        return await user_1.User.fromName(this.client, name, raiseWhenNotFound);
+    }
+    async getBulk(names, raiseWhenNotFound = false) {
+        return await user_1.UserCollection.fromNames(this.client, names, raiseWhenNotFound);
+    }
+}
 class ClientPrivateMessageMethods {
     constructor(client) {
         this.client = client;
@@ -40,14 +39,14 @@ class ClientPrivateMessageMethods {
         return privateMessage_1.PrivateMessage.fromId(this.client, messageId);
     }
 }
-//
-// class ClientSiteMethods {
-//   constructor(private client: Client) {}
-//
-//   get(unixName: string): Site {
-//     return Site.fromUnixName(this.client, unixName);
-//   }
-// }
+class ClientSiteMethods {
+    constructor(client) {
+        this.client = client;
+    }
+    async get(unixName) {
+        return await site_1.Site.fromUnixName(this.client, unixName);
+    }
+}
 class Client {
     constructor(username, amcConfig, loggingLevel = 'WARNING') {
         common_1.logger.level = loggingLevel;
@@ -55,16 +54,14 @@ class Client {
         this.isLoggedIn = false;
         this.username = null;
         this.isInitialized = false;
-        // this.user = new ClientUserMethods(this);
+        this.user = new ClientUserMethods(this);
         this.privateMessage = new ClientPrivateMessageMethods(this);
-        // this.site = new ClientSiteMethods(this);
+        this.site = new ClientSiteMethods(this);
     }
     static async init(username, password, amcConfig, loggingLevel = 'WARNING') {
         const instance = new Client(username, amcConfig, loggingLevel);
         if (username && password) {
-            console.log('Logging in');
             await auth_1.HTTPAuthentication.login(instance, username, password).then(() => {
-                console.log('Logged in');
                 instance.isLoggedIn = true;
                 instance.username = username;
                 instance.isInitialized = true;

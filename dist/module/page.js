@@ -51,8 +51,9 @@ const DEFAULT_MODULE_BODY = [
     "tags",
     "_tags"
 ];
+// noinspection JSUnusedGlobalSymbols
 class SearchPagesQuery {
-    constructor() {
+    constructor(init) {
         this.pagetype = "*";
         this.category = "*";
         this.tags = undefined;
@@ -72,6 +73,7 @@ class SearchPagesQuery {
         this.perPage = 250;
         this.separate = "no";
         this.wrapper = "no";
+        Object.assign(this, init);
     }
     asDict() {
         const res = {};
@@ -205,6 +207,7 @@ class PageCollection extends Array {
         }
         return pages;
     }
+    // noinspection JSUnusedGlobalSymbols
     async getPageIds() {
         return await PageCollection._acquirePageIds(this);
     }
@@ -236,11 +239,13 @@ class Page {
     getUrl() {
         return `${this.site.getUrl()}/${this.fullname}`;
     }
-    async get id() {
+    get id() {
         if (this._id === undefined) {
-            await PageCollection._acquirePageIds([this]);
+            return PageCollection._acquirePageIds([this]).then(() => this._id);
         }
-        return this._id;
+        else {
+            return Promise.resolve(this._id);
+        }
     }
     set id(value) {
         this._id = value;
@@ -248,12 +253,12 @@ class Page {
     isIdAcquired() {
         return this._id !== undefined;
     }
-    destroy() {
+    async destroy() {
         this.site.client.loginCheck();
-        this.site.amcRequest([{
+        await this.site.amcRequest([{
                 action: "WikiPageAction",
                 event: "deletePage",
-                page_id: this.id,
+                page_id: await this.id,
                 moduleName: "Empty"
             }]);
     }

@@ -1,6 +1,6 @@
 import {Client} from './client';
 import {User} from './user';
-//import {Page, SearchPagesQuery, PageCollection} from './page';
+import {Page, SearchPagesQuery, PageCollection} from './page';
 import {SiteApplication} from './siteApplication';
 import axios, {AxiosResponse} from 'axios';
 import {
@@ -10,35 +10,35 @@ import {
     WikidotStatusCodeException
 } from '../common/exceptions';
 
-// class SitePagesMethods {
-//     constructor(private site: Site) {
-//     }
-//
-//     search(query: Partial<SearchPagesQuery>): PageCollection {
-//         const _query = new SearchPagesQuery(query);
-//         return PageCollection.searchPages(this.site, _query);
-//     }
-// }
-//
-// class SitePageMethods {
-//     constructor(private site: Site) {
-//     }
-//
-//     get(fullname: string, raiseWhenNotFound: boolean = true): Page | null {
-//         const res = PageCollection.searchPages(this.site, new SearchPagesQuery({fullname}));
-//         if (res.length === 0) {
-//             if (raiseWhenNotFound) {
-//                 throw new NotFoundException(`Page is not found: ${fullname}`);
-//             }
-//             return null;
-//         }
-//         return res[0];
-//     }
-// }
+class SitePagesMethods {
+    constructor(private site: Site) {
+    }
+
+    async search(query: Partial<SearchPagesQuery>): Promise<PageCollection> {
+        const _query = new SearchPagesQuery(query);
+        return await PageCollection.searchPages(this.site, _query);
+    }
+}
+
+class SitePageMethods {
+    constructor(private site: Site) {
+    }
+
+    async get(fullname: string, raiseWhenNotFound: boolean = true): Promise<Page | null> {
+        const res = await PageCollection.searchPages(this.site, new SearchPagesQuery({fullname}));
+        if (res.length === 0) {
+            if (raiseWhenNotFound) {
+                throw new NotFoundException(`Page is not found: ${fullname}`);
+            }
+            return null;
+        }
+        return res[0];
+    }
+}
 
 class Site {
-    // public pages: SitePagesMethods;
-    // public page: SitePageMethods;
+    public pages: SitePagesMethods;
+    public page: SitePageMethods;
 
     constructor(
         public client: Client,
@@ -48,8 +48,8 @@ class Site {
         public domain: string,
         public sslSupported: boolean
     ) {
-        // this.pages = new SitePagesMethods(this);
-        // this.page = new SitePageMethods(this);
+        this.pages = new SitePagesMethods(this);
+        this.page = new SitePageMethods(this);
     }
 
     toString(): string {

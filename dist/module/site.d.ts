@@ -5,12 +5,12 @@ import { SiteApplication } from './siteApplication';
 declare class SitePagesMethods {
     private site;
     constructor(site: Site);
-    search(query: Partial<SearchPagesQuery>): PageCollection;
+    search(query: Partial<SearchPagesQuery>): Promise<PageCollection>;
 }
 declare class SitePageMethods {
     private site;
     constructor(site: Site);
-    get(fullname: string, raiseWhenNotFound?: boolean): Page | null;
+    get(fullname: string, raiseWhenNotFound?: boolean): Promise<Page | null>;
 }
 declare class Site {
     client: Client;
@@ -29,4 +29,4 @@ declare class Site {
     inviteUser(user: User, text: string): Promise<void>;
     getUrl(): string;
 }
-export { Site, SitePagesMethods, SitePageMethods };
+export { Site };

@@ -172,21 +172,29 @@ class AjaxModuleConnectorClient {
             }
             const _siteName = siteName ?? this.siteName;
             const _siteSSLSupported = siteSSLSupported ?? this.sslSupported;
+            // リクエストを送信するクライアントを生成
             const axiosClient = axios_1.default.create({
                 headers: this.header.getHeader(),
-                timeout: this.config.requestTimeout,
+                timeout: this.config.requestTimeout * 1000, // ms Pythonのrequestsと合わせるために秒からmsに変換
                 validateStatus: (status) => status === 200,
                 retryCount: 0,
                 retryLimit: this.config.attemptLimit,
             });
-            axiosClient.interceptors.response.use((response) => response, async (error) => {
+            // リトライ処理をinterceptorで実装
+            axiosClient.interceptors.response.use(
+            // リクエスト成功時はそのまま返す
+            (response) => response, 
+            // リクエスト失敗時はリトライ処理へ
+            async (error) => {
                 const config = error.config;
                 if (config && config.retryCount < config.retryLimit) {
+                    // リトライ回数をインクリメント、リトライ間隔分待機してから再リクエスト
                     config.retryCount++;
                     await new Promise(resolve => setTimeout(resolve, this.config.retryInterval * 1000));
                     return axiosClient.request(config);
                 }
-                throw error;
+                // リトライ回数が上限に達した場合はエラーを送出
+                throw new exceptions_1.AMCHttpStatusCodeException(`AMC is respond HTTP error code: ${error.response.status}`, error.response.status);
             });
             const requestPromises = bodies.map(async (body) => {
                 let retryCount = 0;
@@ -211,10 +219,12 @@ class AjaxModuleConnectorClient {
                         // statusがtry_againの場合はリトライ
                         if (response.data.status === 'try_again') {
                             retryCount++;
+                            // リトライ回数が上限に達した場合はエラーを送出
                             if (retryCount >= this.config.attemptLimit) {
                                 common_1.logger.error(`AMC is respond status: "try_again" -> ${JSON.stringify(body)}`);
                                 throw new exceptions_1.WikidotStatusCodeException('AMC is respond status: "try_again"', 'try_again');
                             }
+                            // リトライ回数が上限に達していない場合はリトライ
                             common_1.logger.info(`AMC is respond status: "try_again" (retry: ${retryCount})`);
                             await new Promise((resolve) => setTimeout(resolve, this.config.retryInterval * 1000));
                             continue;
