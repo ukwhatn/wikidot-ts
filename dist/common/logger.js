@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.logger = void 0;
 const winston_1 = __importDefault(require("winston"));
 // Logger設定
-function setupLogger(name = 'wikidot', level = 'info') {
+function setupLogger(name = 'wikidot', level = 'debug') {
     return winston_1.default.createLogger({
         level,
         format: winston_1.default.format.combine(winston_1.default.format.timestamp(), winston_1.default.format.printf(({ timestamp, level, message }) => {

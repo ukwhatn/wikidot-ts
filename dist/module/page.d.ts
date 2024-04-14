@@ -20,12 +20,13 @@ declare class SearchPagesQuery {
     perPage?: number;
     separate?: string;
     wrapper?: string;
+    constructor(init?: Partial<SearchPagesQuery>);
     asDict(): Record<string, any>;
 }
 declare class PageCollection extends Array<Page> {
     private static _parse;
     static searchPages(site: Site, query?: SearchPagesQuery): Promise<PageCollection>;
-    private static _acquirePageIds;
+    static _acquirePageIds(pages: Page[]): Promise<Page[]>;
     getPageIds(): Promise<Page[]>;
 }
 declare class Page {
@@ -72,9 +73,9 @@ declare class Page {
     commentedBy?: User;
     commentedAt?: Date;
     getUrl(): string;
-    get id(): number;
+    get id(): Promise<number>;
     set id(value: number);
     isIdAcquired(): boolean;
-    destroy(): void;
+    destroy(): Promise<void>;
 }
 export { SearchPagesQuery, PageCollection, Page };

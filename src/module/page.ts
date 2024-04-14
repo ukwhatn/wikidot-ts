@@ -29,6 +29,7 @@ const DEFAULT_MODULE_BODY = [
     "_tags"
 ];
 
+// noinspection JSUnusedGlobalSymbols
 class SearchPagesQuery {
     pagetype?: string = "*";
     category?: string = "*";
@@ -49,6 +50,10 @@ class SearchPagesQuery {
     perPage?: number = 250;
     separate?: string = "no";
     wrapper?: string = "no";
+
+    constructor(init?: Partial<SearchPagesQuery>) {
+        Object.assign(this, init);
+    }
 
     asDict(): Record<string, any> {
         const res: Record<string, any> = {};
@@ -179,7 +184,7 @@ class PageCollection extends Array<Page> {
         return pages;
     }
 
-    private static async _acquirePageIds(pages: Page[]): Promise<Page[]> {
+    static async _acquirePageIds(pages: Page[]): Promise<Page[]> {
         const targetPages = pages.filter(page => !page.isIdAcquired());
 
         if (targetPages.length === 0) {
@@ -204,6 +209,7 @@ class PageCollection extends Array<Page> {
         return pages;
     }
 
+    // noinspection JSUnusedGlobalSymbols
     async getPageIds(): Promise<Page[]> {
         return await PageCollection._acquirePageIds(this);
     }
@@ -301,11 +307,12 @@ class Page {
         return `${this.site.getUrl()}/${this.fullname}`;
     }
 
-    async get id(): number {
+    get id(): Promise<number> {
         if (this._id === undefined) {
-            await PageCollection._acquirePageIds([this]);
+            return PageCollection._acquirePageIds([this]).then(() => this._id!);
+        } else {
+            return Promise.resolve(this._id!);
         }
-        return this._id!;
     }
 
     set id(value: number) {
@@ -316,12 +323,12 @@ class Page {
         return this._id !== undefined;
     }
 
-    destroy(): void {
+    async destroy(): Promise<void> {
         this.site.client.loginCheck();
-        this.site.amcRequest([{
+        await this.site.amcRequest([{
             action: "WikiPageAction",
             event: "deletePage",
-            page_id: this.id,
+            page_id: await this.id,
             moduleName: "Empty"
         }]);
     }

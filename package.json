@@ -1,6 +1,6 @@
 {
-  "name": "wikidot-ts",
-  "version": "1.0.0",
+  "name": "@ukwhatn/wikidot",
+  "version": "1.0.4",
   "description": "Library for requesting data to Wikidot",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,6 +21,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "rm -rf dist && tsc",
+    "prepare": "npm run build"
   }
 }

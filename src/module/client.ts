@@ -86,9 +86,7 @@ class Client {
         const instance = new Client(username, amcConfig, loggingLevel);
 
         if (username && password) {
-            console.log('Logging in')
             await HTTPAuthentication.login(instance, username, password).then(() => {
-                console.log('Logged in')
                 instance.isLoggedIn = true;
                 instance.username = username;
                 instance.isInitialized = true;

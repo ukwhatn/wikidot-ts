@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SitePageMethods = exports.SitePagesMethods = exports.Site = void 0;
+exports.Site = void 0;
 const page_1 = require("./page");
 const siteApplication_1 = require("./siteApplication");
 const axios_1 = __importDefault(require("axios"));
@@ -12,18 +12,17 @@ class SitePagesMethods {
     constructor(site) {
         this.site = site;
     }
-    search(query) {
+    async search(query) {
         const _query = new page_1.SearchPagesQuery(query);
-        return page_1.PageCollection.searchPages(this.site, _query);
+        return await page_1.PageCollection.searchPages(this.site, _query);
     }
 }
-exports.SitePagesMethods = SitePagesMethods;
 class SitePageMethods {
     constructor(site) {
         this.site = site;
     }
-    get(fullname, raiseWhenNotFound = true) {
-        const res = page_1.PageCollection.searchPages(this.site, new page_1.SearchPagesQuery({ fullname }));
+    async get(fullname, raiseWhenNotFound = true) {
+        const res = await page_1.PageCollection.searchPages(this.site, new page_1.SearchPagesQuery({ fullname }));
         if (res.length === 0) {
             if (raiseWhenNotFound) {
                 throw new exceptions_1.NotFoundException(`Page is not found: ${fullname}`);
@@ -33,7 +32,6 @@ class SitePageMethods {
         return res[0];
     }
 }
-exports.SitePageMethods = SitePageMethods;
 class Site {
     constructor(client, id, title, unixName, domain, sslSupported) {
         this.client = client;
@@ -51,7 +49,7 @@ class Site {
     static async fromUnixName(client, unixName) {
         const response = await axios_1.default.get(`http://${unixName}.wikidot.com`, {
             maxRedirects: 5,
-            timeout: client.amcClient.config.requestTimeout
+            timeout: client.amcClient.config.requestTimeout * 1000
         });
         if (response.status === 404) {
             throw new exceptions_1.NotFoundException(`Site is not found: ${unixName}.wikidot.com`);
@@ -83,8 +81,8 @@ class Site {
     amcRequest(bodies, returnExceptions = false) {
         return this.client.amcClient.request(bodies, returnExceptions, this.unixName, this.sslSupported);
     }
-    getApplications() {
-        return siteApplication_1.SiteApplication.acquireAll(this);
+    async getApplications() {
+        return await siteApplication_1.SiteApplication.acquireAll(this);
     }
     async inviteUser(user, text) {
         user.client.loginCheck();
