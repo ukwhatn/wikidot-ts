@@ -1,0 +1,80 @@
+import { Site } from './site';
+import { User } from './user';
+declare class SearchPagesQuery {
+    pagetype?: string;
+    category?: string;
+    tags?: string | string[];
+    parent?: string;
+    linkTo?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: User | string;
+    rating?: string;
+    votes?: string;
+    name?: string;
+    fullname?: string;
+    range?: string;
+    order: string;
+    offset?: number;
+    limit?: number;
+    perPage?: number;
+    separate?: string;
+    wrapper?: string;
+    asDict(): Record<string, any>;
+}
+declare class PageCollection extends Array<Page> {
+    private static _parse;
+    static searchPages(site: Site, query?: SearchPagesQuery): Promise<PageCollection>;
+    private static _acquirePageIds;
+    getPageIds(): Promise<Page[]>;
+}
+declare class Page {
+    site: Site;
+    private _id?;
+    constructor(site: Site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }: {
+        fullname: string;
+        name: string;
+        category: string;
+        title: string;
+        children_count: number;
+        comments_count: number;
+        size: number;
+        rating: number | null;
+        votes: number;
+        rating_percent: number | null;
+        revisions: number;
+        parent_fullname: string | null;
+        tags: string[];
+        created_by: User;
+        created_at: Date;
+        updated_by: User | null;
+        updated_at: Date | null;
+        commented_by: User | null;
+        commented_at: Date | null;
+    });
+    fullname: string;
+    name: string;
+    category: string;
+    title: string;
+    childrenCount: number;
+    commentsCount: number;
+    size: number;
+    rating?: number;
+    votes: number;
+    ratingPercent?: number;
+    revisions: number;
+    parentFullname?: string;
+    tags: string[];
+    createdBy: User;
+    createdAt: Date;
+    updatedBy?: User;
+    updatedAt?: Date;
+    commentedBy?: User;
+    commentedAt?: Date;
+    getUrl(): string;
+    get id(): number;
+    set id(value: number);
+    isIdAcquired(): boolean;
+    destroy(): void;
+}
+export { SearchPagesQuery, PageCollection, Page };
