@@ -1,5 +1,6 @@
 import { Site } from './site';
 import { User } from './user';
+import { PageSource } from "./pageSource";
 declare class SearchPagesQuery {
     pagetype?: string;
     category?: string;
@@ -28,10 +29,12 @@ declare class PageCollection extends Array<Page> {
     static searchPages(site: Site, query?: SearchPagesQuery): Promise<PageCollection>;
     static _acquirePageIds(pages: Page[]): Promise<Page[]>;
     getPageIds(): Promise<Page[]>;
+    static _acquirePageSources(pages: Page[]): Promise<Page[]>;
 }
 declare class Page {
     site: Site;
     private _id?;
+    private _source?;
     constructor(site: Site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }: {
         fullname: string;
         name: string;
@@ -76,6 +79,8 @@ declare class Page {
     get id(): Promise<number>;
     set id(value: number);
     isIdAcquired(): boolean;
+    get source(): Promise<PageSource>;
+    set source(value: PageSource);
     destroy(): Promise<void>;
 }
 export { SearchPagesQuery, PageCollection, Page };
