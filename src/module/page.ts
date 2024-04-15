@@ -1,5 +1,6 @@
 import {Site} from './site';
 import {User} from './user';
+import {PageSource} from "./pageSource";
 import {ForbiddenException, UnexpectedException, WikidotStatusCodeException} from '../common/exceptions';
 import {userParse} from '../util/parser/user';
 import {odateParse} from '../util/parser';
@@ -215,10 +216,27 @@ class PageCollection extends Array<Page> {
     async getPageIds(): Promise<Page[]> {
         return await PageCollection._acquirePageIds(this);
     }
+
+    static async _acquirePageSources(pages: Page[]): Promise<Page[]> {
+        const requestBodies = await Promise.all(pages.map(async page => ({
+            moduleName: "viewsource/ViewSourceModule",
+            page_id: await page.id
+        })));
+        const responses = await pages[0].site.amcRequest(requestBodies);
+        for (const [index, response] of responses.entries()) {
+            const page = pages[index];
+            const body = response.data.body;
+            const source = cheerio.load(body)("div.page-source").text().trim();
+
+            page.source = new PageSource(page, source);
+        }
+        return pages;
+    }
 }
 
 class Page {
     private _id?: number;
+    private _source?: PageSource;
 
     constructor(
         public site: Site,
@@ -323,6 +341,17 @@ class Page {
 
     isIdAcquired(): boolean {
         return this._id !== undefined;
+    }
+
+    get source(): Promise<PageSource> {
+        if (this._source === undefined) {
+            return PageCollection._acquirePageSources([this]).then(() => this._source!);
+        }
+        return Promise.resolve(this._source);
+    }
+
+    set source(value: PageSource) {
+        this._source = value;
     }
 
     async destroy(): Promise<void> {
