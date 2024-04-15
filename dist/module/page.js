@@ -24,6 +24,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Page = exports.PageCollection = exports.SearchPagesQuery = void 0;
+const pageSource_1 = require("./pageSource");
 const exceptions_1 = require("../common/exceptions");
 const user_1 = require("../util/parser/user");
 const parser_1 = require("../util/parser");
@@ -213,6 +214,20 @@ class PageCollection extends Array {
     async getPageIds() {
         return await PageCollection._acquirePageIds(this);
     }
+    static async _acquirePageSources(pages) {
+        const requestBodies = await Promise.all(pages.map(async (page) => ({
+            moduleName: "viewsource/ViewSourceModule",
+            page_id: await page.id
+        })));
+        const responses = await pages[0].site.amcRequest(requestBodies);
+        for (const [index, response] of responses.entries()) {
+            const page = pages[index];
+            const body = response.data.body;
+            const source = cheerio.load(body)("div.page-source").text().trim();
+            page.source = new pageSource_1.PageSource(page, source);
+        }
+        return pages;
+    }
 }
 exports.PageCollection = PageCollection;
 class Page {
@@ -254,6 +269,15 @@ class Page {
     }
     isIdAcquired() {
         return this._id !== undefined;
+    }
+    get source() {
+        if (this._source === undefined) {
+            return PageCollection._acquirePageSources([this]).then(() => this._source);
+        }
+        return Promise.resolve(this._source);
+    }
+    set source(value) {
+        this._source = value;
     }
     async destroy() {
         this.site.client.loginCheck();
