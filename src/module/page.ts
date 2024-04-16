@@ -2,6 +2,7 @@ import {Site} from './site';
 import {User} from './user';
 import {PageSource} from "./pageSource";
 import {PageRevision, PageRevisionCollection} from "./pageRevision";
+import {PageVote, PageVoteCollection} from "./pageVote";
 import {ForbiddenException, UnexpectedException, WikidotStatusCodeException} from '../common/exceptions';
 import {userParse} from '../util/parser/user';
 import {odateParse} from '../util/parser';
@@ -121,7 +122,7 @@ class PageCollection extends Array<Page> {
                 } else if (["comments", "children", "revisions"].includes(key)) {
                     key = `${key}_count`;
                 } else if (key === "rating_votes") {
-                    key = "votes";
+                    key = "votes_count";
                 }
 
                 pageParams[key] = value;
@@ -289,12 +290,62 @@ class PageCollection extends Array<Page> {
     async getPageRevisions(): Promise<Page[]> {
         return await PageCollection._acquirePageRevisions(this.site, this);
     }
+
+    static async _acquirePageVotes(
+        site: Site,
+        pages: Page[]
+    ): Promise<Page[]> {
+        if (pages.length === 0) {
+            return pages;
+        }
+
+        const responses = await site.amcRequest(await Promise.all(pages.map(async page => ({
+            moduleName: "pagerate/WhoRatedPageModule",
+            pageId: await page.id
+        }))));
+
+        for (const [index, response] of responses.entries()) {
+            const page = pages[index];
+            const body = response.data.body;
+            const bodyHtml = cheerio.load(body);
+            const user_elems = bodyHtml("span.printuser")
+            const value_elems = bodyHtml("span[style^='color:']");
+
+            if (user_elems.length !== value_elems.length) {
+                throw new UnexpectedException("User and value count mismatch");
+            }
+
+            const votes = user_elems.toArray().map((elem, i) => {
+                const user = userParse(site.client, bodyHtml(elem));
+                const value_text = bodyHtml(value_elems[i]).text().trim();
+                let value: number;
+                if (value_text === "+") {
+                    value = 1;
+                } else if (value_text === "-") {
+                    value = -1;
+                } else {
+                    value = parseInt(value_text, 10);
+                }
+
+                return new PageVote(page, user, value);
+            });
+
+            page.votes = new PageVoteCollection(page, votes);
+        }
+
+        return pages;
+    }
+
+    async getPageVotes(): Promise<Page[]> {
+        return await PageCollection._acquirePageVotes(this.site, this);
+    }
 }
 
 class Page {
     private _id?: number;
     private _source?: PageSource;
     private _revisions?: PageRevisionCollection;
+    private _votes?: PageVoteCollection;
 
     constructor(
         public site: Site,
@@ -307,7 +358,7 @@ class Page {
             comments_count,
             size,
             rating,
-            votes,
+            votes_count,
             rating_percent,
             revisions_count,
             parent_fullname,
@@ -327,7 +378,7 @@ class Page {
             comments_count: number;
             size: number;
             rating: number | null;
-            votes: number;
+            votes_count: number;
             rating_percent: number | null;
             revisions_count: number;
             parent_fullname: string | null;
@@ -348,7 +399,7 @@ class Page {
         this.commentsCount = comments_count;
         this.size = size;
         this.rating = rating ?? undefined;
-        this.votes = votes;
+        this.votes_count = votes_count;
         this.ratingPercent = rating_percent ?? undefined;
         this.revisions_count = revisions_count;
         this.parentFullname = parent_fullname ?? undefined;
@@ -369,7 +420,7 @@ class Page {
     commentsCount: number;
     size: number;
     rating?: number;
-    votes: number;
+    votes_count: number;
     ratingPercent?: number;
     revisions_count: number;
     parentFullname?: string;
@@ -427,6 +478,17 @@ class Page {
         // revision_countとrev_noが一致するものを取得
         const revisions = await this.revisions;
         return revisions.find(revision => revision.revNo === this.revisions_count)!;
+    }
+
+    get votes(): Promise<PageVoteCollection> {
+        if (this._votes === undefined) {
+            return PageCollection._acquirePageVotes(this.site, [this]).then(() => this._votes!);
+        }
+        return Promise.resolve(this._votes);
+    }
+
+    set votes(value: PageVoteCollection) {
+        this._votes = value;
     }
 
     async destroy(): Promise<void> {
