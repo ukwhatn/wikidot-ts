@@ -25,6 +25,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Page = exports.PageCollection = exports.SearchPagesQuery = void 0;
 const pageSource_1 = require("./pageSource");
+const pageRevision_1 = require("./pageRevision");
 const exceptions_1 = require("../common/exceptions");
 const user_1 = require("../util/parser/user");
 const parser_1 = require("../util/parser");
@@ -91,8 +92,12 @@ class SearchPagesQuery {
 }
 exports.SearchPagesQuery = SearchPagesQuery;
 class PageCollection extends Array {
+    constructor(site, pages = []) {
+        super(...pages);
+        this.site = site;
+    }
     static _parse(site, htmlBody) {
-        const pages = new PageCollection();
+        const pages = [];
         for (const _pageElement of htmlBody("span.page").toArray()) {
             const pageElement = cheerio.load(_pageElement);
             const pageParams = {};
@@ -132,7 +137,7 @@ class PageCollection extends Array {
                 if (key.endsWith("_linked")) {
                     key = key.slice(0, -7);
                 }
-                else if (["comments", "children"].includes(key)) {
+                else if (["comments", "children", "revisions"].includes(key)) {
                     key = `${key}_count`;
                 }
                 else if (key === "rating_votes") {
@@ -150,7 +155,7 @@ class PageCollection extends Array {
             // @ts-ignore
             pages.push(new Page(site, pageParams));
         }
-        return pages;
+        return new PageCollection(site, pages);
     }
     static async searchPages(site, query = new SearchPagesQuery()) {
         const queryDict = query.asDict();
@@ -188,18 +193,18 @@ class PageCollection extends Array {
             const responses = await site.amcRequest(requestBodies);
             htmlBodies.push(...responses.map(response => cheerio.load(response.data.body)));
         }
-        const pages = new PageCollection();
+        const pages = [];
         for (const htmlBody of htmlBodies) {
             pages.push(...PageCollection._parse(site, htmlBody));
         }
-        return pages;
+        return new PageCollection(site, pages);
     }
-    static async _acquirePageIds(pages) {
+    static async _acquirePageIds(site, pages) {
         const targetPages = pages.filter(page => !page.isIdAcquired());
         if (targetPages.length === 0) {
             return pages;
         }
-        const responses = await util_1.RequestUtil.request(targetPages[0].site.client, "GET", targetPages.map(page => `${page.getUrl()}/norender/true/noredirect/true`));
+        const responses = await util_1.RequestUtil.request(site.client, "GET", targetPages.map(page => `${page.getUrl()}/norender/true/noredirect/true`));
         for (const [index, response] of responses.entries()) {
             // @ts-ignore
             const idMatch = response?.data.match(/WIKIREQUEST\.info\.pageId = (\d+);/);
@@ -212,14 +217,14 @@ class PageCollection extends Array {
     }
     // noinspection JSUnusedGlobalSymbols
     async getPageIds() {
-        return await PageCollection._acquirePageIds(this);
+        return await PageCollection._acquirePageIds(this.site, this);
     }
-    static async _acquirePageSources(pages) {
+    static async _acquirePageSources(site, pages) {
         const requestBodies = await Promise.all(pages.map(async (page) => ({
             moduleName: "viewsource/ViewSourceModule",
             page_id: await page.id
         })));
-        const responses = await pages[0].site.amcRequest(requestBodies);
+        const responses = await site.amcRequest(requestBodies);
         for (const [index, response] of responses.entries()) {
             const page = pages[index];
             const body = response.data.body;
@@ -228,10 +233,44 @@ class PageCollection extends Array {
         }
         return pages;
     }
+    async getPageSources() {
+        return await PageCollection._acquirePageSources(this.site, this);
+    }
+    static async _acquirePageRevisions(site, pages) {
+        if (pages.length === 0) {
+            return pages;
+        }
+        const responses = await site.amcRequest(await Promise.all(pages.map(async (page) => ({
+            moduleName: "history/PageRevisionListModule",
+            page_id: await page.id,
+            options: { all: true },
+            perpage: 100000000
+        }))));
+        for (const [index, response] of responses.entries()) {
+            const page = pages[index];
+            const body = response.data.body;
+            const revs = [];
+            const bodyHtml = cheerio.load(body);
+            for (const revElement of bodyHtml('tr[id^="revision-row-"]').toArray()) {
+                const revId = parseInt(cheerio.load(revElement)("tr").attr("id").slice(13), 10);
+                const tds = cheerio.load(revElement)("td");
+                const revNo = parseInt(tds.eq(0).text().trim().slice(0, -1), 10);
+                const created_by = (0, user_1.userParse)(site.client, tds.eq(4).find("span.printuser"));
+                const created_at = (0, parser_1.odateParse)(tds.eq(5).find("span.odate"));
+                const comment = tds.eq(6).text().trim();
+                revs.push(new pageRevision_1.PageRevision(page, revId, revNo, created_by, created_at, comment));
+            }
+            page.revisions = new pageRevision_1.PageRevisionCollection(page, revs);
+        }
+        return pages;
+    }
+    async getPageRevisions() {
+        return await PageCollection._acquirePageRevisions(this.site, this);
+    }
 }
 exports.PageCollection = PageCollection;
 class Page {
-    constructor(site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }) {
+    constructor(site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions_count, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }) {
         this.site = site;
         this.fullname = fullname;
         this.name = name;
@@ -243,7 +282,7 @@ class Page {
         this.rating = rating ?? undefined;
         this.votes = votes;
         this.ratingPercent = rating_percent ?? undefined;
-        this.revisions = revisions;
+        this.revisions_count = revisions_count;
         this.parentFullname = parent_fullname ?? undefined;
         this.tags = tags;
         this.createdBy = created_by;
@@ -258,7 +297,7 @@ class Page {
     }
     get id() {
         if (this._id === undefined) {
-            return PageCollection._acquirePageIds([this]).then(() => this._id);
+            return PageCollection._acquirePageIds(this.site, [this]).then(() => this._id);
         }
         else {
             return Promise.resolve(this._id);
@@ -272,12 +311,26 @@ class Page {
     }
     get source() {
         if (this._source === undefined) {
-            return PageCollection._acquirePageSources([this]).then(() => this._source);
+            return PageCollection._acquirePageSources(this.site, [this]).then(() => this._source);
         }
         return Promise.resolve(this._source);
     }
     set source(value) {
         this._source = value;
+    }
+    get revisions() {
+        if (this._revisions === undefined) {
+            return PageCollection._acquirePageRevisions(this.site, [this]).then(() => this._revisions);
+        }
+        return Promise.resolve(this._revisions);
+    }
+    set revisions(value) {
+        this._revisions = value;
+    }
+    async latestRevision() {
+        // revision_countとrev_noが一致するものを取得
+        const revisions = await this.revisions;
+        return revisions.find(revision => revision.revNo === this.revisions_count);
     }
     async destroy() {
         this.site.client.loginCheck();

@@ -16,5 +16,6 @@ declare class StringUtil {
      * @since 1.0.0
      */
     static toUnix: (targetStr: string) => string;
+    static split: (targetStr: string, separator: string, maxSplit: number) => string[];
 }
 export { StringUtil };

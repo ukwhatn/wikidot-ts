@@ -44,4 +44,21 @@ StringUtil.toUnix = (targetStr) => {
     targetStr = targetStr.replace(/:$/, '');
     return targetStr;
 };
+StringUtil.split = (targetStr, separator, maxSplit) => {
+    const result = [];
+    let currentStr = targetStr;
+    let splitCount = 0;
+    let splitIndex = 0;
+    while (splitCount < maxSplit) {
+        splitIndex = currentStr.indexOf(separator);
+        if (splitIndex === -1) {
+            break;
+        }
+        result.push(currentStr.substring(0, splitIndex));
+        currentStr = currentStr.substring(splitIndex + separator.length);
+        splitCount++;
+    }
+    result.push(currentStr);
+    return result;
+};
 //# sourceMappingURL=stringUtil.js.map

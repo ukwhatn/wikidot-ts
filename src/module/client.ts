@@ -67,7 +67,7 @@ class Client {
 
     private isInitialized: boolean;
 
-    constructor(username?: string, amcConfig?: AjaxModuleConnectorConfig, loggingLevel: string = 'WARNING') {
+    constructor(username?: string, amcConfig?: AjaxModuleConnectorConfig, loggingLevel: string = 'info') {
         logger.level = loggingLevel;
 
         this.amcClient = new AjaxModuleConnectorClient(null, amcConfig);
@@ -82,7 +82,7 @@ class Client {
         this.site = new ClientSiteMethods(this);
     }
 
-    static async init(username?: string, password?: string, amcConfig?: AjaxModuleConnectorConfig, loggingLevel: string = 'WARNING'): Promise<Client> {
+    static async init(username?: string, password?: string, amcConfig?: AjaxModuleConnectorConfig, loggingLevel: string = 'info'): Promise<Client> {
         const instance = new Client(username, amcConfig, loggingLevel);
 
         if (username && password) {
