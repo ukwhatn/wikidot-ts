@@ -48,7 +48,7 @@ class ClientSiteMethods {
     }
 }
 class Client {
-    constructor(username, amcConfig, loggingLevel = 'WARNING') {
+    constructor(username, amcConfig, loggingLevel = 'info') {
         common_1.logger.level = loggingLevel;
         this.amcClient = new ajax_1.AjaxModuleConnectorClient(null, amcConfig);
         this.isLoggedIn = false;
@@ -58,7 +58,7 @@ class Client {
         this.privateMessage = new ClientPrivateMessageMethods(this);
         this.site = new ClientSiteMethods(this);
     }
-    static async init(username, password, amcConfig, loggingLevel = 'WARNING') {
+    static async init(username, password, amcConfig, loggingLevel = 'info') {
         const instance = new Client(username, amcConfig, loggingLevel);
         if (username && password) {
             await auth_1.HTTPAuthentication.login(instance, username, password).then(() => {

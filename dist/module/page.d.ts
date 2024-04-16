@@ -1,6 +1,7 @@
 import { Site } from './site';
 import { User } from './user';
 import { PageSource } from "./pageSource";
+import { PageRevision, PageRevisionCollection } from "./pageRevision";
 declare class SearchPagesQuery {
     pagetype?: string;
     category?: string;
@@ -25,17 +26,23 @@ declare class SearchPagesQuery {
     asDict(): Record<string, any>;
 }
 declare class PageCollection extends Array<Page> {
+    site: Site;
+    constructor(site: Site, pages?: Page[]);
     private static _parse;
     static searchPages(site: Site, query?: SearchPagesQuery): Promise<PageCollection>;
-    static _acquirePageIds(pages: Page[]): Promise<Page[]>;
+    static _acquirePageIds(site: Site, pages: Page[]): Promise<Page[]>;
     getPageIds(): Promise<Page[]>;
-    static _acquirePageSources(pages: Page[]): Promise<Page[]>;
+    static _acquirePageSources(site: Site, pages: Page[]): Promise<Page[]>;
+    getPageSources(): Promise<Page[]>;
+    static _acquirePageRevisions(site: Site, pages: Page[]): Promise<Page[]>;
+    getPageRevisions(): Promise<Page[]>;
 }
 declare class Page {
     site: Site;
     private _id?;
     private _source?;
-    constructor(site: Site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }: {
+    private _revisions?;
+    constructor(site: Site, { fullname, name, category, title, children_count, comments_count, size, rating, votes, rating_percent, revisions_count, parent_fullname, tags, created_by, created_at, updated_by, updated_at, commented_by, commented_at }: {
         fullname: string;
         name: string;
         category: string;
@@ -46,7 +53,7 @@ declare class Page {
         rating: number | null;
         votes: number;
         rating_percent: number | null;
-        revisions: number;
+        revisions_count: number;
         parent_fullname: string | null;
         tags: string[];
         created_by: User;
@@ -66,7 +73,7 @@ declare class Page {
     rating?: number;
     votes: number;
     ratingPercent?: number;
-    revisions: number;
+    revisions_count: number;
     parentFullname?: string;
     tags: string[];
     createdBy: User;
@@ -81,6 +88,9 @@ declare class Page {
     isIdAcquired(): boolean;
     get source(): Promise<PageSource>;
     set source(value: PageSource);
+    get revisions(): Promise<PageRevisionCollection>;
+    set revisions(value: PageRevisionCollection);
+    latestRevision(): Promise<PageRevision>;
     destroy(): Promise<void>;
 }
 export { SearchPagesQuery, PageCollection, Page };
