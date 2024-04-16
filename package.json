@@ -1,6 +1,6 @@
 {
   "name": "@ukwhatn/wikidot",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Library for requesting data to Wikidot",
   "homepage": "https://github.com/ukwhatn/wikidot-ts",
   "bugs": {
