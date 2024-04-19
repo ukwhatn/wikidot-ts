@@ -11,13 +11,13 @@ import { Cheerio } from 'cheerio'
  * @exports
  */
 export const odateParse = (odateElement: Cheerio<any>): Date => {
-  const odateClasses = odateElement.attr('class')?.split(' ') || []
-  for (const odateClass of odateClasses) {
-    if (odateClass.startsWith('time_')) {
-      const unixTime = parseInt(odateClass.replace('time_', ''), 10)
-      return new Date(unixTime * 1000)
+    const odateClasses = odateElement.attr('class')?.split(' ') || []
+    for (const odateClass of odateClasses) {
+        if (odateClass.startsWith('time_')) {
+            const unixTime = parseInt(odateClass.replace('time_', ''), 10)
+            return new Date(unixTime * 1000)
+        }
     }
-  }
 
-  throw new Error('odate element does not contain a valid unix time')
+    throw new Error('odate element does not contain a valid unix time')
 }
