@@ -90,7 +90,7 @@ class QuickModule {
      */
     static memberLookup = async (siteId: number, query: string): Promise<QMCUser[]> => {
         const data = await QuickModule._request('MemberLookupQModule', siteId, query);
-        return data.users.map((user: any) => new QMCUser(user.user_id, user.name));
+        return data.users.map((user: any) => new QMCUser(parseInt(user.user_id, 10), user.name));
     }
 
     /**
@@ -109,7 +109,7 @@ class QuickModule {
      */
     static userLookup = async (siteId: number, query: string): Promise<QMCUser[]> => {
         const data = await QuickModule._request('UserLookupQModule', siteId, query);
-        return data.users.map((user: any) => new QMCUser(user.user_id, user.name));
+        return data.users.map((user: any) => new QMCUser(parseInt(user.user_id, 10), user.name));
     }
 
     /**
