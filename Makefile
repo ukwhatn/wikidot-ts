@@ -4,7 +4,7 @@ init:
 	npx husky add .husky/pre-commit "npm run lint && npm run fix"
 
 release_from-develop:
-	gh pr create --base main --head develop --title "Release v$(version)" --body "Released: v$(version)"
+	gh pr create --base main --head develop --title "Release v$(version)"
 	gh pr merge --auto
 	gh release create $(version) --target main --latest --generate-notes --title "$(version)"
 
