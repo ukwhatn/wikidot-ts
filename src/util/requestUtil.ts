@@ -1,6 +1,6 @@
-import axios, {AxiosResponse, AxiosError} from 'axios';
-import {Semaphore} from 'async-mutex';
-import {Client} from '../module/client';
+import axios, { AxiosResponse } from 'axios'
+import { Semaphore } from 'async-mutex'
+import { Client } from '../module/client'
 
 // TODO: パラメータセット用のclassを作成し、POSTのbodyを設定できるようにする
 
@@ -29,49 +29,45 @@ class RequestUtil {
         client: Client,
         method: 'GET' | 'POST',
         urls: string[],
-        returnExceptions: boolean = false
+        returnExceptions: boolean = false,
     ): Promise<(AxiosResponse | Error)[]> => {
-        const config = client.amcClient.config;
-        const semaphore = new Semaphore(config.semaphoreLimit);
+        const config = client.amcClient.config
+        const semaphore = new Semaphore(config.semaphoreLimit)
 
         const _get = async (url: string): Promise<AxiosResponse> => {
-            await semaphore.acquire();
+            await semaphore.acquire()
             try {
-                return await axios.get(url);
+                return await axios.get(url)
             } finally {
-                semaphore.release();
+                semaphore.release()
             }
-        };
+        }
 
         const _post = async (url: string): Promise<AxiosResponse> => {
-            await semaphore.acquire();
+            await semaphore.acquire()
             try {
-                return await axios.post(url);
+                return await axios.post(url)
             } finally {
-                semaphore.release();
+                semaphore.release()
             }
-        };
+        }
 
         const _execute = async (): Promise<(AxiosResponse | Error)[]> => {
             if (method === 'GET') {
                 return Promise.all(
-                    urls.map((url) =>
-                        _get(url).catch((error) => (returnExceptions ? error : Promise.reject(error)))
-                    )
-                );
+                    urls.map((url) => _get(url).catch((error) => (returnExceptions ? error : Promise.reject(error)))),
+                )
             } else if (method === 'POST') {
                 return Promise.all(
-                    urls.map((url) =>
-                        _post(url).catch((error) => (returnExceptions ? error : Promise.reject(error)))
-                    )
-                );
+                    urls.map((url) => _post(url).catch((error) => (returnExceptions ? error : Promise.reject(error)))),
+                )
             } else {
-                throw new Error('Invalid method');
+                throw new Error('Invalid method')
             }
-        };
+        }
 
-        return _execute();
-    };
+        return _execute()
+    }
 }
 
-export {RequestUtil};
+export { RequestUtil }

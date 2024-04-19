@@ -1,16 +1,18 @@
-import axios, {AxiosResponse} from 'axios';
-import {Semaphore} from 'async-mutex';
+import axios, { AxiosResponse } from 'axios'
+import { Semaphore } from 'async-mutex'
 
 import {
     AMCHttpStatusCodeException,
-    NotFoundException, ResponseDataException, WikidotStatusCodeException
-} from "../common/exceptions";
-import {logger} from "../common";
+    NotFoundException,
+    ResponseDataException,
+    WikidotStatusCodeException,
+} from '../common/exceptions'
+import { logger } from '../common'
 
 declare module 'axios' {
     interface AxiosRequestConfig {
-        retryLimit?: number;
-        retryCount?: number;
+        retryLimit?: number
+        retryCount?: number
     }
 }
 
@@ -27,10 +29,10 @@ declare module 'axios' {
  * @exports
  */
 class AjaxRequestHeader {
-    private readonly contentType: string;
-    private readonly userAgent: string;
-    private readonly referer: string;
-    private readonly cookie: { [key: string]: any };
+    private readonly contentType: string
+    private readonly userAgent: string
+    private readonly referer: string
+    private readonly cookie: { [key: string]: any }
 
     /**
      * @constructor
@@ -43,14 +45,14 @@ class AjaxRequestHeader {
         contentType: string | null = null,
         userAgent: string | null = null,
         referer: string | null = null,
-        cookie: { [key: string]: any } | null = null
+        cookie: { [key: string]: any } | null = null,
     ) {
-        this.contentType = contentType ?? 'application/x-www-form-urlencoded; charset=UTF-8';
-        this.userAgent = userAgent ?? 'WikidotTS';
-        this.referer = referer ?? 'https://www.wikidot.com/';
-        this.cookie = {wikidot_token7: 123456};
+        this.contentType = contentType ?? 'application/x-www-form-urlencoded; charset=UTF-8'
+        this.userAgent = userAgent ?? 'WikidotTS'
+        this.referer = referer ?? 'https://www.wikidot.com/'
+        this.cookie = { wikidot_token7: 123456 }
         if (cookie) {
-            this.cookie = {...this.cookie, ...cookie};
+            this.cookie = { ...this.cookie, ...cookie }
         }
     }
 
@@ -64,7 +66,7 @@ class AjaxRequestHeader {
      * @public
      */
     public setCookie(name: string, value: any): void {
-        this.cookie[name] = value;
+        this.cookie[name] = value
     }
 
     /**
@@ -81,7 +83,7 @@ class AjaxRequestHeader {
          *
          * @param name Cookie名
          */
-        delete this.cookie[name];
+        delete this.cookie[name]
     }
 
     /**
@@ -97,10 +99,10 @@ class AjaxRequestHeader {
             'Content-Type': this.contentType,
             'User-Agent': this.userAgent,
             Referer: this.referer,
-            Cookie: Object.entries(this.cookie).map(
-                ([name, value]) => `${name}=${value};`
-            ).join(''),
-        };
+            Cookie: Object.entries(this.cookie)
+                .map(([name, value]) => `${name}=${value};`)
+                .join(''),
+        }
     }
 }
 
@@ -117,10 +119,10 @@ class AjaxRequestHeader {
  * @exports
  */
 interface AjaxModuleConnectorConfig {
-    requestTimeout: number;
-    attemptLimit: number;
-    retryInterval: number;
-    semaphoreLimit: number;
+    requestTimeout: number
+    attemptLimit: number
+    retryInterval: number
+    semaphoreLimit: number
 }
 
 /**
@@ -136,7 +138,7 @@ const defaultConfig: AjaxModuleConnectorConfig = {
     attemptLimit: 3,
     retryInterval: 5,
     semaphoreLimit: 10,
-};
+}
 
 /**
  * @class AjaxModuleConnectorClient
@@ -152,12 +154,12 @@ const defaultConfig: AjaxModuleConnectorConfig = {
  * @exports
  */
 class AjaxModuleConnectorClient {
-    private readonly siteName: string;
-    public config: AjaxModuleConnectorConfig;
-    private sslSupported: boolean;
-    header: AjaxRequestHeader;
-    private isInitialized: boolean;
-    private semaphore: Semaphore;
+    private readonly siteName: string
+    public config: AjaxModuleConnectorConfig
+    private sslSupported: boolean
+    header: AjaxRequestHeader
+    private isInitialized: boolean
+    private semaphore: Semaphore
 
     /**
      * @constructor
@@ -168,24 +170,21 @@ class AjaxModuleConnectorClient {
      * @since 1.0.0
      * @public
      */
-    constructor(
-        siteName: string | null = null,
-        config: Partial<AjaxModuleConnectorConfig> | null = null
-    ) {
-        this.siteName = siteName ?? 'www';
-        this.config = {...defaultConfig, ...(config ?? {})};
-        this.sslSupported = false;
-        this.header = new AjaxRequestHeader();
+    constructor(siteName: string | null = null, config: Partial<AjaxModuleConnectorConfig> | null = null) {
+        this.siteName = siteName ?? 'www'
+        this.config = { ...defaultConfig, ...(config ?? {}) }
+        this.sslSupported = false
+        this.header = new AjaxRequestHeader()
 
         // セマフォを初期化
-        this.semaphore = new Semaphore(this.config.semaphoreLimit);
+        this.semaphore = new Semaphore(this.config.semaphoreLimit)
 
         // サイトの存在確認とSSL対応確認
-        this.isInitialized = false;
+        this.isInitialized = false
         this.checkExistenceAndSSL().then((sslSupported) => {
-            this.sslSupported = sslSupported;
-            this.isInitialized = true;
-        });
+            this.sslSupported = sslSupported
+            this.isInitialized = true
+        })
     }
 
     /**
@@ -203,30 +202,25 @@ class AjaxModuleConnectorClient {
     private checkExistenceAndSSL = async (): Promise<boolean> => {
         // wwwは存在し、SSL対応している
         if (this.siteName === 'www') {
-            return true;
+            return true
         }
 
         // サイトの存在確認
-        const response = await axios.get(
-            `http://${this.siteName}.wikidot.com`,
-            {
-                maxRedirects: 0,
-                validateStatus: (status) => status === 200 || status === 301 || status === 404,
-            }
-        );
+        const response = await axios.get(`http://${this.siteName}.wikidot.com`, {
+            maxRedirects: 0,
+            validateStatus: (status) => status === 200 || status === 301 || status === 404,
+        })
 
         // サイトが存在しない場合は例外を投げる
         if (response.status === 404) {
-            throw new NotFoundException(`Site is not found: ${this.siteName}.wikidot.com`);
+            throw new NotFoundException(`Site is not found: ${this.siteName}.wikidot.com`)
         }
 
         // 301リダイレクトが発生し、かつhttpsにリダイレクトされている場合はSSL対応していると判断
         return (
-            response.status === 301 &&
-            response.headers['location'] &&
-            response.headers['location'].startsWith('https')
-        );
-    };
+            response.status === 301 && response.headers['location'] && response.headers['location'].startsWith('https')
+        )
+    }
 
     /**
      * @method request
@@ -245,15 +239,15 @@ class AjaxModuleConnectorClient {
         bodies: Record<string, any>[],
         returnExceptions: boolean = false,
         siteName?: string,
-        siteSSLSupported?: boolean
+        siteSSLSupported?: boolean,
     ): Promise<(Error | AxiosResponse)[]> => {
         // 初期化が完了するまで待つ
         while (!this.isInitialized) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100))
         }
 
-        const _siteName = siteName ?? this.siteName;
-        const _siteSSLSupported = siteSSLSupported ?? this.sslSupported;
+        const _siteName = siteName ?? this.siteName
+        const _siteSSLSupported = siteSSLSupported ?? this.sslSupported
 
         // リクエストを送信するクライアントを生成
         const axiosClient = axios.create({
@@ -262,7 +256,7 @@ class AjaxModuleConnectorClient {
             validateStatus: (status) => status === 200,
             retryCount: 0,
             retryLimit: this.config.attemptLimit,
-        });
+        })
 
         // リトライ処理をinterceptorで実装
         axiosClient.interceptors.response.use(
@@ -270,79 +264,79 @@ class AjaxModuleConnectorClient {
             (response) => response,
             // リクエスト失敗時はリトライ処理へ
             async (error) => {
-                const config = error.config;
+                const config = error.config
                 if (config && config.retryCount < config.retryLimit) {
                     // リトライ回数をインクリメント、リトライ間隔分待機してから再リクエスト
-                    config.retryCount++;
-                    await new Promise(resolve => setTimeout(resolve, this.config.retryInterval * 1000));
-                    return axiosClient.request(config);
+                    config.retryCount++
+                    await new Promise((resolve) => setTimeout(resolve, this.config.retryInterval * 1000))
+                    return axiosClient.request(config)
                 }
 
                 // リトライ回数が上限に達した場合はエラーを送出
                 throw new AMCHttpStatusCodeException(
-                    `AMC is respond HTTP error code: ${error.response.status}`, error.response.status);
-            }
+                    `AMC is respond HTTP error code: ${error.response.status}`,
+                    error.response.status,
+                )
+            },
         )
 
         const requestPromises = bodies.map(async (body) => {
-            let retryCount = 0;
+            let retryCount = 0
 
+            // eslint-disable-next-line no-constant-condition
             while (true) {
                 // Mutexで同時実行数制御
-                await this.semaphore.acquire();
+                await this.semaphore.acquire()
 
-                const url = `http${_siteSSLSupported ? 's' : ''}://${_siteName}.wikidot.com/ajax-module-connector.php`;
-                body.wikidot_token7 = 123456;
+                const url = `http${_siteSSLSupported ? 's' : ''}://${_siteName}.wikidot.com/ajax-module-connector.php`
+                body.wikidot_token7 = 123456
 
-                logger.debug(`Ajax Request: ${url} -> ${JSON.stringify(body)}`);
+                logger.debug(`Ajax Request: ${url} -> ${JSON.stringify(body)}`)
 
                 // リクエストを送信
                 // 200以外のステータスコードが返ってきたらエラーとして扱う
-                const response = await axiosClient.post(url, body);
+                const response = await axiosClient.post(url, body)
 
                 // Mutexを解放
-                this.semaphore.release();
+                this.semaphore.release()
 
                 // レスポンスが空だったらエラーとして扱う
                 if (!response.data || Object.keys(response.data).length === 0) {
-                    logger.error(`AMC is respond empty data -> ${JSON.stringify(body)}`);
-                    throw new ResponseDataException('AMC is respond empty data');
+                    logger.error(`AMC is respond empty data -> ${JSON.stringify(body)}`)
+                    throw new ResponseDataException('AMC is respond empty data')
                 }
 
                 // 中身のstatusがokでなかったらエラーとして扱う
                 if ('status' in response.data) {
                     // statusがtry_againの場合はリトライ
                     if (response.data.status === 'try_again') {
-                        retryCount++;
+                        retryCount++
                         // リトライ回数が上限に達した場合はエラーを送出
                         if (retryCount >= this.config.attemptLimit) {
-                            logger.error(`AMC is respond status: "try_again" -> ${JSON.stringify(body)}`);
-                            throw new WikidotStatusCodeException('AMC is respond status: "try_again"', 'try_again');
+                            logger.error(`AMC is respond status: "try_again" -> ${JSON.stringify(body)}`)
+                            throw new WikidotStatusCodeException('AMC is respond status: "try_again"', 'try_again')
                         }
                         // リトライ回数が上限に達していない場合はリトライ
-                        logger.info(`AMC is respond status: "try_again" (retry: ${retryCount})`);
-                        await new Promise((resolve) => setTimeout(resolve, this.config.retryInterval * 1000));
-                        continue;
+                        logger.info(`AMC is respond status: "try_again" (retry: ${retryCount})`)
+                        await new Promise((resolve) => setTimeout(resolve, this.config.retryInterval * 1000))
+                        continue
                     }
                     // それ以外でstatusがokでない場合はエラーとして扱う
                     else if (response.data.status !== 'ok') {
-                        logger.error(`AMC is respond error status: "${response.data.status}" -> ${JSON.stringify(body)}`);
-                        throw new Error(`AMC is respond error status: "${response.data.status}"`);
+                        logger.error(
+                            `AMC is respond error status: "${response.data.status}" -> ${JSON.stringify(body)}`,
+                        )
+                        throw new Error(`AMC is respond error status: "${response.data.status}"`)
                     }
                 }
 
                 // レスポンスを返す
-                return response;
-
+                return response
             }
-        });
+        })
 
-        return Promise.all(requestPromises.map((p) => (returnExceptions ? p.catch((e) => e) : p)));
-    };
+        return Promise.all(requestPromises.map((p) => (returnExceptions ? p.catch((e) => e) : p)))
+    }
 }
 
-export {
-    AjaxModuleConnectorClient,
-    AjaxModuleConnectorConfig,
-    AjaxRequestHeader,
-}
+export { AjaxModuleConnectorClient, AjaxModuleConnectorConfig, AjaxRequestHeader }

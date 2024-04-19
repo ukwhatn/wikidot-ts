@@ -9,7 +9,7 @@
  */
 class WikidotException extends Error {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -24,7 +24,7 @@ class WikidotException extends Error {
  */
 class UnexpectedException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -39,7 +39,7 @@ class UnexpectedException extends WikidotException {
  */
 class SessionCreateException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -50,7 +50,7 @@ class SessionCreateException extends WikidotException {
  */
 class LoginRequiredException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -65,7 +65,7 @@ class LoginRequiredException extends WikidotException {
  */
 class AjaxModuleConnectorException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -76,8 +76,11 @@ class AjaxModuleConnectorException extends WikidotException {
  * @param statusCode - HTTPステータスコード
  */
 class AMCHttpStatusCodeException extends AjaxModuleConnectorException {
-    constructor(message: string, public readonly statusCode: number) {
-        super(message);
+    constructor(
+        message: string,
+        public readonly statusCode: number,
+    ) {
+        super(message)
     }
 }
 
@@ -90,8 +93,11 @@ class AMCHttpStatusCodeException extends AjaxModuleConnectorException {
  * @param statusCode - WikidotステータスコードAMCから返却されたデータ内のステータスがokではなかったときの例外
  */
 class WikidotStatusCodeException extends AjaxModuleConnectorException {
-    constructor(message: string, public readonly statusCode: string) {
-        super(message);
+    constructor(
+        message: string,
+        public readonly statusCode: string,
+    ) {
+        super(message)
     }
 }
 
@@ -102,7 +108,7 @@ class WikidotStatusCodeException extends AjaxModuleConnectorException {
  */
 class ResponseDataException extends AjaxModuleConnectorException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -117,7 +123,7 @@ class ResponseDataException extends AjaxModuleConnectorException {
  */
 class NotFoundException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -128,7 +134,7 @@ class NotFoundException extends WikidotException {
  */
 class TargetErrorException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -139,7 +145,7 @@ class TargetErrorException extends WikidotException {
  */
 class ForbiddenException extends WikidotException {
     constructor(message: string) {
-        super(message);
+        super(message)
     }
 }
 
@@ -154,5 +160,5 @@ export {
     ResponseDataException,
     NotFoundException,
     TargetErrorException,
-    ForbiddenException
+    ForbiddenException,
 }

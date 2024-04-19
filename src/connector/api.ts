@@ -8,6 +8,5 @@ export class APIKeys {
     constructor(
         public readonly roKey: string,
         public readonly rwKey: string,
-    ) {
-    }
+    ) {}
 }

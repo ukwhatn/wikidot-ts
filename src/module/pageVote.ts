@@ -1,23 +1,21 @@
-import {Page} from "./page";
-import {AbstractUser} from "./user";
+import { Page } from './page'
+import { AbstractUser } from './user'
 
 class PageVoteCollection extends Array<PageVote> {
     constructor(
         public page: Page,
         public votes: PageVote[],
     ) {
-        super(...votes);
+        super(...votes)
     }
 }
-
 
 class PageVote {
     constructor(
         public page: Page,
         public user: AbstractUser,
         public value: number,
-    ) {
-    }
+    ) {}
 }
 
-export {PageVote, PageVoteCollection};
+export { PageVote, PageVoteCollection }
