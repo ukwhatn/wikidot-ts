@@ -1,6 +1,6 @@
 {
   "name": "@ukwhatn/wikidot",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Library for requesting data to Wikidot",
   "homepage": "https://github.com/ukwhatn/wikidot-ts",
   "bugs": {
@@ -42,7 +42,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 0",
     "build": "rm -rf dist && tsc",
-    "prepare": "npm run build && husky install",
+    "prepublishOnly": "npm run lint && npm rum fix && npm run build",
     "postpublish": "make post-release version=$npm_package_version",
     "lint": "make lint",
     "fix": "make prettier"
