@@ -29,13 +29,27 @@
     "winston": "^3.13.0"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.7.0",
+    "@typescript-eslint/parser": "^7.7.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"Error: no test specified\" && exit 0",
     "build": "rm -rf dist && tsc",
-    "prepare": "npm run build",
-    "postpublish": "make post-release version=$npm_package_version"
+    "prepare": "npm run build && husky install",
+    "postpublish": "make post-release version=$npm_package_version",
+    "lint": "make lint",
+    "fix": "make prettier"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
   }
 }

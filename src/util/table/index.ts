@@ -1,1 +1,1 @@
-export * from "./charTable";
+export * from './charTable'

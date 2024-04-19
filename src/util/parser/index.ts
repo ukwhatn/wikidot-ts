@@ -1,1 +1,1 @@
-export * from "./odate"
+export * from './odate'

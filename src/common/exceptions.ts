@@ -8,9 +8,9 @@
  * @param message - エラーメッセージ
  */
 class WikidotException extends Error {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 // ---
@@ -23,9 +23,9 @@ class WikidotException extends Error {
  * @param message - エラーメッセージ
  */
 class UnexpectedException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 // ---
@@ -38,9 +38,9 @@ class UnexpectedException extends WikidotException {
  * @param message - エラーメッセージ
  */
 class SessionCreateException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 /**
@@ -49,9 +49,9 @@ class SessionCreateException extends WikidotException {
  * @param message - エラーメッセージ
  */
 class LoginRequiredException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 // ---
@@ -64,9 +64,9 @@ class LoginRequiredException extends WikidotException {
  * @param message - エラーメッセージ
  */
 class AjaxModuleConnectorException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 /**
@@ -76,9 +76,12 @@ class AjaxModuleConnectorException extends WikidotException {
  * @param statusCode - HTTPステータスコード
  */
 class AMCHttpStatusCodeException extends AjaxModuleConnectorException {
-    constructor(message: string, public readonly statusCode: number) {
-        super(message);
-    }
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+  ) {
+    super(message)
+  }
 }
 
 /**
@@ -90,9 +93,12 @@ class AMCHttpStatusCodeException extends AjaxModuleConnectorException {
  * @param statusCode - WikidotステータスコードAMCから返却されたデータ内のステータスがokではなかったときの例外
  */
 class WikidotStatusCodeException extends AjaxModuleConnectorException {
-    constructor(message: string, public readonly statusCode: string) {
-        super(message);
-    }
+  constructor(
+    message: string,
+    public readonly statusCode: string,
+  ) {
+    super(message)
+  }
 }
 
 /**
@@ -101,9 +107,9 @@ class WikidotStatusCodeException extends AjaxModuleConnectorException {
  * @param message - エラーメッセージ
  */
 class ResponseDataException extends AjaxModuleConnectorException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 // ---
@@ -116,9 +122,9 @@ class ResponseDataException extends AjaxModuleConnectorException {
  * @param message - エラーメッセージ
  */
 class NotFoundException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 /**
@@ -127,9 +133,9 @@ class NotFoundException extends WikidotException {
  * @param message - エラーメッセージ
  */
 class TargetErrorException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 /**
@@ -138,21 +144,21 @@ class TargetErrorException extends WikidotException {
  * @param message - エラーメッセージ
  */
 class ForbiddenException extends WikidotException {
-    constructor(message: string) {
-        super(message);
-    }
+  constructor(message: string) {
+    super(message)
+  }
 }
 
 export {
-    WikidotException,
-    UnexpectedException,
-    SessionCreateException,
-    LoginRequiredException,
-    AjaxModuleConnectorException,
-    AMCHttpStatusCodeException,
-    WikidotStatusCodeException,
-    ResponseDataException,
-    NotFoundException,
-    TargetErrorException,
-    ForbiddenException
+  WikidotException,
+  UnexpectedException,
+  SessionCreateException,
+  LoginRequiredException,
+  AjaxModuleConnectorException,
+  AMCHttpStatusCodeException,
+  WikidotStatusCodeException,
+  ResponseDataException,
+  NotFoundException,
+  TargetErrorException,
+  ForbiddenException,
 }

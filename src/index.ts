@@ -1,1 +1,1 @@
-export {Client} from './module/client';
+export { Client } from './module/client'
