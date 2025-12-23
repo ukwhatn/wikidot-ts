@@ -208,23 +208,21 @@ export class Page {
   }
 
   /**
-   * ページIDが必須の操作で、IDがない場合にエラーを返すヘルパー
+   * ページIDを確保する（未取得の場合は自動取得）
    * @param operation - 操作名（エラーメッセージ用）
-   * @returns ページIDまたはエラーResult
+   * @throws IDの取得に失敗した場合
    */
-  private requireId(
-    operation: string
-  ): { ok: true; id: number } | { ok: false; error: WikidotResultAsync<never> } {
+  private async ensureId(operation: string): Promise<number> {
     if (this._id === null) {
-      return {
-        ok: false,
-        error: fromPromise(
-          Promise.reject(new Error('Page ID not acquired')),
-          () => new UnexpectedError(`Page ID must be acquired before ${operation}`)
-        ),
-      };
+      const result = await PageCollection.acquirePageIds(this.site, [this]);
+      if (result.isErr()) {
+        throw new UnexpectedError(`Failed to acquire page ID for ${operation}: ${result.error.message}`);
+      }
     }
-    return { ok: true, id: this._id };
+    if (this._id === null) {
+      throw new UnexpectedError(`Page ID acquisition failed for ${operation}`);
+    }
+    return this._id;
   }
 
   /**
@@ -232,16 +230,14 @@ export class Page {
    */
   @RequireLogin
   destroy(): WikidotResultAsync<void> {
-    const idCheck = this.requireId('deletion');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('deletion');
         const result = await this.site.amcRequest([
           {
             action: 'WikiPageAction',
             event: 'deletePage',
-            page_id: this._id,
+            page_id: pageId,
             moduleName: 'Empty',
           },
         ]);
@@ -258,17 +254,15 @@ export class Page {
    */
   @RequireLogin
   commitTags(): WikidotResultAsync<void> {
-    const idCheck = this.requireId('saving tags');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('saving tags');
         const result = await this.site.amcRequest([
           {
             tags: this.tags.join(' '),
             action: 'WikiPageAction',
             event: 'saveTags',
-            pageId: this._id,
+            pageId: pageId,
             moduleName: 'Empty',
           },
         ]);
@@ -286,17 +280,15 @@ export class Page {
    */
   @RequireLogin
   setParent(parentFullname: string | null): WikidotResultAsync<void> {
-    const idCheck = this.requireId('setting parent');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('setting parent');
         const result = await this.site.amcRequest([
           {
             action: 'WikiPageAction',
             event: 'setParentPage',
             moduleName: 'Empty',
-            pageId: String(this._id),
+            pageId: String(pageId),
             parentName: parentFullname ?? '',
           },
         ]);
@@ -316,17 +308,15 @@ export class Page {
    */
   @RequireLogin
   vote(value: number): WikidotResultAsync<number> {
-    const idCheck = this.requireId('voting');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('voting');
         const result = await this.site.amcRequest([
           {
             action: 'RateAction',
             event: 'ratePage',
             moduleName: 'Empty',
-            pageId: this._id,
+            pageId: pageId,
             points: value,
             force: 'yes',
           },
@@ -352,17 +342,15 @@ export class Page {
    */
   @RequireLogin
   cancelVote(): WikidotResultAsync<number> {
-    const idCheck = this.requireId('canceling vote');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('canceling vote');
         const result = await this.site.amcRequest([
           {
             action: 'RateAction',
             event: 'cancelVote',
             moduleName: 'Empty',
-            pageId: this._id,
+            pageId: pageId,
           },
         ]);
         if (result.isErr()) {
@@ -391,13 +379,10 @@ export class Page {
     comment?: string;
     forceEdit?: boolean;
   }): WikidotResultAsync<void> {
-    const idCheck = this.requireId('editing');
-    if (!idCheck.ok) return idCheck.error;
-
-    const pageId = idCheck.id;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('editing');
+
         // 現在のソースを取得（指定がない場合）
         let currentSource = options.source;
         if (currentSource === undefined) {
@@ -441,17 +426,15 @@ export class Page {
    */
   @RequireLogin
   rename(newFullname: string): WikidotResultAsync<void> {
-    const idCheck = this.requireId('renaming');
-    if (!idCheck.ok) return idCheck.error;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('renaming');
         const result = await this.site.amcRequest([
           {
             action: 'WikiPageAction',
             event: 'renamePage',
             moduleName: 'Empty',
-            page_id: this._id,
+            page_id: pageId,
             new_name: newFullname,
           },
         ]);
@@ -480,13 +463,10 @@ export class Page {
    * ページのディスカッションスレッドを取得する
    */
   getDiscussion(): WikidotResultAsync<import('../forum').ForumThread | null> {
-    const idCheck = this.requireId('getting discussion');
-    if (!idCheck.ok) return idCheck.error;
-
-    const pageId = idCheck.id;
-
     return fromPromise(
       (async () => {
+        const pageId = await this.ensureId('getting discussion');
+
         const result = await this.site.amcRequest([
           {
             moduleName: 'forum/ForumCommentsListModule',
@@ -531,12 +511,17 @@ export class Page {
    * @returns メタタグコレクション
    */
   getMetas(): WikidotResultAsync<PageMetaCollection> {
-    const idCheck = this.requireId('getting metas');
-    if (!idCheck.ok) {
-      return idCheck.error;
-    }
-
-    return PageMetaCollection.acquire(this);
+    return fromPromise(
+      (async () => {
+        await this.ensureId('getting metas');
+        const result = await PageMetaCollection.acquire(this);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return result.value;
+      })(),
+      (error) => new UnexpectedError(`Failed to get metas: ${String(error)}`)
+    );
   }
 
   /**
@@ -544,26 +529,36 @@ export class Page {
    * @param name - メタタグ名
    * @param content - メタタグの値
    */
+  @RequireLogin
   setMeta(name: string, content: string): WikidotResultAsync<void> {
-    const idCheck = this.requireId('setting meta');
-    if (!idCheck.ok) {
-      return idCheck.error;
-    }
-
-    return PageMetaCollection.setMeta(this, name, content);
+    return fromPromise(
+      (async () => {
+        await this.ensureId('setting meta');
+        const result = await PageMetaCollection.setMeta(this, name, content);
+        if (result.isErr()) {
+          throw result.error;
+        }
+      })(),
+      (error) => new UnexpectedError(`Failed to set meta: ${String(error)}`)
+    );
   }
 
   /**
    * メタタグを削除する
    * @param name - メタタグ名
    */
+  @RequireLogin
   deleteMeta(name: string): WikidotResultAsync<void> {
-    const idCheck = this.requireId('deleting meta');
-    if (!idCheck.ok) {
-      return idCheck.error;
-    }
-
-    return PageMetaCollection.deleteMeta(this, name);
+    return fromPromise(
+      (async () => {
+        await this.ensureId('deleting meta');
+        const result = await PageMetaCollection.deleteMeta(this, name);
+        if (result.isErr()) {
+          throw result.error;
+        }
+      })(),
+      (error) => new UnexpectedError(`Failed to delete meta: ${String(error)}`)
+    );
   }
 
   toString(): string {
