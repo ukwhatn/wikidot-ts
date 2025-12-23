@@ -1,0 +1,72 @@
+{
+  "name": "@ukwhatn/wikidot",
+  "version": "4.0.1",
+  "description": "TypeScript library for interacting with Wikidot sites",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./errors": {
+      "import": {
+        "types": "./dist/errors.d.ts",
+        "default": "./dist/errors.js"
+      },
+      "require": {
+        "types": "./dist/errors.d.cts",
+        "default": "./dist/errors.cjs"
+      }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bunup",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:cov": "bun test --coverage",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": ["wikidot", "scp", "api", "client"],
+  "author": "ukwhatn",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ukwhatn/wikidot-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ukwhatn/wikidot-ts/issues"
+  },
+  "homepage": "https://github.com/ukwhatn/wikidot-ts#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "ky": "^1.7.0",
+    "neverthrow": "^8.2.0",
+    "p-limit": "^6.2.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "^1.1.0",
+    "bunup": "^0.8.0",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
