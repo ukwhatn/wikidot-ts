@@ -23,25 +23,23 @@ export interface AMCRequestBody {
 }
 
 /**
- * AMCレスポンススキーマ（内部）
+ * AMCレスポンスのベーススキーマ
  */
-const _amcResponseSchema = z
-  .object({
-    status: z.string(),
-    body: z.string().optional(),
-    message: z.string().optional(),
-  })
-  .passthrough();
-
-/**
- * AMCレスポンススキーマの型
- */
-export type AMCResponseSchema = typeof _amcResponseSchema;
+const baseSchema: z.ZodObject<{
+  status: z.ZodString;
+  body: z.ZodOptional<z.ZodString>;
+  message: z.ZodOptional<z.ZodString>;
+}> = z.object({
+  status: z.string(),
+  body: z.string().optional(),
+  message: z.string().optional(),
+});
 
 /**
  * AMCレスポンススキーマ
  */
-export const amcResponseSchema: AMCResponseSchema = _amcResponseSchema;
+export const amcResponseSchema: z.ZodType<z.infer<typeof baseSchema> & Record<string, unknown>> =
+  baseSchema.passthrough();
 
 /**
  * AMCレスポンス型
