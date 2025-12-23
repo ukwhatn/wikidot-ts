@@ -93,20 +93,30 @@ bun run build
 
 ### コアクラス
 
+すべての非同期メソッドは`WikidotResultAsync<T>`を返す。`isOk()`でチェック後、`.value`で値を取得する。
+
 ```typescript
+import { Client } from '@ukwhatn/wikidot';
+
 // Client - メインエントリポイント
-const client = new Client();
-await client.login(username, password);
-await client.user.get("username");
-await client.site.get("scp-jp");
+const clientResult = await Client.create({ username, password });
+if (!clientResult.isOk()) throw new Error('Failed');
+const client = clientResult.value;
 
 // Site - サイト操作
-const site = await client.site.get("scp-jp");
-await site.page.get("page-name");
-await site.pages.search({ category: "*", tags: ["tag1"] });
+const siteResult = await client.site.get("scp-jp");
+if (!siteResult.isOk()) throw new Error('Failed');
+const site = siteResult.value;
+
+// ページ検索
+const pagesResult = await site.pages.search({ category: "*", tags: ["tag1"] });
+if (!pagesResult.isOk()) throw new Error('Failed');
+const pages = pagesResult.value;
 
 // Page - ページ操作
-const page = await site.page.get("page-name");
+const pageResult = await site.page.get("page-name");
+if (!pageResult.isOk()) throw new Error('Failed');
+const page = pageResult.value;
 await page.getSource();
 await page.getVotes();
 ```
@@ -172,8 +182,8 @@ WikidotError (基底)
 
 ### 認証フロー
 
-1. `Client.login(username, password)`
-2. `HTTPAuthentication.login()` → Wikidot ログインエンドポイントへPOST
+1. `Client.create({ username, password })` でクライアント作成
+2. 内部で`login()` → Wikidot ログインエンドポイントへPOST
 3. `WIKIDOT_SESSION_ID` クッキーを抽出
 4. `@loginRequired` デコレータで検証
 

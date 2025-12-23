@@ -1,10 +1,23 @@
-# wikidot-ts
+# @ukwhatn/wikidot
 
 > TypeScriptでWikidotサイトと対話するための非同期ユーティリティライブラリ
 
 ## 概要
 
-wikidot-tsは、Wikidot APIを操作するTypeScriptライブラリ。ページ取得・編集、フォーラム操作、プライベートメッセージ、ユーザー情報取得などWikidotの主要機能をサポート。
+@ukwhatn/wikidotは、Wikidot APIを操作するTypeScriptライブラリ。ページ取得・編集、フォーラム操作、プライベートメッセージ、ユーザー情報取得などWikidotの主要機能をサポート。
+
+## 重要: Result型
+
+このライブラリはneverthrowのResult型を使用。すべての非同期メソッドは`WikidotResultAsync<T>`を返す。
+
+```typescript
+// 正しい使用法
+const clientResult = await Client.create();
+if (!clientResult.isOk()) {
+  throw new Error('失敗');
+}
+const client = clientResult.value;  // ここでClient型が得られる
+```
 
 ## 主要コンポーネント
 
@@ -13,12 +26,19 @@ wikidot-tsは、Wikidot APIを操作するTypeScriptライブラリ。ページ�
 メインエントリポイント。認証とアクセサへのアクセスを提供。
 
 ```typescript
-const client = await Client.create();  // 未認証
-const client = await Client.create({ username, password });  // 認証済み
+import { Client } from '@ukwhatn/wikidot';
 
-client.site  // SiteAccessor
-client.user  // UserAccessor
-client.pm    // PrivateMessageAccessor
+// 未認証クライアント
+const clientResult = await Client.create();
+const client = clientResult.value;
+
+// 認証済みクライアント
+const authResult = await Client.create({ username, password });
+const authClient = authResult.value;
+
+client.site            // SiteAccessor
+client.user            // UserAccessor
+client.privateMessage  // PrivateMessageAccessor
 ```
 
 ### Site
@@ -93,11 +113,11 @@ await post.delete();
 プライベートメッセージ操作。受信箱、送信箱、検索。
 
 ```typescript
-const inboxResult = await client.pm.inbox();
-const sentResult = await client.pm.sentBox();
-const searchResult = await client.pm.search('query', 'all');
+const inboxResult = await client.privateMessage.inbox();
+const sentResult = await client.privateMessage.sentBox();
+const searchResult = await client.privateMessage.search('query', 'all');
 
-await client.pm.send(user, '件名', '本文');
+await client.privateMessage.send(user, '件名', '本文');
 ```
 
 ## Result型
@@ -170,10 +190,10 @@ src/
 ### Client
 - `site.get(unixName)` - サイト取得
 - `user.get(username)` - ユーザー取得
-- `pm.inbox()` - 受信箱取得
-- `pm.sentBox()` - 送信箱取得
-- `pm.send(user, subject, body)` - メッセージ送信
-- `pm.search(query, searchType)` - メッセージ検索
+- `privateMessage.inbox()` - 受信箱取得
+- `privateMessage.sentBox()` - 送信箱取得
+- `privateMessage.send(user, subject, body)` - メッセージ送信
+- `privateMessage.search(query, searchType)` - メッセージ検索
 
 ### Site
 - `page.get(fullname)` - ページ取得
