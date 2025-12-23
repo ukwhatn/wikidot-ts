@@ -28,10 +28,10 @@ import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './searc
  * 型安全性のためにZodを使用してパース結果を検証
  */
 const pageParamsSchema = z.object({
-  fullname: z.string().default(''),
-  name: z.string().default(''),
-  category: z.string().default(''),
-  title: z.string().default(''),
+  fullname: z.preprocess((v) => v ?? '', z.string()),
+  name: z.preprocess((v) => v ?? '', z.string()),
+  category: z.preprocess((v) => v ?? '', z.string()),
+  title: z.preprocess((v) => v ?? '', z.string()),
   children_count: z.coerce.number().default(0),
   comments_count: z.coerce.number().default(0),
   size: z.coerce.number().default(0),
