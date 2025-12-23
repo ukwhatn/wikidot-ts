@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "wikidot-ts",
@@ -7,7 +8,7 @@
         "cheerio": "^1.0.0",
         "ky": "^1.7.0",
         "neverthrow": "^8.2.0",
-        "p-limit": "^6.2.0",
+        "p-limit": "^7.2.0",
         "zod": "^3.24.0",
       },
       "devDependencies": {
@@ -236,7 +237,7 @@
 
     "oxc-transform": ["oxc-transform@0.67.0", "", { "optionalDependencies": { "@oxc-transform/binding-darwin-arm64": "0.67.0", "@oxc-transform/binding-darwin-x64": "0.67.0", "@oxc-transform/binding-linux-arm-gnueabihf": "0.67.0", "@oxc-transform/binding-linux-arm64-gnu": "0.67.0", "@oxc-transform/binding-linux-arm64-musl": "0.67.0", "@oxc-transform/binding-linux-x64-gnu": "0.67.0", "@oxc-transform/binding-linux-x64-musl": "0.67.0", "@oxc-transform/binding-wasm32-wasi": "0.67.0", "@oxc-transform/binding-win32-arm64-msvc": "0.67.0", "@oxc-transform/binding-win32-x64-msvc": "0.67.0" } }, "sha512-QXwmpLfNrXZoHgIjEtDEf6lhwmvHouNtstNgg/UveczVIjo8VSzd5h25Ea96PoX9KzReJUY/qYa4QSNkJpZGfA=="],
 
-    "p-limit": ["p-limit@6.2.0", "", { "dependencies": { "yocto-queue": "^1.1.1" } }, "sha512-kuUqqHNUqoIWp/c467RI4X6mmyuojY5jGutNU0wVTmEOOfcuwLqyMVoAi9MKi2Ak+5i9+nhmrK4ufZE8069kHA=="],
+    "p-limit": ["p-limit@7.2.0", "", { "dependencies": { "yocto-queue": "^1.2.1" } }, "sha512-ATHLtwoTNDloHRFFxFJdHnG6n2WUeFjaR8XQMFdKIv0xkXjrER8/iG9iu265jOM95zXHAfv9oTkqhrfbIzosrQ=="],
 
     "parse5": ["parse5@7.3.0", "", { "dependencies": { "entities": "^6.0.0" } }, "sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw=="],
 
