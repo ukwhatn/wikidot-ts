@@ -8,7 +8,7 @@ import {
   wdOkAsync,
 } from '../../common/types';
 import { AMCClient, type AMCConfig, login, logout } from '../../connector';
-import type { User } from '../user/user';
+import { User } from '../user/user';
 import { PrivateMessageAccessor } from './accessors/pm-accessor';
 import { SiteAccessor } from './accessors/site-accessor';
 import { UserAccessor } from './accessors/user-accessor';
@@ -108,7 +108,6 @@ export class Client {
           }
 
           // ログイン中のユーザー情報を取得
-          const { User } = await import('../user/user');
           const userResult = await User.fromName(client, username);
           if (userResult.isOk() && userResult.value) {
             client._me = userResult.value;
