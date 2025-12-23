@@ -5,7 +5,7 @@ import {
   UnexpectedError,
   WikidotStatusError,
 } from '../../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../../common/types';
 import { type QMCUser, QuickModule } from '../../../util/quick-module';
 import type { User } from '../../user/user';
 import type { Site } from '../site';

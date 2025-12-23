@@ -54,11 +54,7 @@ function createMockUser(name: string): User {
  * テスト用メンバー作成
  */
 function createTestMember(
-  options: {
-    user?: User;
-    joinedAt?: Date;
-    role?: string;
-  } = {}
+  options: { user?: User; joinedAt?: Date; role?: string } = {}
 ): SiteMember {
   const site = createMockSite();
   const user = options.user ?? createMockUser('TestMember');

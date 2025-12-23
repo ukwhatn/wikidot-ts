@@ -1,2 +1,2 @@
-export { Client, type ClientOptions } from './client';
 export * from './accessors';
+export { Client, type ClientOptions } from './client';

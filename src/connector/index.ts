@@ -1,4 +1,4 @@
-export { AMCClient, maskSensitiveData, type AMCRequestOptions } from './amc-client';
+export { AMCClient, type AMCRequestOptions, maskSensitiveData } from './amc-client';
 export { type AMCConfig, DEFAULT_AMC_CONFIG } from './amc-config';
 export { AMCHeader } from './amc-header';
 export {

@@ -63,12 +63,7 @@ function createMockUser(name: string): User {
  * テスト用リビジョン作成
  */
 function createTestRevision(
-  options: {
-    id?: number;
-    revNo?: number;
-    comment?: string;
-    page?: Page;
-  } = {}
+  options: { id?: number; revNo?: number; comment?: string; page?: Page } = {}
 ): PageRevision {
   const page = options.page ?? createMockPage();
   const createdBy = createMockUser('RevisionAuthor');

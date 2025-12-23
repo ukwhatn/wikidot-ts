@@ -4,7 +4,7 @@
  * AMCClientのモック実装（HTTPリクエストなし）
  */
 
-import { type ResultAsync, err, ok } from 'neverthrow';
+import { err, ok, type ResultAsync } from 'neverthrow';
 import type { WikidotError } from '../../src/common/errors';
 import type { AMCConfig } from '../../src/connector/amc-config';
 import { AMCHeader } from '../../src/connector/amc-header';

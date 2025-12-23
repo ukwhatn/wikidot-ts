@@ -3,7 +3,7 @@
  */
 
 import { LoginRequiredError } from './errors';
-import { type WikidotResultAsync, fromPromise, wdErrAsync } from './types';
+import { fromPromise, type WikidotResultAsync, wdErrAsync } from './types';
 
 /**
  * クライアント参照を持つオブジェクトの型

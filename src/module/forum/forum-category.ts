@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { RequireLogin } from '../../common/decorators';
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { Site } from '../site';
 import { ForumThread, ForumThreadCollection } from './forum-thread';
 

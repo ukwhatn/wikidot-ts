@@ -38,13 +38,7 @@ function createMockUser(name: string): User {
  * テスト用メッセージ作成
  */
 function createTestMessage(
-  options: {
-    id?: number;
-    subject?: string;
-    body?: string;
-    sender?: User;
-    recipient?: User;
-  } = {}
+  options: { id?: number; subject?: string; body?: string; sender?: User; recipient?: User } = {}
 ): PrivateMessage {
   const client = createMockClient() as unknown as Client;
   const sender = options.sender ?? createMockUser('Sender');

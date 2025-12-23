@@ -1,5 +1,5 @@
 import { SessionCreateError } from '../common/errors';
-import { type WikidotResultAsync, fromPromise, wdOkAsync } from '../common/types';
+import { fromPromise, type WikidotResultAsync, wdOkAsync } from '../common/types';
 import type { AuthClientContext } from '../module/types';
 
 const LOGIN_URL = 'https://www.wikidot.com/default--flow/login__LoginPopupScreen';
@@ -88,6 +88,7 @@ export function logout(client: AuthClientContext): WikidotResultAsync<void> {
     .map(() => {
       // Logout succeeded, remove session cookie
       client.amcClient.header.deleteCookie('WIKIDOT_SESSION_ID');
+      return undefined;
     })
     .orElse(() => {
       // Even if logout request fails, we still want to clear the session locally

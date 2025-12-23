@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { NoElementError, UnexpectedError } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AbstractUser } from '../user';
 import type { Page } from './page';
 import type { PageSource } from './page-source';
