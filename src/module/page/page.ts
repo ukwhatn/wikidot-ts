@@ -18,7 +18,7 @@ import type { Site } from '../site';
 import type { AbstractUser } from '../user';
 import { PageFileCollection } from './page-file';
 import { PageMetaCollection } from './page-meta';
-import { type PageRevision, PageRevisionCollection } from './page-revision';
+import { PageRevision, PageRevisionCollection } from './page-revision';
 import { PageSource } from './page-source';
 import { PageVote, PageVoteCollection } from './page-vote';
 import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './search-query';
@@ -734,7 +734,6 @@ export class PageCollection extends Array<Page> {
         }
 
         // リビジョンをパース
-        const { PageRevision } = await import('./page-revision');
         for (let i = 0; i < targetPages.length; i++) {
           const page = targetPages[i];
           const response = result.value[i];

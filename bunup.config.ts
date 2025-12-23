@@ -11,6 +11,7 @@ export default defineConfig([
     minify: false,
     sourcemap: true,
     target: 'node',
+    splitting: false,
   },
   {
     name: 'errors',
