@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AMCRequestBody, AMCResponse } from '../../connector';
 import type { Client } from '../client/client';
 import { ForumAccessor } from './accessors/forum-accessor';

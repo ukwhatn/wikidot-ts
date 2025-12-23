@@ -1,17 +1,16 @@
 // Base errors
-export { WikidotError, UnexpectedError } from './base';
-
-// Session errors
-export { SessionError, SessionCreateError, LoginRequiredError } from './session';
 
 // AMC errors
-export { AMCError, AMCHttpError, WikidotStatusError, ResponseDataError } from './amc';
+export { AMCError, AMCHttpError, ResponseDataError, WikidotStatusError } from './amc';
+export { UnexpectedError, WikidotError } from './base';
+// Session errors
+export { LoginRequiredError, SessionCreateError, SessionError } from './session';
 
 // Target errors
 export {
-  NotFoundException,
-  TargetExistsError,
-  TargetError,
   ForbiddenError,
   NoElementError,
+  NotFoundException,
+  TargetError,
+  TargetExistsError,
 } from './target';

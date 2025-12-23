@@ -7,7 +7,7 @@ import {
   UnexpectedError,
   WikidotStatusError,
 } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { parseUser } from '../../util/parser';
 import type { AbstractUser } from '../user';
 import type { Site } from './site';

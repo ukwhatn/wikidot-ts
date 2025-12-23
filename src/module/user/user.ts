@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { toUnix } from '../../util/string-util';
 import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';

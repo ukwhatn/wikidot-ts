@@ -9,7 +9,7 @@ import {
   WikidotError,
   WikidotStatusError,
 } from '../common/errors';
-import { type WikidotResultAsync, fromPromise, wdErrAsync, wdOkAsync } from '../common/types';
+import { fromPromise, type WikidotResultAsync, wdErrAsync, wdOkAsync } from '../common/types';
 import {
   type AMCConfig,
   DEFAULT_AMC_CONFIG,

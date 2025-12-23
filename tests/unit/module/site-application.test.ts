@@ -53,12 +53,7 @@ function createMockUser(name: string): User {
 /**
  * テスト用申請作成
  */
-function createTestApplication(
-  options: {
-    user?: User;
-    text?: string;
-  } = {}
-): SiteApplication {
+function createTestApplication(options: { user?: User; text?: string } = {}): SiteApplication {
   const site = createMockSite();
   const user = options.user ?? createMockUser('Applicant');
   return new SiteApplication({

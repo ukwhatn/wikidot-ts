@@ -1,7 +1,7 @@
 export {
   PrivateMessage,
   PrivateMessageCollection,
+  type PrivateMessageData,
   PrivateMessageInbox,
   PrivateMessageSentBox,
-  type PrivateMessageData,
 } from './private-message';

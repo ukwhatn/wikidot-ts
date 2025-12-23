@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { NotFoundException, UnexpectedError } from '../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../common/types';
+import { fromPromise, type WikidotResultAsync } from '../common/types';
 
 /**
  * QuickModuleモジュール名

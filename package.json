@@ -28,7 +28,9 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bunup",
     "lint": "biome check .",
@@ -39,7 +41,12 @@
     "test:cov": "bun test --coverage",
     "prepublishOnly": "bun run build"
   },
-  "keywords": ["wikidot", "scp", "api", "client"],
+  "keywords": [
+    "wikidot",
+    "scp",
+    "api",
+    "client"
+  ],
   "author": "ukwhatn",
   "license": "MIT",
   "repository": {
@@ -61,9 +68,9 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
+    "@biomejs/biome": "^2.3.10",
     "@types/bun": "^1.1.0",
-    "bunup": "^0.8.0",
+    "bunup": "^0.16.11",
     "typescript": "^5.5.0"
   },
   "peerDependencies": {

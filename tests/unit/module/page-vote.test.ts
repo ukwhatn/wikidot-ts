@@ -66,13 +66,7 @@ function createMockUser(name: string): User {
 /**
  * テスト用投票作成
  */
-function createTestVote(
-  options: {
-    value?: number;
-    user?: User;
-    page?: Page;
-  } = {}
-): PageVote {
+function createTestVote(options: { value?: number; user?: User; page?: Page } = {}): PageVote {
   const user = options.user ?? createMockUser('Voter');
   const page = options.page ?? createMockPage();
   return new PageVote({

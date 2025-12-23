@@ -1,8 +1,8 @@
 import { LoginRequiredError } from '../../common/errors';
 import {
+  fromPromise,
   type WikidotResult,
   type WikidotResultAsync,
-  fromPromise,
   wdErr,
   wdOk,
   wdOkAsync,
@@ -168,6 +168,7 @@ export class Client {
     if (this.isLoggedIn()) {
       return logout(this).map(() => {
         this._username = null;
+        return undefined;
       });
     }
     return wdOkAsync(undefined);

@@ -1,9 +1,9 @@
-import * as cheerio from 'cheerio';
 import type { Cheerio } from 'cheerio';
+import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
 import { NoElementError, UnexpectedError } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';

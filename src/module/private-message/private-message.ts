@@ -5,7 +5,7 @@ import {
   NoElementError,
   UnexpectedError,
 } from '../../common/errors';
-import { type WikidotResultAsync, fromPromise } from '../../common/types';
+import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { AbstractUser } from '../user';

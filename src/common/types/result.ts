@@ -1,4 +1,4 @@
-import { type Result, ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
+import { err, errAsync, ok, okAsync, type Result, ResultAsync } from 'neverthrow';
 import type { WikidotError } from '../errors';
 
 /** 同期Result型エイリアス */

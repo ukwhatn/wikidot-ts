@@ -1,1 +1,1 @@
-export { parseUser, parseOdate } from './user';
+export { parseOdate, parseUser } from './user';
