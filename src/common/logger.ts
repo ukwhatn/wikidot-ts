@@ -148,4 +148,4 @@ export function setupConsoleHandler(logger: Logger, level: LogLevel = 'warn'): v
 /**
  * パッケージ全体で使用されるデフォルトロガー
  */
-export const logger = getLogger();
+export const logger: Logger = getLogger();

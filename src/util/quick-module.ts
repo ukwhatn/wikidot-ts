@@ -172,8 +172,12 @@ export function pageLookup(siteId: number, query: string): WikidotResultAsync<QM
  * QuickModule API（後方互換性のため維持）
  * @deprecated 代わりに個別の関数（memberLookup, userLookup, pageLookup）を使用してください
  */
-export const QuickModule = {
-  memberLookup,
-  userLookup,
-  pageLookup,
+export const QuickModule: {
+  memberLookup: typeof memberLookup;
+  userLookup: typeof userLookup;
+  pageLookup: typeof pageLookup;
+} = {
+  memberLookup: memberLookup,
+  userLookup: userLookup,
+  pageLookup: pageLookup,
 };
