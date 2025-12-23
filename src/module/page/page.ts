@@ -1,6 +1,7 @@
 import type { Cheerio } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
+import pLimit from 'p-limit';
 import { z } from 'zod';
 import { RequireLogin } from '../../common/decorators';
 import {
@@ -633,15 +634,20 @@ export class PageCollection extends Array<Page> {
           return new PageCollection(site, pages);
         }
 
+        // 同時接続数を制限（AMCClientと同じsemaphoreLimitを使用）
+        const limit = pLimit(site.client.amcClient.config.semaphoreLimit);
+
         // norender, noredirectでアクセス
         const responses = await Promise.all(
-          targetPages.map(async (page) => {
-            const url = `${page.getUrl()}/norender/true/noredirect/true`;
-            const response = await fetch(url, {
-              headers: site.client.amcClient.header.getHeaders(),
-            });
-            return { page, response };
-          })
+          targetPages.map((page) =>
+            limit(async () => {
+              const url = `${page.getUrl()}/norender/true/noredirect/true`;
+              const response = await fetch(url, {
+                headers: site.client.amcClient.header.getHeaders(),
+              });
+              return { page, response };
+            })
+          )
         );
 
         for (const { page, response } of responses) {
