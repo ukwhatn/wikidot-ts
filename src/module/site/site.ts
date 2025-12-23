@@ -154,8 +154,8 @@ export class Site {
   static fromUnixName(client: Client, unixName: string): WikidotResultAsync<Site> {
     return fromPromise(
       (async () => {
-        // サイトページを取得
-        const url = `https://${unixName}.wikidot.com`;
+        // サイトページを取得（HTTPでリクエストし、リダイレクトに従う）
+        const url = `http://${unixName}.wikidot.com`;
         const response = await fetch(url, {
           headers: client.amcClient.header.getHeaders(),
         });
@@ -224,8 +224,8 @@ export class Site {
           title = unixName; // Fallback
         }
 
-        // SSL対応チェック（既にhttpsでアクセスできているので true）
-        const sslSupported = true;
+        // SSL対応チェック（リダイレクト後のURLがhttpsで始まるかどうかで判断）
+        const sslSupported = response.url.startsWith('https');
 
         return new Site(client, {
           id: siteId,
