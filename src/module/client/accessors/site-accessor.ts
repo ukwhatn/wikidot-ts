@@ -14,8 +14,18 @@ export class SiteAccessor {
 
   /**
    * UNIX名からサイトを取得する
+   *
    * @param unixName - サイトのUNIX名（例: 'scp-jp'）
-   * @returns サイトオブジェクト
+   * @returns Result型でラップされたサイトオブジェクト
+   *
+   * @example
+   * ```typescript
+   * const siteResult = await client.site.get('scp-jp');
+   * if (!siteResult.isOk()) {
+   *   throw new Error('サイトの取得に失敗しました');
+   * }
+   * const site = siteResult.value;
+   * ```
    */
   get(unixName: string): WikidotResultAsync<Site> {
     return Site.fromUnixName(this.client, unixName);

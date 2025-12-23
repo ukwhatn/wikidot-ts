@@ -88,8 +88,29 @@ export class Client {
 
   /**
    * クライアントを作成する
+   *
    * @param options - クライアントオプション
-   * @returns クライアントインスタンス
+   * @returns Result型でラップされたクライアントインスタンス
+   *
+   * @example
+   * ```typescript
+   * import { Client } from '@ukwhatn/wikidot';
+   *
+   * // クライアントを作成
+   * const clientResult = await Client.create({
+   *   username: 'your_username',
+   *   password: 'your_password',
+   * });
+   *
+   * // Result型なのでisOk()でチェック後、.valueで取得
+   * if (!clientResult.isOk()) {
+   *   throw new Error('クライアントの作成に失敗しました');
+   * }
+   * const client = clientResult.value;
+   *
+   * // これでclient.site等にアクセス可能
+   * const siteResult = await client.site.get('scp-jp');
+   * ```
    */
   static create(options: ClientOptions = {}): WikidotResultAsync<Client> {
     const { username, password, domain = 'wikidot.com', amcConfig = {} } = options;

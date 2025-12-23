@@ -10,6 +10,16 @@ import type { Client } from '../client';
 
 /**
  * プライベートメッセージ操作アクセサ
+ *
+ * @example
+ * ```typescript
+ * // 受信箱を取得
+ * const inboxResult = await client.privateMessage.inbox();
+ * if (!inboxResult.isOk()) {
+ *   throw new Error('受信箱の取得に失敗しました');
+ * }
+ * const inbox = inboxResult.value;
+ * ```
  */
 export class PrivateMessageAccessor {
   public readonly client: Client;
@@ -20,8 +30,9 @@ export class PrivateMessageAccessor {
 
   /**
    * メッセージIDからメッセージを取得する
+   *
    * @param id - メッセージID
-   * @returns メッセージオブジェクト
+   * @returns Result型でラップされたメッセージオブジェクト
    */
   get(id: number): WikidotResultAsync<PrivateMessage> {
     return PrivateMessage.fromId(this.client, id);

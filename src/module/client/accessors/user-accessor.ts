@@ -23,9 +23,19 @@ export class UserAccessor {
 
   /**
    * ユーザー名からユーザーを取得する
+   *
    * @param name - ユーザー名
    * @param options - 取得オプション
-   * @returns ユーザー（存在しない場合はnull、raiseWhenNotFoundがtrueの場合はエラー）
+   * @returns Result型でラップされたユーザー（存在しない場合はnull、raiseWhenNotFoundがtrueの場合はエラー）
+   *
+   * @example
+   * ```typescript
+   * const userResult = await client.user.get('username');
+   * if (!userResult.isOk()) {
+   *   throw new Error('ユーザーの取得に失敗しました');
+   * }
+   * const user = userResult.value;
+   * ```
    */
   get(name: string, options: GetUserOptions = {}): WikidotResultAsync<User | null> {
     const { raiseWhenNotFound = false } = options;
