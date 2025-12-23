@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "main"
+    assignees:
+      - "ukwhatn"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      testing:
+        patterns:
+          - "@types/*"
+      linting:
+        patterns:
+          - "@biomejs/*"
+          - "typescript"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "main"
+    assignees:
+      - "ukwhatn"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
