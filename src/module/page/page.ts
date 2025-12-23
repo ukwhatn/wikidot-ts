@@ -216,7 +216,9 @@ export class Page {
     if (this._id === null) {
       const result = await PageCollection.acquirePageIds(this.site, [this]);
       if (result.isErr()) {
-        throw new UnexpectedError(`Failed to acquire page ID for ${operation}: ${result.error.message}`);
+        throw new UnexpectedError(
+          `Failed to acquire page ID for ${operation}: ${result.error.message}`
+        );
       }
     }
     if (this._id === null) {
