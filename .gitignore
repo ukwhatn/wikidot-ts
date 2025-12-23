@@ -39,6 +39,9 @@ bun.lockb
 # VSCode
 .vscode/
 
+# Cursor
+.cursor/
+
 # Finder (MacOS) folder config
 .DS_Store
 
