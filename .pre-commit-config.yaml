@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: Biome check
+        entry: bun run lint
+        language: system
+        types: [ts, tsx, js, jsx, json]
+        pass_filenames: false
+
+      - id: biome-format
+        name: Biome format
+        entry: bun run format
+        language: system
+        types: [ts, tsx, js, jsx, json]
+        pass_filenames: false
+
+      - id: typecheck
+        name: TypeScript typecheck
+        entry: bun run typecheck
+        language: system
+        types: [ts, tsx]
+        pass_filenames: false
