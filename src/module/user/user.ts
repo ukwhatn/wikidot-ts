@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio';
+import pLimit from 'p-limit';
 import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { DEFAULT_AMC_CONFIG } from '../../connector/amc-config';
 import { toUnix } from '../../util/string-util';
 import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
@@ -120,11 +122,16 @@ export class User implements AbstractUser {
   static fromNames(client: ClientRef, names: string[]): WikidotResultAsync<UserCollection> {
     return fromPromise(
       (async () => {
+        // 同時接続数を制限
+        const limit = pLimit(DEFAULT_AMC_CONFIG.semaphoreLimit);
+
         const results = await Promise.all(
-          names.map(async (name) => {
-            const result = await User.fromName(client, name);
-            return result.isOk() ? result.value : null;
-          })
+          names.map((name) =>
+            limit(async () => {
+              const result = await User.fromName(client, name);
+              return result.isOk() ? result.value : null;
+            })
+          )
         );
         return new UserCollection(results);
       })(),

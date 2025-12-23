@@ -1,6 +1,7 @@
 import type { Cheerio } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
+import pLimit from 'p-limit';
 import { z } from 'zod';
 import { RequireLogin } from '../../common/decorators';
 import {
@@ -28,17 +29,17 @@ import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './searc
  * 型安全性のためにZodを使用してパース結果を検証
  */
 const pageParamsSchema = z.object({
-  fullname: z.string().default(''),
-  name: z.string().default(''),
-  category: z.string().default(''),
-  title: z.string().default(''),
-  children_count: z.number().default(0),
-  comments_count: z.number().default(0),
-  size: z.number().default(0),
-  rating: z.number().default(0),
-  votes_count: z.number().default(0),
-  rating_percent: z.number().nullable().default(null),
-  revisions_count: z.number().default(0),
+  fullname: z.preprocess((v) => v ?? '', z.string()),
+  name: z.preprocess((v) => v ?? '', z.string()),
+  category: z.preprocess((v) => v ?? '', z.string()),
+  title: z.preprocess((v) => v ?? '', z.string()),
+  children_count: z.coerce.number().default(0),
+  comments_count: z.coerce.number().default(0),
+  size: z.coerce.number().default(0),
+  rating: z.coerce.number().default(0),
+  votes_count: z.coerce.number().default(0),
+  rating_percent: z.coerce.number().nullable().default(null),
+  revisions_count: z.coerce.number().default(0),
   parent_fullname: z.string().nullable().default(null),
   tags: z.array(z.string()).default([]),
   created_by: z.custom<AbstractUser>().nullable().default(null),
@@ -633,15 +634,20 @@ export class PageCollection extends Array<Page> {
           return new PageCollection(site, pages);
         }
 
+        // 同時接続数を制限（AMCClientと同じsemaphoreLimitを使用）
+        const limit = pLimit(site.client.amcClient.config.semaphoreLimit);
+
         // norender, noredirectでアクセス
         const responses = await Promise.all(
-          targetPages.map(async (page) => {
-            const url = `${page.getUrl()}/norender/true/noredirect/true`;
-            const response = await fetch(url, {
-              headers: site.client.amcClient.header.getHeaders(),
-            });
-            return { page, response };
-          })
+          targetPages.map((page) =>
+            limit(async () => {
+              const url = `${page.getUrl()}/norender/true/noredirect/true`;
+              const response = await fetch(url, {
+                headers: site.client.amcClient.header.getHeaders(),
+              });
+              return { page, response };
+            })
+          )
         );
 
         for (const { page, response } of responses) {
