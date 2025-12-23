@@ -1,0 +1,209 @@
+# wikidot-ts
+
+> TypeScriptでWikidotサイトと対話するための非同期ユーティリティライブラリ
+
+## 概要
+
+wikidot-tsは、Wikidot APIを操作するTypeScriptライブラリ。ページ取得・編集、フォーラム操作、プライベートメッセージ、ユーザー情報取得などWikidotの主要機能をサポート。
+
+## 主要コンポーネント
+
+### Client
+
+メインエントリポイント。認証とアクセサへのアクセスを提供。
+
+```typescript
+const client = await Client.create();  // 未認証
+const client = await Client.create({ username, password });  // 認証済み
+
+client.site  // SiteAccessor
+client.user  // UserAccessor
+client.pm    // PrivateMessageAccessor
+```
+
+### Site
+
+サイト操作。ページ、フォーラム、メンバーへのアクセス。
+
+```typescript
+const siteResult = await client.site.get('scp-jp');
+const site = siteResult.value;
+
+site.page   // PageAccessor
+site.pages  // PagesAccessor
+site.forum  // ForumAccessor
+site.member // MemberAccessor
+```
+
+### Page
+
+ページ操作。編集、削除、投票、ファイル、リビジョン。
+
+```typescript
+const pageResult = await site.page.get('scp-001');
+const page = pageResult.value;
+
+page.title      // ページタイトル
+page.rating     // レーティング
+page.tags       // タグ配列
+page.createdBy  // 作成者
+page.createdAt  // 作成日時
+
+await page.edit({ source: 'new content' });
+await page.vote(1);
+await page.getFiles();
+await page.getMetas();
+```
+
+### SearchPagesQuery
+
+ListPagesModuleのクエリ表現。
+
+```typescript
+const query = new SearchPagesQuery({
+  category: 'scp',
+  tags: ['+safe', '-euclid'],
+  rating: '>10',
+  order: 'rating desc',
+  limit: 100,
+});
+
+const pagesResult = await site.pages.search(query);
+```
+
+### ForumThread / ForumPost
+
+フォーラム操作。スレッド返信、投稿編集・削除。
+
+```typescript
+const threadResult = await site.forum.getThread(12345);
+const thread = threadResult.value;
+
+await thread.reply('返信内容', 'タイトル');
+await thread.rename('新しいタイトル');
+
+const postsResult = await thread.getPosts();
+const post = postsResult.value[0];
+await post.edit('新しい内容');
+await post.delete();
+```
+
+### PrivateMessage
+
+プライベートメッセージ操作。受信箱、送信箱、検索。
+
+```typescript
+const inboxResult = await client.pm.inbox();
+const sentResult = await client.pm.sentBox();
+const searchResult = await client.pm.search('query', 'all');
+
+await client.pm.send(user, '件名', '本文');
+```
+
+## Result型
+
+すべての非同期操作は`WikidotResultAsync<T>`を返す（neverthrowベース）。
+
+```typescript
+const result = await site.page.get('page-name');
+
+if (result.isOk()) {
+  const page = result.value;
+} else {
+  const error = result.error;  // WikidotError
+}
+```
+
+## エラー階層
+
+```
+WikidotError
+├── UnexpectedError
+├── LoginRequiredError
+├── AMCError
+│   ├── AMCHttpError
+│   ├── WikidotStatusError
+│   └── ResponseDataError
+├── NotFoundException
+├── TargetExistsError
+├── TargetError
+├── ForbiddenError
+└── NoElementError
+```
+
+## User階層
+
+```
+AbstractUser
+├── User           # 通常ユーザー
+├── DeletedUser    # 削除済み
+├── AnonymousUser  # 匿名（IP付き）
+├── GuestUser      # ゲスト
+└── WikidotUser    # システム
+```
+
+## ディレクトリ構造
+
+```
+src/
+├── common/           # 共通ユーティリティ
+│   ├── errors/       # エラー定義
+│   └── types.ts      # Result型定義
+├── connector/        # HTTP通信
+│   ├── amc-client.ts # AjaxModuleConnector
+│   └── amc-config.ts # 設定
+├── module/           # コアモジュール
+│   ├── client/       # Client
+│   ├── site/         # Site
+│   ├── page/         # Page, PageRevision, PageFile等
+│   ├── forum/        # ForumCategory, ForumThread, ForumPost
+│   ├── private-message/ # PrivateMessage
+│   ├── user/         # User階層
+│   └── types.ts      # 共有インターフェース
+└── util/             # ユーティリティ
+    ├── parser/       # HTMLパーサー
+    └── quick-module.ts # QuickModule API
+```
+
+## 主要メソッド一覧
+
+### Client
+- `site.get(unixName)` - サイト取得
+- `user.get(username)` - ユーザー取得
+- `pm.inbox()` - 受信箱取得
+- `pm.sentBox()` - 送信箱取得
+- `pm.send(user, subject, body)` - メッセージ送信
+- `pm.search(query, searchType)` - メッセージ検索
+
+### Site
+- `page.get(fullname)` - ページ取得
+- `pages.search(query)` - ページ検索
+- `pages.all()` - 全ページ取得
+- `pages.getRecentChanges()` - 最近の変更
+- `forum.getCategories()` - カテゴリ一覧
+- `forum.getThread(id)` - スレッド取得
+- `member.getAll()` - メンバー一覧
+- `member.lookup(query)` - メンバー検索
+
+### Page
+- `edit(options)` - ページ編集
+- `destroy()` - ページ削除
+- `rename(newFullname)` - ページ名変更
+- `vote(value)` - 投票
+- `cancelVote()` - 投票キャンセル
+- `commitTags()` - タグ保存
+- `setParent(fullname)` - 親ページ設定
+- `getFiles()` - ファイル一覧
+- `getMetas()` - メタタグ取得
+- `setMeta(name, content)` - メタタグ設定
+- `deleteMeta(name)` - メタタグ削除
+
+### ForumThread
+- `getPosts()` - 投稿一覧
+- `reply(source, title)` - 返信
+- `rename(newTitle)` - タイトル変更
+
+### ForumPost
+- `getSource()` - ソース取得
+- `edit(source, title)` - 編集
+- `delete()` - 削除
