@@ -2,27 +2,27 @@ import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
 
 /**
- * ゲストユーザー
+ * Guest user
  */
 export class GuestUser implements AbstractUser {
   public readonly client: ClientRef;
 
-  /** ユーザーID（ゲストは0） */
+  /** User ID (0 for guest) */
   public readonly id: number = 0;
 
-  /** ゲスト名 */
+  /** Guest name */
   public readonly name: string;
 
-  /** UNIX形式のユーザー名（ゲストはnull） */
+  /** UNIX format username (null for guest) */
   public readonly unixName: string | null = null;
 
-  /** アバターURL（Gravatarの場合あり） */
+  /** Avatar URL (may be Gravatar) */
   public readonly avatarUrl: string | null;
 
-  /** IPアドレス（ゲストはnull） */
+  /** IP address (null for guest) */
   public readonly ip: string | null = null;
 
-  /** ユーザー種別 */
+  /** User type */
   public readonly userType: UserType = 'guest';
 
   constructor(client: ClientRef, name: string, avatarUrl: string | null = null) {
@@ -31,7 +31,7 @@ export class GuestUser implements AbstractUser {
     this.avatarUrl = avatarUrl;
   }
 
-  // AbstractUser実装
+  // AbstractUser implementation
   isUser(): boolean {
     return false;
   }

@@ -2,34 +2,34 @@ import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
 
 /**
- * Wikidotシステムユーザー
+ * Wikidot system user
  */
 export class WikidotUser implements AbstractUser {
   public readonly client: ClientRef;
 
-  /** ユーザーID（Wikidotシステムは0） */
+  /** User ID (0 for Wikidot system) */
   public readonly id: number = 0;
 
-  /** ユーザー名 */
+  /** Username */
   public readonly name: string = 'Wikidot';
 
-  /** UNIX形式のユーザー名 */
+  /** UNIX format username */
   public readonly unixName: string = 'wikidot';
 
-  /** アバターURL（システムユーザーはnull） */
+  /** Avatar URL (null for system user) */
   public readonly avatarUrl: string | null = null;
 
-  /** IPアドレス（システムユーザーはnull） */
+  /** IP address (null for system user) */
   public readonly ip: string | null = null;
 
-  /** ユーザー種別 */
+  /** User type */
   public readonly userType: UserType = 'wikidot';
 
   constructor(client: ClientRef) {
     this.client = client;
   }
 
-  // AbstractUser実装
+  // AbstractUser implementation
   isUser(): boolean {
     return false;
   }
