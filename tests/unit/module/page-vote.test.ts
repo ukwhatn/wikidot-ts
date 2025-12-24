@@ -1,5 +1,5 @@
 /**
- * PageVoteモジュールのユニットテスト
+ * PageVote module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { Page } from '../../../src/module/page/page';
@@ -10,7 +10,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_SITE_DATA } from '../../setup';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef {
   return {
@@ -20,7 +20,7 @@ function createMockClient(): ClientRef {
 }
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -40,7 +40,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ページモック作成
+ * Create test page mock
  */
 function createMockPage(): Page {
   return {
@@ -52,7 +52,7 @@ function createMockPage(): Page {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = createMockClient();
@@ -64,7 +64,7 @@ function createMockUser(name: string): User {
 }
 
 /**
- * テスト用投票作成
+ * Create test vote
  */
 function createTestVote(options: { value?: number; user?: User; page?: Page } = {}): PageVote {
   const user = options.user ?? createMockUser('Voter');
@@ -76,9 +76,9 @@ function createTestVote(options: { value?: number; user?: User; page?: Page } = 
   });
 }
 
-describe('PageVoteデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('PageVote data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const vote = createTestVote();
 
       const result = vote.toString();
@@ -88,19 +88,19 @@ describe('PageVoteデータクラス', () => {
       expect(result).toContain('value=1');
     });
 
-    test('valueが正の値の場合', () => {
+    test('Value is positive', () => {
       const vote = createTestVote({ value: 1 });
 
       expect(vote.value).toBe(1);
     });
 
-    test('valueが負の値の場合', () => {
+    test('Value is negative', () => {
       const vote = createTestVote({ value: -1 });
 
       expect(vote.value).toBe(-1);
     });
 
-    test('userが正しく設定される', () => {
+    test('User is correctly set', () => {
       const user = createMockUser('TestVoter');
       const vote = createTestVote({ user });
 
@@ -110,14 +110,14 @@ describe('PageVoteデータクラス', () => {
 });
 
 describe('PageVoteCollection', () => {
-  test('空のコレクションを作成できる', () => {
+  test('Can create empty collection', () => {
     const page = createMockPage();
     const collection = new PageVoteCollection(page);
 
     expect(collection.length).toBe(0);
   });
 
-  test('投票を追加できる', () => {
+  test('Can add vote', () => {
     const page = createMockPage();
     const collection = new PageVoteCollection(page);
     const vote = createTestVote({ page });
@@ -128,7 +128,7 @@ describe('PageVoteCollection', () => {
     expect(collection[0]).toBe(vote);
   });
 
-  test('複数投票で初期化できる', () => {
+  test('Can initialize with multiple votes', () => {
     const page = createMockPage();
     const votes = [
       createTestVote({ value: 1, page }),
@@ -140,7 +140,7 @@ describe('PageVoteCollection', () => {
     expect(collection.length).toBe(3);
   });
 
-  test('賛成票をカウントできる', () => {
+  test('Can count positive votes', () => {
     const page = createMockPage();
     const votes = [
       createTestVote({ value: 1, page }),
@@ -154,7 +154,7 @@ describe('PageVoteCollection', () => {
     expect(positiveVotes.length).toBe(2);
   });
 
-  test('反対票をカウントできる', () => {
+  test('Can count negative votes', () => {
     const page = createMockPage();
     const votes = [
       createTestVote({ value: 1, page }),

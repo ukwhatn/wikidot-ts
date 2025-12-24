@@ -1,33 +1,33 @@
 /**
- * QuickModuleのユニットテスト
+ * QuickModule unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { QuickModule } from '../../../src/util/quick-module';
 
 describe('QuickModule', () => {
   describe('memberLookup', () => {
-    test('関数が存在する', () => {
+    test('Function exists', () => {
       expect(QuickModule.memberLookup).toBeDefined();
       expect(typeof QuickModule.memberLookup).toBe('function');
     });
 
-    test('サイトIDとクエリを受け取る', () => {
-      // メソッドのシグネチャをテスト
+    test('Accepts site ID and query', () => {
+      // Test method signature
       const result = QuickModule.memberLookup(123456, 'test');
 
-      // ResultAsyncを返す
+      // Returns ResultAsync
       expect(result).toBeDefined();
       expect(typeof result.then).toBe('function');
     });
   });
 
   describe('userLookup', () => {
-    test('関数が存在する', () => {
+    test('Function exists', () => {
       expect(QuickModule.userLookup).toBeDefined();
       expect(typeof QuickModule.userLookup).toBe('function');
     });
 
-    test('サイトIDとクエリを受け取る', () => {
+    test('Accepts site ID and query', () => {
       const result = QuickModule.userLookup(123456, 'test');
 
       expect(result).toBeDefined();
@@ -36,12 +36,12 @@ describe('QuickModule', () => {
   });
 
   describe('pageLookup', () => {
-    test('関数が存在する', () => {
+    test('Function exists', () => {
       expect(QuickModule.pageLookup).toBeDefined();
       expect(typeof QuickModule.pageLookup).toBe('function');
     });
 
-    test('サイトIDとクエリを受け取る', () => {
+    test('Accepts site ID and query', () => {
       const result = QuickModule.pageLookup(123456, 'test');
 
       expect(result).toBeDefined();

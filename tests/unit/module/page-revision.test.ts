@@ -1,5 +1,5 @@
 /**
- * PageRevisionモジュールのユニットテスト
+ * PageRevision module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { Page } from '../../../src/module/page/page';
@@ -10,7 +10,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_SITE_DATA } from '../../setup';
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -33,7 +33,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ページモック作成
+ * Create test page mock
  */
 function createMockPage(): Page {
   return {
@@ -45,7 +45,7 @@ function createMockPage(): Page {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = {
@@ -60,7 +60,7 @@ function createMockUser(name: string): User {
 }
 
 /**
- * テスト用リビジョン作成
+ * Create test revision
  */
 function createTestRevision(
   options: { id?: number; revNo?: number; comment?: string; page?: Page } = {}
@@ -77,9 +77,9 @@ function createTestRevision(
   });
 }
 
-describe('PageRevisionデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('PageRevision data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const revision = createTestRevision();
 
       const result = revision.toString();
@@ -89,32 +89,32 @@ describe('PageRevisionデータクラス', () => {
       expect(result).toContain('revNo=1');
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const revision = createTestRevision({ id: 999999 });
 
       expect(revision.id).toBe(999999);
     });
 
-    test('revNoが正しく設定される', () => {
+    test('revNo is correctly set', () => {
       const revision = createTestRevision({ revNo: 5 });
 
       expect(revision.revNo).toBe(5);
     });
 
-    test('commentが正しく設定される', () => {
+    test('comment is correctly set', () => {
       const revision = createTestRevision({ comment: 'Updated content' });
 
       expect(revision.comment).toBe('Updated content');
     });
 
-    test('createdByが設定される', () => {
+    test('createdBy is set', () => {
       const revision = createTestRevision();
 
       expect(revision.createdBy).toBeDefined();
       expect(revision.createdBy.name).toBe('RevisionAuthor');
     });
 
-    test('createdAtが設定される', () => {
+    test('createdAt is set', () => {
       const revision = createTestRevision();
 
       expect(revision.createdAt).toBeInstanceOf(Date);
@@ -123,14 +123,14 @@ describe('PageRevisionデータクラス', () => {
 });
 
 describe('PageRevisionCollection', () => {
-  test('空のコレクションを作成できる', () => {
+  test('Can create empty collection', () => {
     const page = createMockPage();
     const collection = new PageRevisionCollection(page);
 
     expect(collection.length).toBe(0);
   });
 
-  test('リビジョンを追加できる', () => {
+  test('Can add revision', () => {
     const page = createMockPage();
     const collection = new PageRevisionCollection(page);
     const revision = createTestRevision({ page });
@@ -141,7 +141,7 @@ describe('PageRevisionCollection', () => {
     expect(collection[0]).toBe(revision);
   });
 
-  test('複数リビジョンで初期化できる', () => {
+  test('Can initialize with multiple revisions', () => {
     const page = createMockPage();
     const revisions = [
       createTestRevision({ revNo: 1, page }),
@@ -153,7 +153,7 @@ describe('PageRevisionCollection', () => {
     expect(collection.length).toBe(3);
   });
 
-  test('nullページでも作成できる', () => {
+  test('Can create with null page', () => {
     const collection = new PageRevisionCollection(null);
 
     expect(collection.length).toBe(0);
