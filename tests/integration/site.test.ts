@@ -1,5 +1,5 @@
 /**
- * サイト取得・ページ取得の統合テスト
+ * Site and page retrieval integration tests
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { cleanup, getClient, getSite } from './helpers/client';
@@ -14,22 +14,22 @@ describe.skipIf(shouldSkipIntegration())('Site Integration Tests', () => {
     await cleanup();
   });
 
-  describe('Site取得', () => {
-    test('サイト取得', async () => {
+  describe('Site retrieval', () => {
+    test('Get site', async () => {
       const site = await getSite();
       expect(site.unixName).toBe('ukwhatn-ci');
       expect(site.id).toBeGreaterThan(0);
     });
 
-    test('サイトにタイトルがある', async () => {
+    test('Site has title', async () => {
       const site = await getSite();
       expect(site.title).toBeDefined();
       expect(site.title.length).toBeGreaterThan(0);
     });
   });
 
-  describe('Page取得', () => {
-    test('既存ページ取得（startページ）', async () => {
+  describe('Page retrieval', () => {
+    test('Get existing page (start page)', async () => {
       const site = await getSite();
       const pageResult = await site.page.get('start');
       expect(pageResult.isOk()).toBe(true);
@@ -37,14 +37,14 @@ describe.skipIf(shouldSkipIntegration())('Site Integration Tests', () => {
       expect(pageResult.value?.fullname).toBe('start');
     });
 
-    test('存在しないページ取得', async () => {
+    test('Get non-existent page', async () => {
       const site = await getSite();
       const pageResult = await site.page.get('nonexistent-page-12345678');
       expect(pageResult.isOk()).toBe(true);
       expect(pageResult.value).toBeNull();
     });
 
-    test('ページにプロパティがある', async () => {
+    test('Page has properties', async () => {
       const site = await getSite();
       const pageResult = await site.page.get('start');
       expect(pageResult.isOk()).toBe(true);
@@ -54,7 +54,7 @@ describe.skipIf(shouldSkipIntegration())('Site Integration Tests', () => {
       expect(page.title).toBeDefined();
       expect(page.createdAt).toBeDefined();
       expect(page.rating).toBeDefined();
-      // NOTE: 初期ページはrevisionsCountが0になる場合がある
+      // NOTE: Initial page may have revisionsCount of 0
       expect(page.revisionsCount).toBeGreaterThanOrEqual(0);
     });
   });

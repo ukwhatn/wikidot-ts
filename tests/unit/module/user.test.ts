@@ -1,5 +1,5 @@
 /**
- * Userモジュールのユニットテスト
+ * User module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { ClientRef } from '../../../src/module/types';
@@ -10,7 +10,7 @@ import { User } from '../../../src/module/user/user';
 import { WikidotUser } from '../../../src/module/user/wikidot-user';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef {
   return {
@@ -19,9 +19,9 @@ function createMockClient(): ClientRef {
   };
 }
 
-describe('Userデータクラス', () => {
+describe('User data class', () => {
   describe('User', () => {
-    test('toString()が正しい文字列を返す', () => {
+    test('toString() returns correct string', () => {
       const client = createMockClient();
       const user = new User(client, {
         id: 12345,
@@ -37,7 +37,7 @@ describe('Userデータクラス', () => {
       expect(result).toContain('name=test-user');
     });
 
-    test('userTypeが"user"である', () => {
+    test('userType is "user"', () => {
       const client = createMockClient();
       const user = new User(client, {
         id: 12345,
@@ -48,7 +48,7 @@ describe('Userデータクラス', () => {
       expect(user.userType).toBe('user');
     });
 
-    test('isUser()がtrueを返す', () => {
+    test('isUser() returns true', () => {
       const client = createMockClient();
       const user = new User(client, {
         id: 12345,
@@ -63,7 +63,7 @@ describe('Userデータクラス', () => {
       expect(user.isWikidotUser()).toBe(false);
     });
 
-    test('avatarUrlが設定される', () => {
+    test('avatarUrl is set', () => {
       const client = createMockClient();
       const user = new User(client, {
         id: 12345,
@@ -75,7 +75,7 @@ describe('Userデータクラス', () => {
       expect(user.avatarUrl).toBe('http://example.com/avatar.png');
     });
 
-    test('avatarUrlが未指定の場合デフォルト値が設定される', () => {
+    test('avatarUrl has default value when not specified', () => {
       const client = createMockClient();
       const user = new User(client, {
         id: 12345,
@@ -88,7 +88,7 @@ describe('Userデータクラス', () => {
   });
 
   describe('DeletedUser', () => {
-    test('デフォルト値が正しい', () => {
+    test('Default values are correct', () => {
       const client = createMockClient();
       const user = new DeletedUser(client, 99999);
 
@@ -98,14 +98,14 @@ describe('Userデータクラス', () => {
       expect(user.ip).toBeNull();
     });
 
-    test('userTypeが"deleted"である', () => {
+    test('userType is "deleted"', () => {
       const client = createMockClient();
       const user = new DeletedUser(client, 99999);
 
       expect(user.userType).toBe('deleted');
     });
 
-    test('isDeletedUser()がtrueを返す', () => {
+    test('isDeletedUser() returns true', () => {
       const client = createMockClient();
       const user = new DeletedUser(client, 99999);
 
@@ -116,7 +116,7 @@ describe('Userデータクラス', () => {
       expect(user.isWikidotUser()).toBe(false);
     });
 
-    test('toString()が正しい文字列を返す', () => {
+    test('toString() returns correct string', () => {
       const client = createMockClient();
       const user = new DeletedUser(client, 99999);
 
@@ -128,7 +128,7 @@ describe('Userデータクラス', () => {
   });
 
   describe('AnonymousUser', () => {
-    test('デフォルト値が正しい', () => {
+    test('Default values are correct', () => {
       const client = createMockClient();
       const user = new AnonymousUser(client, '192.168.1.1');
 
@@ -139,14 +139,14 @@ describe('Userデータクラス', () => {
       expect(user.ip).toBe('192.168.1.1');
     });
 
-    test('userTypeが"anonymous"である', () => {
+    test('userType is "anonymous"', () => {
       const client = createMockClient();
       const user = new AnonymousUser(client, '192.168.1.1');
 
       expect(user.userType).toBe('anonymous');
     });
 
-    test('isAnonymousUser()がtrueを返す', () => {
+    test('isAnonymousUser() returns true', () => {
       const client = createMockClient();
       const user = new AnonymousUser(client, '192.168.1.1');
 
@@ -157,7 +157,7 @@ describe('Userデータクラス', () => {
       expect(user.isWikidotUser()).toBe(false);
     });
 
-    test('toString()が正しい文字列を返す', () => {
+    test('toString() returns correct string', () => {
       const client = createMockClient();
       const user = new AnonymousUser(client, '192.168.1.1');
 
@@ -169,7 +169,7 @@ describe('Userデータクラス', () => {
   });
 
   describe('GuestUser', () => {
-    test('デフォルト値が正しい', () => {
+    test('Default values are correct', () => {
       const client = createMockClient();
       const user = new GuestUser(client, 'Guest Name', 'http://gravatar.com/avatar/abc');
 
@@ -180,14 +180,14 @@ describe('Userデータクラス', () => {
       expect(user.ip).toBeNull();
     });
 
-    test('userTypeが"guest"である', () => {
+    test('userType is "guest"', () => {
       const client = createMockClient();
       const user = new GuestUser(client, 'Guest Name', 'http://gravatar.com/avatar/abc');
 
       expect(user.userType).toBe('guest');
     });
 
-    test('isGuestUser()がtrueを返す', () => {
+    test('isGuestUser() returns true', () => {
       const client = createMockClient();
       const user = new GuestUser(client, 'Guest Name', 'http://gravatar.com/avatar/abc');
 
@@ -198,7 +198,7 @@ describe('Userデータクラス', () => {
       expect(user.isWikidotUser()).toBe(false);
     });
 
-    test('toString()が正しい文字列を返す', () => {
+    test('toString() returns correct string', () => {
       const client = createMockClient();
       const user = new GuestUser(client, 'Guest Name', 'http://gravatar.com/avatar/abc');
 
@@ -210,7 +210,7 @@ describe('Userデータクラス', () => {
   });
 
   describe('WikidotUser', () => {
-    test('デフォルト値が正しい', () => {
+    test('Default values are correct', () => {
       const client = createMockClient();
       const user = new WikidotUser(client);
 
@@ -221,14 +221,14 @@ describe('Userデータクラス', () => {
       expect(user.ip).toBeNull();
     });
 
-    test('userTypeが"wikidot"である', () => {
+    test('userType is "wikidot"', () => {
       const client = createMockClient();
       const user = new WikidotUser(client);
 
       expect(user.userType).toBe('wikidot');
     });
 
-    test('isWikidotUser()がtrueを返す', () => {
+    test('isWikidotUser() returns true', () => {
       const client = createMockClient();
       const user = new WikidotUser(client);
 
@@ -239,7 +239,7 @@ describe('Userデータクラス', () => {
       expect(user.isWikidotUser()).toBe(true);
     });
 
-    test('toString()が正しい文字列を返す', () => {
+    test('toString() returns correct string', () => {
       const client = createMockClient();
       const user = new WikidotUser(client);
 

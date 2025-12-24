@@ -1,5 +1,5 @@
 /**
- * ページリビジョン（編集履歴）の統合テスト
+ * Page revision (edit history) integration tests
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { Page } from '../../src';
@@ -16,7 +16,7 @@ describe.skipIf(shouldSkipIntegration())('Page Revision Integration Tests', () =
     pageName = generatePageName('revision');
     const site = await getSite();
 
-    // テスト用ページを作成
+    // Create test page
     await site.page.create(pageName, {
       title: 'Revision Test Page',
       source: 'Initial content.',
@@ -26,13 +26,13 @@ describe.skipIf(shouldSkipIntegration())('Page Revision Integration Tests', () =
     if (pageResult.isOk() && pageResult.value) {
       page = pageResult.value;
 
-      // 編集してリビジョンを作成
+      // Edit to create revision
       await page.edit({
         source: 'Updated content.',
         comment: 'First edit',
       });
     }
-  }, 30000); // タイムアウトを30秒に設定
+  }, 30000); // Set timeout to 30 seconds
 
   afterAll(async () => {
     const site = await getSite();
@@ -40,7 +40,7 @@ describe.skipIf(shouldSkipIntegration())('Page Revision Integration Tests', () =
     await cleanup();
   });
 
-  test('1. リビジョン一覧取得', async () => {
+  test('1. Get revision list', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -51,11 +51,11 @@ describe.skipIf(shouldSkipIntegration())('Page Revision Integration Tests', () =
 
     const revisions = revisionsResult.value;
     expect(revisions).not.toBeNull();
-    // 作成 + 編集で少なくとも1つ以上のリビジョンがある
+    // At least 1 revision from creation + edit
     expect(revisions!.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('2. リビジョンプロパティ確認', async () => {
+  test('2. Verify revision properties', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -74,7 +74,7 @@ describe.skipIf(shouldSkipIntegration())('Page Revision Integration Tests', () =
     expect(latestRev.createdAt).toBeDefined();
   });
 
-  test('3. 最新リビジョン取得', async () => {
+  test('3. Get latest revision', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);

@@ -1,8 +1,8 @@
 /**
- * プライベートメッセージ取得の統合テスト
+ * Private message retrieval integration tests
  *
- * NOTE: メッセージ送信はスキップ。取得のみテスト。
- * 事前にInbox/Outboxにメッセージが入っていることを前提とする。
+ * NOTE: Message sending is skipped. Only retrieval is tested.
+ * Assumes messages exist in Inbox/Outbox beforehand.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { Client } from '../../src';
@@ -20,18 +20,18 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
     await cleanup();
   });
 
-  test('1. 受信箱取得', async () => {
+  test('1. Get inbox', async () => {
     const inboxResult = await client.privateMessage.inbox();
     expect(inboxResult.isOk()).toBe(true);
 
     const inbox = inboxResult.value!;
-    // メッセージ一覧を取得
+    // Get message list
     const messages = [...inbox];
-    // メッセージがあることを期待（事前にテスト用メッセージを入れておく）
-    expect(messages.length).toBeGreaterThanOrEqual(0); // 空でもテストは通す
+    // Expect messages (test messages should be prepared beforehand)
+    expect(messages.length).toBeGreaterThanOrEqual(0); // Test passes even if empty
   });
 
-  test('2. 送信箱取得', async () => {
+  test('2. Get sent box', async () => {
     const sentBoxResult = await client.privateMessage.sentBox();
     expect(sentBoxResult.isOk()).toBe(true);
 
@@ -40,7 +40,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
     expect(messages.length).toBeGreaterThanOrEqual(0);
   });
 
-  test('3. 受信メッセージのプロパティ確認', async () => {
+  test('3. Verify received message properties', async () => {
     const inboxResult = await client.privateMessage.inbox();
     expect(inboxResult.isOk()).toBe(true);
 
@@ -54,7 +54,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
 
     const message = messages[0];
 
-    // 基本プロパティ
+    // Basic properties
     expect(message.id).toBeDefined();
     expect(message.id).toBeGreaterThan(0);
     expect(message.subject).toBeDefined();
@@ -62,7 +62,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
     expect(message.createdAt).toBeDefined();
   });
 
-  test('4. 送信メッセージのプロパティ確認', async () => {
+  test('4. Verify sent message properties', async () => {
     const sentBoxResult = await client.privateMessage.sentBox();
     expect(sentBoxResult.isOk()).toBe(true);
 
@@ -76,7 +76,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
 
     const message = messages[0];
 
-    // 基本プロパティ
+    // Basic properties
     expect(message.id).toBeDefined();
     expect(message.id).toBeGreaterThan(0);
     expect(message.subject).toBeDefined();
@@ -84,7 +84,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
     expect(message.createdAt).toBeDefined();
   });
 
-  test('5. IDでメッセージ取得', async () => {
+  test('5. Get message by ID', async () => {
     const inboxResult = await client.privateMessage.inbox();
     expect(inboxResult.isOk()).toBe(true);
 
@@ -96,7 +96,7 @@ describe.skipIf(shouldSkipIntegration())('Private Message Integration Tests', ()
       return;
     }
 
-    // 最初のメッセージのIDで再取得
+    // Re-fetch using first message's ID
     const messageId = messages[0].id;
     const messageResult = await client.privateMessage.get(messageId);
 

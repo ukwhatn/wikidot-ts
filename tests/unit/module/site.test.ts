@@ -1,5 +1,5 @@
 /**
- * Siteモジュールのユニットテスト
+ * Site module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { Site } from '../../../src/module/site/site';
@@ -7,7 +7,7 @@ import type { ClientRef } from '../../../src/module/types';
 import { MockAMCClient } from '../../mocks/amc-client.mock';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef & { amcClient: MockAMCClient } {
   const amcClient = new MockAMCClient();
@@ -19,7 +19,7 @@ function createMockClient(): ClientRef & { amcClient: MockAMCClient } {
 }
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createTestSite(
   options: Partial<{
@@ -40,9 +40,9 @@ function createTestSite(
   });
 }
 
-describe('Siteデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('Site data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const site = createTestSite();
 
       const result = site.toString();
@@ -53,63 +53,63 @@ describe('Siteデータクラス', () => {
       expect(result).toContain('unixName=test-site');
     });
 
-    test('SSL対応サイトのURLはhttps', () => {
+    test('SSL-enabled site URL uses https', () => {
       const site = createTestSite({ sslSupported: true });
 
       expect(site.getBaseUrl()).toBe('https://test-site.wikidot.com');
     });
 
-    test('SSL非対応サイトのURLはhttp', () => {
+    test('Non-SSL site URL uses http', () => {
       const site = createTestSite({ sslSupported: false });
 
       expect(site.getBaseUrl()).toBe('http://test-site.wikidot.com');
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const site = createTestSite({ id: 999 });
 
       expect(site.id).toBe(999);
     });
 
-    test('titleが正しく設定される', () => {
+    test('title is correctly set', () => {
       const site = createTestSite({ title: 'Custom Title' });
 
       expect(site.title).toBe('Custom Title');
     });
 
-    test('unixNameが正しく設定される', () => {
+    test('unixName is correctly set', () => {
       const site = createTestSite({ unixName: 'custom-site' });
 
       expect(site.unixName).toBe('custom-site');
     });
 
-    test('domainが正しく設定される', () => {
+    test('domain is correctly set', () => {
       const site = createTestSite({ domain: 'custom.wikidot.com' });
 
       expect(site.domain).toBe('custom.wikidot.com');
     });
   });
 
-  describe('アクセサ', () => {
-    test('pagesアクセサが存在する', () => {
+  describe('Accessors', () => {
+    test('pages accessor exists', () => {
       const site = createTestSite();
 
       expect(site.pages).toBeDefined();
     });
 
-    test('pageアクセサが存在する', () => {
+    test('page accessor exists', () => {
       const site = createTestSite();
 
       expect(site.page).toBeDefined();
     });
 
-    test('forumアクセサが存在する', () => {
+    test('forum accessor exists', () => {
       const site = createTestSite();
 
       expect(site.forum).toBeDefined();
     });
 
-    test('memberアクセサが存在する', () => {
+    test('member accessor exists', () => {
       const site = createTestSite();
 
       expect(site.member).toBeDefined();

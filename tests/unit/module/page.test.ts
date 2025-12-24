@@ -1,5 +1,5 @@
 /**
- * Pageモジュールのユニットテスト
+ * Page module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { Page, type PageData } from '../../../src/module/page/page';
@@ -8,7 +8,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_PAGE_DATA, TEST_SITE_DATA } from '../../setup';
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -38,7 +38,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ページ作成
+ * Create test page
  */
 function createTestPage(options: Partial<PageData> = {}): Page {
   const site = createMockSite();
@@ -66,9 +66,9 @@ function createTestPage(options: Partial<PageData> = {}): Page {
   });
 }
 
-describe('Pageデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('Page data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const page = createTestPage();
 
       const result = page.toString();
@@ -78,45 +78,45 @@ describe('Pageデータクラス', () => {
       expect(result).toContain('title=Test Page Title');
     });
 
-    test('fullnameが正しく設定される', () => {
+    test('fullname is correctly set', () => {
       const page = createTestPage({ fullname: 'scp-001' });
 
       expect(page.fullname).toBe('scp-001');
     });
 
-    test('nameが正しく設定される', () => {
+    test('name is correctly set', () => {
       const page = createTestPage({ name: 'scp-001' });
 
       expect(page.name).toBe('scp-001');
     });
 
-    test('categoryが正しく設定される', () => {
+    test('category is correctly set', () => {
       const page = createTestPage({ category: 'component' });
 
       expect(page.category).toBe('component');
     });
 
-    test('titleが正しく設定される', () => {
+    test('title is correctly set', () => {
       const page = createTestPage({ title: 'Custom Title' });
 
       expect(page.title).toBe('Custom Title');
     });
 
-    test('ratingが正しく設定される', () => {
+    test('rating is correctly set', () => {
       const page = createTestPage({ rating: 100 });
 
       expect(page.rating).toBe(100);
     });
 
-    test('tagsが正しく設定される', () => {
+    test('tags are correctly set', () => {
       const page = createTestPage({ tags: ['scp', 'euclid'] });
 
       expect(page.tags).toEqual(['scp', 'euclid']);
     });
   });
 
-  describe('URL生成', () => {
-    test('getUrl()がSSL対応サイトの正しいURLを返す', () => {
+  describe('URL generation', () => {
+    test('getUrl() returns correct URL for SSL-enabled site', () => {
       const page = createTestPage({ fullname: 'scp-001' });
 
       const url = page.getUrl();
@@ -125,20 +125,20 @@ describe('Pageデータクラス', () => {
     });
   });
 
-  describe('ページID', () => {
-    test('初期状態ではidがnull', () => {
+  describe('Page ID', () => {
+    test('id is null in initial state', () => {
       const page = createTestPage();
 
       expect(page.id).toBeNull();
     });
 
-    test('isIdAcquired()が初期状態でfalseを返す', () => {
+    test('isIdAcquired() returns false in initial state', () => {
       const page = createTestPage();
 
       expect(page.isIdAcquired()).toBe(false);
     });
 
-    test('idを設定するとisIdAcquired()がtrueを返す', () => {
+    test('isIdAcquired() returns true after setting id', () => {
       const page = createTestPage();
       page.id = 12345;
 
@@ -147,74 +147,74 @@ describe('Pageデータクラス', () => {
     });
   });
 
-  describe('統計情報', () => {
-    test('childrenCountが正しく設定される', () => {
+  describe('Statistics', () => {
+    test('childrenCount is correctly set', () => {
       const page = createTestPage({ childrenCount: 5 });
 
       expect(page.childrenCount).toBe(5);
     });
 
-    test('commentsCountが正しく設定される', () => {
+    test('commentsCount is correctly set', () => {
       const page = createTestPage({ commentsCount: 10 });
 
       expect(page.commentsCount).toBe(10);
     });
 
-    test('sizeが正しく設定される', () => {
+    test('size is correctly set', () => {
       const page = createTestPage({ size: 5000 });
 
       expect(page.size).toBe(5000);
     });
 
-    test('votesCountが正しく設定される', () => {
+    test('votesCount is correctly set', () => {
       const page = createTestPage({ votesCount: 25 });
 
       expect(page.votesCount).toBe(25);
     });
 
-    test('revisionsCountが正しく設定される', () => {
+    test('revisionsCount is correctly set', () => {
       const page = createTestPage({ revisionsCount: 10 });
 
       expect(page.revisionsCount).toBe(10);
     });
   });
 
-  describe('親ページ', () => {
-    test('parentFullnameがnullの場合', () => {
+  describe('Parent page', () => {
+    test('parentFullname when null', () => {
       const page = createTestPage({ parentFullname: null });
 
       expect(page.parentFullname).toBeNull();
     });
 
-    test('parentFullnameが設定される場合', () => {
+    test('parentFullname when set', () => {
       const page = createTestPage({ parentFullname: 'parent-page' });
 
       expect(page.parentFullname).toBe('parent-page');
     });
   });
 
-  describe('日時情報', () => {
-    test('createdAtが設定される', () => {
+  describe('Timestamps', () => {
+    test('createdAt is set', () => {
       const date = new Date('2024-01-01T00:00:00Z');
       const page = createTestPage({ createdAt: date });
 
       expect(page.createdAt).toEqual(date);
     });
 
-    test('updatedAtが設定される', () => {
+    test('updatedAt is set', () => {
       const date = new Date('2024-01-02T00:00:00Z');
       const page = createTestPage({ updatedAt: date });
 
       expect(page.updatedAt).toEqual(date);
     });
 
-    test('commentedAtがnullの場合', () => {
+    test('commentedAt when null', () => {
       const page = createTestPage({ commentedAt: null });
 
       expect(page.commentedAt).toBeNull();
     });
 
-    test('commentedAtが設定される場合', () => {
+    test('commentedAt when set', () => {
       const date = new Date('2024-01-03T00:00:00Z');
       const page = createTestPage({ commentedAt: date });
 
