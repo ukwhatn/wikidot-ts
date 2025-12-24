@@ -1,47 +1,47 @@
-## 概要
+## Summary
 
-<!-- このPRの目的・背景を簡潔に説明してください -->
+<!-- Briefly explain the purpose and background of this PR -->
 
-## 関連Issue
+## Related Issue
 
-<!-- 関連するIssueがあればリンクしてください -->
-<!-- 例: resolves #123 / fixes #456 / closes #789 -->
+<!-- Link any related issues if applicable -->
+<!-- e.g.: resolves #123 / fixes #456 / closes #789 -->
 
-## 変更内容
+## Changes
 
-<!-- 具体的に何を変更したかを箇条書きで記載してください -->
+<!-- List the specific changes made in bullet points -->
 
 -
 
-## 変更の種類
+## Type of Change
 
-<!-- 該当するものにチェックを入れてください -->
+<!-- Check all that apply -->
 
-- [ ] バグ修正 (既存の機能を壊さない修正)
-- [ ] 新機能 (既存の機能を壊さない追加)
-- [ ] 破壊的変更 (既存の機能に影響を与える変更)
-- [ ] ドキュメント更新
-- [ ] リファクタリング
-- [ ] テスト追加・修正
-- [ ] CI/CD・ビルド関連
+- [ ] Bug fix (non-breaking fix for existing functionality)
+- [ ] New feature (non-breaking addition)
+- [ ] Breaking change (change that affects existing functionality)
+- [ ] Documentation update
+- [ ] Refactoring
+- [ ] Test addition/modification
+- [ ] CI/CD or build related
 
-## テスト
+## Testing
 
-<!-- テスト方法や結果を記載してください -->
+<!-- Describe how the changes were tested -->
 
-- [ ] `bun run format` パス
-- [ ] `bun run lint` パス
-- [ ] `bun run typecheck` パス
-- [ ] `bun test` パス
+- [ ] `bun run format` passed
+- [ ] `bun run lint` passed
+- [ ] `bun run typecheck` passed
+- [ ] `bun test` passed
 
-## チェックリスト
+## Checklist
 
-<!-- PRを出す前に確認してください -->
+<!-- Verify before submitting the PR -->
 
-- [ ] コードがプロジェクトのスタイルガイドに従っている
-- [ ] 必要に応じてドキュメントを更新した
-- [ ] 変更に対するテストを追加した（該当する場合）
+- [ ] Code follows the project's style guide
+- [ ] Documentation has been updated as needed
+- [ ] Tests have been added for the changes (if applicable)
 
-## 補足情報
+## Additional Information
 
-<!-- レビュワーへの伝達事項、スクリーンショット等があれば記載してください -->
+<!-- Any notes for reviewers, screenshots, etc. -->
