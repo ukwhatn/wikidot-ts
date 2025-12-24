@@ -98,7 +98,8 @@ export class PageMetaCollection extends Array<PageMeta> {
         // HTMLエンコードされたメタタグを正規表現でパース
         // 形式: &lt;meta name="xxx" content="yyy"/&gt;
         const metaRegex = /&lt;meta name="([^"]+)" content="([^"]*)"\/?&gt;/g;
-        for (const match of html.matchAll(metaRegex)) {
+        let match: RegExpExecArray | null;
+        while ((match = metaRegex.exec(html)) !== null) {
           const name = match[1];
           const content = match[2];
           if (name) {
