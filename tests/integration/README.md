@@ -1,86 +1,86 @@
-# 統合テスト
+# Integration Tests
 
-## 概要
+## Overview
 
-このディレクトリには、実際のWikidotサーバー（ukwhatn-ci.wikidot.com）に対する統合テストが含まれています。
+This directory contains integration tests that run against an actual Wikidot server (ukwhatn-ci.wikidot.com).
 
-## 環境設定
+## Environment Setup
 
-### 必要な環境変数
+### Required Environment Variables
 
 ```bash
 export WIKIDOT_USERNAME=your_username
 export WIKIDOT_PASSWORD=your_password
 ```
 
-### テストサイト
+### Test Site
 
-- サイト名: `ukwhatn-ci.wikidot.com`
-- 要件: テストアカウントがサイトのメンバーであること
+- Site name: `ukwhatn-ci.wikidot.com`
+- Requirement: Test account must be a member of the site
 
-## テスト実行
+## Running Tests
 
 ```bash
-# 統合テストのみ実行
+# Run integration tests only
 cd /Users/yuki.c.watanabe/dev/scp/libs/wikidot-ts
 bun test tests/integration/
 
-# 特定のテストファイルを実行
+# Run a specific test file
 bun test tests/integration/page-lifecycle.test.ts
 
-# 全テスト（ユニット + 統合）
+# Run all tests (unit + integration)
 bun test
 ```
 
-## テストカバー範囲
+## Test Coverage
 
-| テストファイル | カバー機能 |
-|--------------|----------|
-| site.test.ts | サイト取得、ページ取得 |
-| page-lifecycle.test.ts | ページ作成、取得、編集、削除 |
-| page-tags.test.ts | タグ追加、変更、削除 |
-| page-meta.test.ts | メタ設定、取得、更新、削除 |
-| page-revision.test.ts | リビジョン履歴取得、最新リビジョン取得 |
-| page-votes.test.ts | 投票情報取得 |
-| page-discussion.test.ts | ディスカッション取得、投稿作成 |
-| forum-category.test.ts | フォーラムカテゴリ一覧、スレッド取得 |
-| user.test.ts | ユーザー検索、一括取得 |
-| pm.test.ts | 受信箱/送信箱取得、メッセージ確認 |
+| Test File | Covered Features |
+|-----------|------------------|
+| site.test.ts | Site retrieval, page retrieval |
+| page-lifecycle.test.ts | Page creation, retrieval, editing, deletion |
+| page-tags.test.ts | Tag addition, modification, deletion |
+| page-meta.test.ts | Meta setting, retrieval, update, deletion |
+| page-revision.test.ts | Revision history retrieval, latest revision retrieval |
+| page-votes.test.ts | Vote information retrieval |
+| page-discussion.test.ts | Discussion retrieval, post creation |
+| forum-category.test.ts | Forum category listing, thread retrieval |
+| user.test.ts | User search, bulk retrieval |
+| pm.test.ts | Inbox/outbox retrieval, message verification |
 
-## スキップ対象機能
+## Skipped Features
 
-以下の機能は統合テストからスキップされています:
+The following features are skipped in integration tests:
 
-### 1. サイト参加申請
-- 理由: テストサイトへの参加申請は手動承認が必要
-- 該当API: `site.application.*`
+### 1. Site Join Application
+- Reason: Site join applications require manual approval
+- Related API: `site.application.*`
 
-### 2. プライベートメッセージ送信
-- 理由: 実ユーザーへのメッセージ送信を避けるため
-- 該当API: `client.privateMessage.send()`
-- 備考: 取得のみテスト。事前にInbox/Outboxにメッセージを入れておくこと
+### 2. Private Message Sending
+- Reason: To avoid sending messages to real users
+- Related API: `client.privateMessage.send()`
+- Note: Only retrieval is tested. Messages must be pre-populated in Inbox/Outbox
 
-### 3. フォーラムカテゴリ/スレッド作成
-- 理由: フォーラム構造への永続的な変更を避けるため
-- 該当API: `site.forum.createThread()`
-- 備考: ページディスカッションへの投稿のみテスト
+### 3. Forum Category/Thread Creation
+- Reason: To avoid permanent changes to forum structure
+- Related API: `site.forum.createThread()`
+- Note: Only page discussion posts are tested
 
-### 4. メンバー招待
-- 理由: 実ユーザーへの招待を避けるため
-- 該当API: `site.member.invite()`
+### 4. Member Invitation
+- Reason: To avoid inviting real users
+- Related API: `site.member.invite()`
 
-## クリーンアップ戦略
+## Cleanup Strategy
 
-1. 各テストの`beforeAll`でテスト用ページを作成
-2. `afterAll`で作成したページを削除
-3. 削除失敗時はログ出力して続行
-4. ページ命名: `{prefix}-{timestamp}-{random6chars}` 形式で衝突を回避
+1. Create test pages in each test's `beforeAll`
+2. Delete created pages in `afterAll`
+3. Log and continue on deletion failure
+4. Page naming: `{prefix}-{timestamp}-{random6chars}` format to avoid collisions
 
-## 注意事項
+## Notes
 
-- 環境変数が未設定の場合、統合テストは自動的にスキップされます
-- テストは各ファイル内で順次実行されます（テスト間に依存関係がある場合があるため）
-- APIレート制限に注意してください
-- テスト実行後、クリーンアップに失敗したページが残る場合があります
-  - ページ名プレフィックス（`test-`）で識別可能
-  - 必要に応じて手動削除してください
+- Integration tests are automatically skipped if environment variables are not set
+- Tests are executed sequentially within each file (some tests may have dependencies)
+- Be aware of API rate limits
+- Pages may remain after test execution if cleanup fails
+  - Identifiable by page name prefix (`test-`)
+  - Delete manually if needed
