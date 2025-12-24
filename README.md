@@ -1,187 +1,187 @@
 # wikidot-ts
 
-TypeScriptでWikidotサイトと対話するための非同期ユーティリティライブラリ。
+An async utility library for interacting with Wikidot sites in TypeScript.
 
-## 概要
+## Overview
 
-wikidot-tsは、Wikidot APIを操作するためのTypeScriptライブラリです。ページの取得・編集、フォーラム操作、プライベートメッセージ、ユーザー情報の取得など、Wikidotの主要機能をサポートしています。
+wikidot-ts is a TypeScript library for working with the Wikidot API. It supports major Wikidot features including page retrieval and editing, forum operations, private messages, and user information retrieval.
 
-## 特徴
+## Features
 
-- 型安全なAPI（TypeScript完全対応）
-- Result型によるエラーハンドリング（neverthrow使用）
-- 非同期処理の完全サポート
-- ページ、フォーラム、プライベートメッセージなど主要機能をカバー
-- wikidot.pyとの高い互換性
+- Type-safe API (full TypeScript support)
+- Result-based error handling (using neverthrow)
+- Full async/await support
+- Covers major features: pages, forums, private messages, and more
+- High compatibility with wikidot.py
 
-## インストール
+## Installation
 
 ```bash
 bun add @ukwhatn/wikidot
 ```
 
-または
+or
 
 ```bash
 npm install @ukwhatn/wikidot
 ```
 
-## 基本的な使い方
+## Basic Usage
 
-このライブラリは`neverthrow`のResult型を使用します。すべての非同期メソッドは`WikidotResultAsync<T>`を返し、`isOk()`で成功を確認後、`.value`で値を取得します。
+This library uses the Result type from `neverthrow`. All async methods return `WikidotResultAsync<T>`. Check success with `isOk()`, then access the value with `.value`.
 
-### クライアントの作成
+### Creating a Client
 
 ```typescript
 import { Client } from '@ukwhatn/wikidot';
 
-// ログインなしでアクセス（公開情報のみ）
+// Access without login (public information only)
 const clientResult = await Client.create();
 if (!clientResult.isOk()) {
-  throw new Error('クライアントの作成に失敗しました');
+  throw new Error('Failed to create client');
 }
 const client = clientResult.value;
 
-// ログインしてアクセス
+// Access with login
 const authClientResult = await Client.create({
   username: 'your_username',
   password: 'your_password',
 });
 if (!authClientResult.isOk()) {
-  throw new Error('ログインに失敗しました');
+  throw new Error('Login failed');
 }
 const authClient = authClientResult.value;
 ```
 
-### サイトの取得
+### Retrieving a Site
 
 ```typescript
-// サイトを取得
+// Get a site
 const siteResult = await client.site.get('scp-jp');
 if (!siteResult.isOk()) {
-  throw new Error('サイトの取得に失敗しました');
+  throw new Error('Failed to retrieve site');
 }
 const site = siteResult.value;
-console.log(`サイト: ${site.title}`);
+console.log(`Site: ${site.title}`);
 ```
 
-### ページの操作
+### Page Operations
 
 ```typescript
-// ページを検索
+// Search pages
 const pagesResult = await site.pages.search({ category: 'scp', tags: ['safe'] });
 if (!pagesResult.isOk()) {
-  throw new Error('ページの検索に失敗しました');
+  throw new Error('Failed to search pages');
 }
 for (const page of pagesResult.value) {
   console.log(`${page.fullname}: ${page.title}`);
 }
 
-// 単一ページを取得
+// Get a single page
 const pageResult = await site.page.get('scp-001');
 if (!pageResult.isOk()) {
-  throw new Error('ページの取得に失敗しました');
+  throw new Error('Failed to retrieve page');
 }
 const page = pageResult.value;
-console.log(`タイトル: ${page.title}`);
-console.log(`レーティング: ${page.rating}`);
+console.log(`Title: ${page.title}`);
+console.log(`Rating: ${page.rating}`);
 ```
 
-### フォーラムの操作
+### Forum Operations
 
 ```typescript
-// フォーラムカテゴリを取得
+// Get forum categories
 const categoriesResult = await site.forum.getCategories();
 if (!categoriesResult.isOk()) {
-  throw new Error('フォーラムカテゴリの取得に失敗しました');
+  throw new Error('Failed to retrieve forum categories');
 }
 for (const category of categoriesResult.value) {
-  console.log(`カテゴリ: ${category.title}`);
+  console.log(`Category: ${category.title}`);
 }
 
-// スレッドに返信（要ログイン）
+// Reply to a thread (requires login)
 const threadResult = await site.forum.getThread(12345);
 if (!threadResult.isOk()) {
-  throw new Error('スレッドの取得に失敗しました');
+  throw new Error('Failed to retrieve thread');
 }
 const thread = threadResult.value;
-await thread.reply('返信内容', 'Re: タイトル');
+await thread.reply('Reply content', 'Re: Title');
 ```
 
-### プライベートメッセージ（要ログイン）
+### Private Messages (requires login)
 
 ```typescript
-// 受信箱を取得
+// Get inbox
 const inboxResult = await client.privateMessage.inbox();
 if (!inboxResult.isOk()) {
-  throw new Error('受信箱の取得に失敗しました');
+  throw new Error('Failed to retrieve inbox');
 }
 for (const message of inboxResult.value) {
   console.log(`From: ${message.sender.name}, Subject: ${message.subject}`);
 }
 
-// メッセージを送信
-await client.privateMessage.send(recipientUser, '件名', '本文');
+// Send a message
+await client.privateMessage.send(recipientUser, 'Subject', 'Body');
 
-// メッセージを検索
-const searchResult = await client.privateMessage.search('検索クエリ', 'all');
+// Search messages
+const searchResult = await client.privateMessage.search('search query', 'all');
 ```
 
-## エラーハンドリング
+## Error Handling
 
-wikidot-tsは`neverthrow`ライブラリを使用したResult型でエラーを処理します。
+wikidot-ts handles errors using the Result type from the `neverthrow` library.
 
 ```typescript
 const result = await site.page.get('non-existent-page');
 
 if (result.isOk()) {
   const page = result.value;
-  // 成功時の処理
+  // Handle success
 } else {
   const error = result.error;
   if (error instanceof NotFoundException) {
-    console.log('ページが見つかりません');
+    console.log('Page not found');
   } else if (error instanceof ForbiddenError) {
-    console.log('アクセス権限がありません');
+    console.log('Access denied');
   }
 }
 ```
 
-## 主要なエラー型
+## Main Error Types
 
-| エラー | 説明 |
-|--------|------|
-| `LoginRequiredError` | ログインが必要な操作 |
-| `NotFoundException` | リソースが見つからない |
-| `ForbiddenError` | アクセス権限がない |
-| `TargetExistsError` | リソースが既に存在する |
-| `WikidotStatusError` | Wikidot APIエラー |
+| Error | Description |
+|-------|-------------|
+| `LoginRequiredError` | Operation requires login |
+| `NotFoundException` | Resource not found |
+| `ForbiddenError` | Access denied |
+| `TargetExistsError` | Resource already exists |
+| `WikidotStatusError` | Wikidot API error |
 
-## wikidot.pyとの差異
+## Differences from wikidot.py
 
-wikidot-tsはwikidot.pyからの移植ですが、TypeScriptの慣習に合わせていくつかの違いがあります。
+wikidot-ts is a port of wikidot.py, with some differences to follow TypeScript conventions.
 
-### プロパティ → メソッド変換
+### Property to Method Conversion
 
-Pythonの`@property`デコレータを使用したプロパティは、TypeScriptではgetterメソッドとして実装されています。
+Python properties using the `@property` decorator are implemented as getter methods in TypeScript.
 
 | Python (wikidot.py) | TypeScript (wikidot-ts) |
 |---------------------|------------------------|
 | `site.base_url` | `site.getBaseUrl()` |
 | `page.url` | `page.getUrl()` |
-| `user.avatar_url` | `user.avatarUrl` (読み取り専用プロパティ) |
+| `user.avatar_url` | `user.avatarUrl` (readonly property) |
 
-### 命名規則
+### Naming Conventions
 
-- スネークケース → キャメルケース
-  - `page.fullname` (変更なし)
-  - `page.children_count` → `page.childrenCount`
-  - `page.created_by` → `page.createdBy`
+- snake_case to camelCase
+  - `page.fullname` (unchanged)
+  - `page.children_count` to `page.childrenCount`
+  - `page.created_by` to `page.createdBy`
 
-### エラーハンドリング
+### Error Handling
 
-- Python: 例外をスロー
-- TypeScript: `Result`型を返却（`neverthrow`使用）
+- Python: Throws exceptions
+- TypeScript: Returns `Result` type (using `neverthrow`)
 
 ```python
 # Python
@@ -201,49 +201,49 @@ if (result.isErr()) {
 }
 ```
 
-### オプション引数
+### Optional Arguments
 
-一部のメソッドでは、Python版と同様のオプション引数をサポートしています。
+Some methods support optional arguments similar to the Python version.
 
 ```typescript
-// raiseWhenNotFound オプション
+// raiseWhenNotFound option
 const user = await client.user.get("username", { raiseWhenNotFound: true });
 
-// returnExceptions オプション（AMCClient）
+// returnExceptions option (AMCClient)
 const results = await client.amcClient.requestWithOptions(bodies, { returnExceptions: true });
 ```
 
-## 開発
+## Development
 
-### セットアップ
+### Setup
 
 ```bash
 bun install
 ```
 
-### コマンド
+### Commands
 
 ```bash
-# 型チェック
+# Type check
 bun run typecheck
 
 # Lint
 bun run lint
 
-# フォーマット
+# Format
 bun run format
 
-# テスト
+# Test
 bun test
 
-# ビルド
+# Build
 bun run build
 ```
 
-## ライセンス
+## License
 
 MIT
 
-## 関連プロジェクト
+## Related Projects
 
-- [wikidot.py](https://github.com/ukwhatn/wikidot.py) - Python版のWikidotライブラリ
+- [wikidot.py](https://github.com/ukwhatn/wikidot.py) - Python version of the Wikidot library
