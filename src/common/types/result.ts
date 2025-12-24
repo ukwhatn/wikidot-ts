@@ -1,31 +1,31 @@
 import { err, errAsync, ok, okAsync, type Result, ResultAsync } from 'neverthrow';
 import type { WikidotError } from '../errors';
 
-/** 同期Result型エイリアス */
+/** Synchronous Result type alias */
 export type WikidotResult<T> = Result<T, WikidotError>;
 
-/** 非同期Result型エイリアス */
+/** Asynchronous Result type alias */
 export type WikidotResultAsync<T> = ResultAsync<T, WikidotError>;
 
-/** 成功Resultを生成 */
+/** Create success Result */
 export const wdOk = <T>(value: T): WikidotResult<T> => ok(value);
 
-/** エラーResultを生成 */
+/** Create error Result */
 export const wdErr = <E extends WikidotError>(error: E): WikidotResult<never> => err(error);
 
-/** 成功ResultAsyncを生成 */
+/** Create success ResultAsync */
 export const wdOkAsync = <T>(value: T): WikidotResultAsync<T> => okAsync(value);
 
-/** エラーResultAsyncを生成 */
+/** Create error ResultAsync */
 export const wdErrAsync = <E extends WikidotError>(error: E): WikidotResultAsync<never> =>
   errAsync(error);
 
-/** Promiseからの変換 */
+/** Convert from Promise */
 export const fromPromise = <T>(
   promise: Promise<T>,
   errorMapper: (error: unknown) => WikidotError
 ): WikidotResultAsync<T> => ResultAsync.fromPromise(promise, errorMapper);
 
-/** 複数ResultAsyncの結合 */
+/** Combine multiple ResultAsync */
 export const combineResults = <T>(results: WikidotResultAsync<T>[]): WikidotResultAsync<T[]> =>
   ResultAsync.combine(results);

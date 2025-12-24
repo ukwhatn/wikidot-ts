@@ -1,19 +1,19 @@
 import { WikidotError } from './base';
 
 /**
- * セッション関連の基底エラー
+ * Base error for session related issues
  */
 export class SessionError extends WikidotError {}
 
 /**
- * セッション作成失敗エラー
- * ログイン試行が失敗した場合にスロー
+ * Session creation failure error
+ * Thrown when a login attempt fails
  */
 export class SessionCreateError extends SessionError {}
 
 /**
- * ログイン必須エラー
- * 認証が必要な操作を未ログイン状態で実行した場合にスロー
+ * Login required error
+ * Thrown when an authenticated operation is attempted without login
  */
 export class LoginRequiredError extends SessionError {
   constructor(message = 'Login is required for this operation') {

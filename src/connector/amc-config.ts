@@ -1,27 +1,27 @@
 /**
- * Ajax Module Connector設定
+ * Ajax Module Connector configuration
  */
 export interface AMCConfig {
-  /** リクエストタイムアウト（ミリ秒） */
+  /** Request timeout (milliseconds) */
   timeout: number;
 
-  /** リトライ上限回数 */
+  /** Maximum retry count */
   retryLimit: number;
 
-  /** リトライ基本間隔（ミリ秒） */
+  /** Base retry interval (milliseconds) */
   retryInterval: number;
 
-  /** 最大バックオフ（ミリ秒） */
+  /** Maximum backoff (milliseconds) */
   maxBackoff: number;
 
-  /** バックオフ係数 */
+  /** Backoff factor */
   backoffFactor: number;
 
-  /** 最大並列リクエスト数 */
+  /** Maximum concurrent requests */
   semaphoreLimit: number;
 }
 
-/** デフォルトAMC設定 */
+/** Default AMC configuration */
 export const DEFAULT_AMC_CONFIG: AMCConfig = {
   timeout: 20000,
   retryLimit: 5,
@@ -32,14 +32,14 @@ export const DEFAULT_AMC_CONFIG: AMCConfig = {
 };
 
 /**
- * Wikidotが要求する固定トークン値
- * これはWikidotのフロントエンドから取得される固定値で、
- * セキュリティトークンではなく単なる識別子として使用される
+ * Fixed token value required by Wikidot
+ * This is a fixed value obtained from Wikidot's frontend,
+ * used as an identifier rather than a security token
  */
 export const WIKIDOT_TOKEN7 = '123456';
 
 /**
- * HTTPエラー時のフォールバックステータスコード
- * レスポンスからステータスコードを取得できない場合に使用
+ * Fallback HTTP status code for HTTP errors
+ * Used when status code cannot be retrieved from response
  */
 export const DEFAULT_HTTP_STATUS_CODE = 999;

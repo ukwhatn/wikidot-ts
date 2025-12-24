@@ -1,12 +1,12 @@
 /**
- * デコレータユーティリティ
+ * Decorator utilities
  */
 
 import { LoginRequiredError } from './errors';
 import { fromPromise, type WikidotResultAsync, wdErrAsync } from './types';
 
 /**
- * クライアント参照を持つオブジェクトの型
+ * Type for objects that have a client reference
  */
 interface HasClient {
   client?: { requireLogin(): { isErr(): boolean; error?: Error } };
@@ -15,7 +15,7 @@ interface HasClient {
 }
 
 /**
- * オブジェクトからクライアント参照を取得する
+ * Get client reference from an object
  */
 function getClientRef(
   obj: HasClient
@@ -27,10 +27,10 @@ function getClientRef(
 }
 
 /**
- * ログイン必須メソッドデコレータ
+ * Login required method decorator
  *
- * このデコレータを適用したメソッドは、実行前にログイン状態をチェックする。
- * ログインしていない場合は LoginRequiredError を返す。
+ * Methods decorated with this will check login status before execution.
+ * Returns LoginRequiredError if not logged in.
  *
  * @example
  * class Page {
