@@ -39,6 +39,10 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:cov": "bun test --coverage",
+    "test:unit": "bun test tests/unit/",
+    "test:unit:cov": "bun test tests/unit/ --coverage",
+    "test:integration": "bun test tests/integration/",
+    "test:integration:cov": "bun test tests/integration/ --coverage",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
