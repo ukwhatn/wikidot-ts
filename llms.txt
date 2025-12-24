@@ -1,38 +1,38 @@
 # @ukwhatn/wikidot
 
-> TypeScriptでWikidotサイトと対話するための非同期ユーティリティライブラリ
+> An async utility library for interacting with Wikidot sites in TypeScript
 
-## 概要
+## Overview
 
-@ukwhatn/wikidotは、Wikidot APIを操作するTypeScriptライブラリ。ページ取得・編集、フォーラム操作、プライベートメッセージ、ユーザー情報取得などWikidotの主要機能をサポート。
+@ukwhatn/wikidot is a TypeScript library for working with the Wikidot API. It supports major Wikidot features including page retrieval and editing, forum operations, private messages, and user information retrieval.
 
-## 重要: Result型
+## Important: Result Type
 
-このライブラリはneverthrowのResult型を使用。すべての非同期メソッドは`WikidotResultAsync<T>`を返す。
+This library uses the Result type from neverthrow. All async methods return `WikidotResultAsync<T>`.
 
 ```typescript
-// 正しい使用法
+// Correct usage
 const clientResult = await Client.create();
 if (!clientResult.isOk()) {
-  throw new Error('失敗');
+  throw new Error('Failed');
 }
-const client = clientResult.value;  // ここでClient型が得られる
+const client = clientResult.value;  // Client type is obtained here
 ```
 
-## 主要コンポーネント
+## Main Components
 
 ### Client
 
-メインエントリポイント。認証とアクセサへのアクセスを提供。
+Main entry point. Provides authentication and accessor access.
 
 ```typescript
 import { Client } from '@ukwhatn/wikidot';
 
-// 未認証クライアント
+// Unauthenticated client
 const clientResult = await Client.create();
 const client = clientResult.value;
 
-// 認証済みクライアント
+// Authenticated client
 const authResult = await Client.create({ username, password });
 const authClient = authResult.value;
 
@@ -43,7 +43,7 @@ client.privateMessage  // PrivateMessageAccessor
 
 ### Site
 
-サイト操作。ページ、フォーラム、メンバーへのアクセス。
+Site operations. Access to pages, forums, and members.
 
 ```typescript
 const siteResult = await client.site.get('scp-jp');
@@ -57,17 +57,17 @@ site.member // MemberAccessor
 
 ### Page
 
-ページ操作。編集、削除、投票、ファイル、リビジョン。
+Page operations. Edit, delete, vote, files, and revisions.
 
 ```typescript
 const pageResult = await site.page.get('scp-001');
 const page = pageResult.value;
 
-page.title      // ページタイトル
-page.rating     // レーティング
-page.tags       // タグ配列
-page.createdBy  // 作成者
-page.createdAt  // 作成日時
+page.title      // Page title
+page.rating     // Rating
+page.tags       // Tags array
+page.createdBy  // Creator
+page.createdAt  // Creation date
 
 await page.edit({ source: 'new content' });
 await page.vote(1);
@@ -77,7 +77,7 @@ await page.getMetas();
 
 ### SearchPagesQuery
 
-ListPagesModuleのクエリ表現。
+Query expression for ListPagesModule.
 
 ```typescript
 const query = new SearchPagesQuery({
@@ -93,36 +93,36 @@ const pagesResult = await site.pages.search(query);
 
 ### ForumThread / ForumPost
 
-フォーラム操作。スレッド返信、投稿編集・削除。
+Forum operations. Thread replies, post editing and deletion.
 
 ```typescript
 const threadResult = await site.forum.getThread(12345);
 const thread = threadResult.value;
 
-await thread.reply('返信内容', 'タイトル');
-await thread.rename('新しいタイトル');
+await thread.reply('Reply content', 'Title');
+await thread.rename('New title');
 
 const postsResult = await thread.getPosts();
 const post = postsResult.value[0];
-await post.edit('新しい内容');
+await post.edit('New content');
 await post.delete();
 ```
 
 ### PrivateMessage
 
-プライベートメッセージ操作。受信箱、送信箱、検索。
+Private message operations. Inbox, sent box, and search.
 
 ```typescript
 const inboxResult = await client.privateMessage.inbox();
 const sentResult = await client.privateMessage.sentBox();
 const searchResult = await client.privateMessage.search('query', 'all');
 
-await client.privateMessage.send(user, '件名', '本文');
+await client.privateMessage.send(user, 'Subject', 'Body');
 ```
 
-## Result型
+## Result Type
 
-すべての非同期操作は`WikidotResultAsync<T>`を返す（neverthrowベース）。
+All async operations return `WikidotResultAsync<T>` (neverthrow-based).
 
 ```typescript
 const result = await site.page.get('page-name');
@@ -134,7 +134,7 @@ if (result.isOk()) {
 }
 ```
 
-## エラー階層
+## Error Hierarchy
 
 ```
 WikidotError
@@ -151,79 +151,79 @@ WikidotError
 └── NoElementError
 ```
 
-## User階層
+## User Hierarchy
 
 ```
 AbstractUser
-├── User           # 通常ユーザー
-├── DeletedUser    # 削除済み
-├── AnonymousUser  # 匿名（IP付き）
-├── GuestUser      # ゲスト
-└── WikidotUser    # システム
+├── User           # Regular user
+├── DeletedUser    # Deleted user
+├── AnonymousUser  # Anonymous (with IP)
+├── GuestUser      # Guest
+└── WikidotUser    # System user
 ```
 
-## ディレクトリ構造
+## Directory Structure
 
 ```
 src/
-├── common/           # 共通ユーティリティ
-│   ├── errors/       # エラー定義
-│   └── types.ts      # Result型定義
-├── connector/        # HTTP通信
+├── common/           # Common utilities
+│   ├── errors/       # Error definitions
+│   └── types.ts      # Result type definitions
+├── connector/        # HTTP communication
 │   ├── amc-client.ts # AjaxModuleConnector
-│   └── amc-config.ts # 設定
-├── module/           # コアモジュール
+│   └── amc-config.ts # Configuration
+├── module/           # Core modules
 │   ├── client/       # Client
 │   ├── site/         # Site
-│   ├── page/         # Page, PageRevision, PageFile等
+│   ├── page/         # Page, PageRevision, PageFile, etc.
 │   ├── forum/        # ForumCategory, ForumThread, ForumPost
 │   ├── private-message/ # PrivateMessage
-│   ├── user/         # User階層
-│   └── types.ts      # 共有インターフェース
-└── util/             # ユーティリティ
-    ├── parser/       # HTMLパーサー
+│   ├── user/         # User hierarchy
+│   └── types.ts      # Shared interfaces
+└── util/             # Utilities
+    ├── parser/       # HTML parser
     └── quick-module.ts # QuickModule API
 ```
 
-## 主要メソッド一覧
+## Main Methods List
 
 ### Client
-- `site.get(unixName)` - サイト取得
-- `user.get(username)` - ユーザー取得
-- `privateMessage.inbox()` - 受信箱取得
-- `privateMessage.sentBox()` - 送信箱取得
-- `privateMessage.send(user, subject, body)` - メッセージ送信
-- `privateMessage.search(query, searchType)` - メッセージ検索
+- `site.get(unixName)` - Get site
+- `user.get(username)` - Get user
+- `privateMessage.inbox()` - Get inbox
+- `privateMessage.sentBox()` - Get sent box
+- `privateMessage.send(user, subject, body)` - Send message
+- `privateMessage.search(query, searchType)` - Search messages
 
 ### Site
-- `page.get(fullname)` - ページ取得
-- `pages.search(query)` - ページ検索
-- `pages.all()` - 全ページ取得
-- `pages.getRecentChanges()` - 最近の変更
-- `forum.getCategories()` - カテゴリ一覧
-- `forum.getThread(id)` - スレッド取得
-- `member.getAll()` - メンバー一覧
-- `member.lookup(query)` - メンバー検索
+- `page.get(fullname)` - Get page
+- `pages.search(query)` - Search pages
+- `pages.all()` - Get all pages
+- `pages.getRecentChanges()` - Get recent changes
+- `forum.getCategories()` - Get category list
+- `forum.getThread(id)` - Get thread
+- `member.getAll()` - Get member list
+- `member.lookup(query)` - Search members
 
 ### Page
-- `edit(options)` - ページ編集
-- `destroy()` - ページ削除
-- `rename(newFullname)` - ページ名変更
-- `vote(value)` - 投票
-- `cancelVote()` - 投票キャンセル
-- `commitTags()` - タグ保存
-- `setParent(fullname)` - 親ページ設定
-- `getFiles()` - ファイル一覧
-- `getMetas()` - メタタグ取得
-- `setMeta(name, content)` - メタタグ設定
-- `deleteMeta(name)` - メタタグ削除
+- `edit(options)` - Edit page
+- `destroy()` - Delete page
+- `rename(newFullname)` - Rename page
+- `vote(value)` - Vote
+- `cancelVote()` - Cancel vote
+- `commitTags()` - Save tags
+- `setParent(fullname)` - Set parent page
+- `getFiles()` - Get file list
+- `getMetas()` - Get meta tags
+- `setMeta(name, content)` - Set meta tag
+- `deleteMeta(name)` - Delete meta tag
 
 ### ForumThread
-- `getPosts()` - 投稿一覧
-- `reply(source, title)` - 返信
-- `rename(newTitle)` - タイトル変更
+- `getPosts()` - Get post list
+- `reply(source, title)` - Reply
+- `rename(newTitle)` - Change title
 
 ### ForumPost
-- `getSource()` - ソース取得
-- `edit(source, title)` - 編集
-- `delete()` - 削除
+- `getSource()` - Get source
+- `edit(source, title)` - Edit
+- `delete()` - Delete
