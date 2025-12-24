@@ -9,7 +9,7 @@ import { PageAccessor } from './accessors/page-accessor';
 import { PagesAccessor } from './accessors/pages-accessor';
 
 /**
- * サイトデータ
+ * Site data
  */
 export interface SiteData {
   id: number;
@@ -20,36 +20,36 @@ export interface SiteData {
 }
 
 /**
- * サイトクラス
+ * Site class
  */
 export class Site {
   public readonly client: Client;
 
-  /** サイトID */
+  /** Site ID */
   public readonly id: number;
 
-  /** サイトタイトル */
+  /** Site title */
   public readonly title: string;
 
-  /** UNIX名（例: scp-jp） */
+  /** UNIX name (e.g., scp-jp) */
   public readonly unixName: string;
 
-  /** ドメイン */
+  /** Domain */
   public readonly domain: string;
 
-  /** SSL対応フラグ */
+  /** SSL support flag */
   public readonly sslSupported: boolean;
 
-  /** ページアクセサ */
+  /** Page accessor */
   private _page: PageAccessor | null = null;
 
-  /** ページ一覧アクセサ */
+  /** Pages accessor */
   private _pages: PagesAccessor | null = null;
 
-  /** フォーラムアクセサ */
+  /** Forum accessor */
   private _forum: ForumAccessor | null = null;
 
-  /** メンバーアクセサ */
+  /** Member accessor */
   private _member: MemberAccessor | null = null;
 
   constructor(client: Client, data: SiteData) {
@@ -62,7 +62,7 @@ export class Site {
   }
 
   /**
-   * ページアクセサを取得
+   * Get page accessor
    */
   get page(): PageAccessor {
     if (!this._page) {
@@ -72,7 +72,7 @@ export class Site {
   }
 
   /**
-   * ページ一覧アクセサを取得
+   * Get pages accessor
    */
   get pages(): PagesAccessor {
     if (!this._pages) {
@@ -82,7 +82,7 @@ export class Site {
   }
 
   /**
-   * フォーラムアクセサを取得
+   * Get forum accessor
    */
   get forum(): ForumAccessor {
     if (!this._forum) {
@@ -92,7 +92,7 @@ export class Site {
   }
 
   /**
-   * メンバーアクセサを取得
+   * Get member accessor
    */
   get member(): MemberAccessor {
     if (!this._member) {
@@ -102,7 +102,7 @@ export class Site {
   }
 
   /**
-   * サイトのベースURLを取得
+   * Get base URL of the site
    */
   getBaseUrl(): string {
     const protocol = this.sslSupported ? 'https' : 'http';
@@ -110,18 +110,18 @@ export class Site {
   }
 
   /**
-   * サイトへのAMCリクエストを実行
-   * @param bodies - リクエストボディ配列
-   * @returns AMCレスポンス配列
+   * Execute AMC request to this site
+   * @param bodies - Request body array
+   * @returns AMC response array
    */
   amcRequest(bodies: AMCRequestBody[]): WikidotResultAsync<AMCResponse[]> {
     return this.client.amcClient.request(bodies, this.unixName, this.sslSupported);
   }
 
   /**
-   * 単一のAMCリクエストを実行
-   * @param body - リクエストボディ
-   * @returns AMCレスポンス
+   * Execute a single AMC request
+   * @param body - Request body
+   * @returns AMC response
    */
   amcRequestSingle(body: AMCRequestBody): WikidotResultAsync<AMCResponse> {
     return fromPromise(
@@ -146,15 +146,15 @@ export class Site {
   }
 
   /**
-   * UNIX名からサイトを取得する
-   * @param client - クライアント
-   * @param unixName - サイトのUNIX名（例: 'scp-jp'）
-   * @returns サイト
+   * Get site from UNIX name
+   * @param client - Client
+   * @param unixName - Site UNIX name (e.g., 'scp-jp')
+   * @returns Site
    */
   static fromUnixName(client: Client, unixName: string): WikidotResultAsync<Site> {
     return fromPromise(
       (async () => {
-        // サイトページを取得（HTTPでリクエストし、リダイレクトに従う）
+        // Fetch site page (HTTP request, following redirects)
         const url = `http://${unixName}.wikidot.com`;
         const response = await fetch(url, {
           headers: client.amcClient.header.getHeaders(),
@@ -170,7 +170,7 @@ export class Site {
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        // WIKIREQUEST.info を解析
+        // Parse WIKIREQUEST.info
         const scripts = $('script').toArray();
         let siteId: number | null = null;
         let siteUnixName: string | null = null;
@@ -224,7 +224,7 @@ export class Site {
           title = unixName; // Fallback
         }
 
-        // SSL対応チェック（リダイレクト後のURLがhttpsで始まるかどうかで判断）
+        // Check SSL support (based on whether the redirect URL starts with https)
         const sslSupported = response.url.startsWith('https');
 
         return new Site(client, {

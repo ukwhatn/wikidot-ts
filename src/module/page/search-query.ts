@@ -1,56 +1,56 @@
 import type { AbstractUser } from '../user';
 
 /**
- * ページ検索クエリのパラメータ
+ * Page search query parameters
  */
 export interface SearchPagesQueryParams {
-  /** ページタイプ（例: 'normal', 'admin'） */
+  /** Page type (e.g., 'normal', 'admin') */
   pagetype?: string;
-  /** カテゴリ名 */
+  /** Category name */
   category?: string;
-  /** 検索対象タグ（AND条件） */
+  /** Tags to search (AND condition) */
   tags?: string | string[];
-  /** 親ページ名 */
+  /** Parent page name */
   parent?: string;
-  /** リンク先ページ名 */
+  /** Linked page name */
   linkTo?: string;
-  /** 作成日時条件 */
+  /** Created date condition */
   createdAt?: string;
-  /** 更新日時条件 */
+  /** Updated date condition */
   updatedAt?: string;
-  /** 作成者 */
+  /** Creator */
   createdBy?: AbstractUser | string;
-  /** レーティング条件 */
+  /** Rating condition */
   rating?: string;
-  /** 投票数条件 */
+  /** Vote count condition */
   votes?: string;
-  /** ページ名条件 */
+  /** Page name condition */
   name?: string;
-  /** フルネーム（完全一致） */
+  /** Fullname (exact match) */
   fullname?: string;
-  /** 範囲指定 */
+  /** Range specification */
   range?: string;
-  /** ソート順（例: 'created_at desc'） */
+  /** Sort order (e.g., 'created_at desc') */
   order?: string;
-  /** 取得開始位置 */
+  /** Start offset */
   offset?: number;
-  /** 取得件数制限 */
+  /** Result limit */
   limit?: number;
-  /** 1ページあたり件数 */
+  /** Items per page */
   perPage?: number;
-  /** 個別表示 */
+  /** Separate display */
   separate?: string;
-  /** ラッパー表示 */
+  /** Wrapper display */
   wrapper?: string;
 }
 
 /**
- * デフォルトの1ページあたり件数
+ * Default items per page
  */
 export const DEFAULT_PER_PAGE = 250;
 
 /**
- * デフォルトのモジュールボディフィールド
+ * Default module body fields
  */
 export const DEFAULT_MODULE_BODY = [
   'fullname',
@@ -76,46 +76,46 @@ export const DEFAULT_MODULE_BODY = [
 ] as const;
 
 /**
- * ページ検索クエリ
+ * Page search query
  */
 export class SearchPagesQuery {
-  /** ページタイプ */
+  /** Page type */
   pagetype: string;
-  /** カテゴリ */
+  /** Category */
   category: string;
-  /** タグ */
+  /** Tags */
   tags: string | string[] | null;
-  /** 親ページ */
+  /** Parent page */
   parent: string | null;
-  /** リンク先 */
+  /** Link target */
   linkTo: string | null;
-  /** 作成日時条件 */
+  /** Created date condition */
   createdAt: string | null;
-  /** 更新日時条件 */
+  /** Updated date condition */
   updatedAt: string | null;
-  /** 作成者 */
+  /** Creator */
   createdBy: AbstractUser | string | null;
-  /** レーティング条件 */
+  /** Rating condition */
   rating: string | null;
-  /** 投票数条件 */
+  /** Vote count condition */
   votes: string | null;
-  /** ページ名条件 */
+  /** Page name condition */
   name: string | null;
-  /** フルネーム条件 */
+  /** Fullname condition */
   fullname: string | null;
-  /** 範囲 */
+  /** Range */
   range: string | null;
-  /** ソート順 */
+  /** Sort order */
   order: string;
-  /** オフセット */
+  /** Offset */
   offset: number;
-  /** 取得件数制限 */
+  /** Result limit */
   limit: number | null;
-  /** 1ページあたり件数 */
+  /** Items per page */
   perPage: number;
-  /** 個別表示 */
+  /** Separate display */
   separate: string;
-  /** ラッパー表示 */
+  /** Wrapper display */
   wrapper: string;
 
   constructor(params: SearchPagesQueryParams = {}) {
@@ -141,7 +141,7 @@ export class SearchPagesQuery {
   }
 
   /**
-   * 辞書形式に変換
+   * Convert to dictionary format
    */
   asDict(): Record<string, unknown> {
     const result: Record<string, unknown> = {};
