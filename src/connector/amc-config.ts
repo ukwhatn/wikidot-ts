@@ -24,7 +24,7 @@ export interface AMCConfig {
 /** デフォルトAMC設定 */
 export const DEFAULT_AMC_CONFIG: AMCConfig = {
   timeout: 20000,
-  retryLimit: 3,
+  retryLimit: 5,
   retryInterval: 1000,
   maxBackoff: 60000,
   backoffFactor: 2.0,

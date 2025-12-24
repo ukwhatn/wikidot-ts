@@ -6,6 +6,7 @@ import type { Page } from '../../src';
 import { safeDeletePage } from './helpers/cleanup';
 import { cleanup, getSite } from './helpers/client';
 import { generatePageName } from './helpers/page-name';
+import { waitForCondition } from './helpers/retry';
 import { shouldSkipIntegration } from './setup';
 
 describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
@@ -41,15 +42,17 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
     const result = await page!.commitTags();
     expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮して少し待機
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 再取得して確認
+    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
     const site = await getSite();
-    const refreshedPage = await site.page.get(pageName);
-    expect(refreshedPage.isOk()).toBe(true);
-    expect(refreshedPage.value?.tags).toContain('test-tag-1');
-    expect(refreshedPage.value?.tags).toContain('test-tag-2');
+    const refreshedPage = await waitForCondition(
+      async () => {
+        const res = await site.page.get(pageName);
+        return res.isOk() ? res.value : null;
+      },
+      (p) => p?.tags.includes('test-tag-1') && p.tags.includes('test-tag-2')
+    );
+    expect(refreshedPage?.tags).toContain('test-tag-1');
+    expect(refreshedPage?.tags).toContain('test-tag-2');
   });
 
   test('2. タグ更新', async () => {
@@ -62,14 +65,16 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
     const result = await currentPage.commitTags();
     expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮して少し待機
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 確認
-    const updatedResult = await site.page.get(pageName);
-    expect(updatedResult.isOk()).toBe(true);
-    expect(updatedResult.value?.tags).toContain('test-tag-updated');
-    expect(updatedResult.value?.tags).not.toContain('test-tag-1');
+    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
+    const updatedPage = await waitForCondition(
+      async () => {
+        const res = await site.page.get(pageName);
+        return res.isOk() ? res.value : null;
+      },
+      (p) => p?.tags.includes('test-tag-updated') && !p.tags.includes('test-tag-1')
+    );
+    expect(updatedPage?.tags).toContain('test-tag-updated');
+    expect(updatedPage?.tags).not.toContain('test-tag-1');
   });
 
   test('3. タグ削除（空配列）', async () => {
@@ -82,12 +87,14 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
     const result = await currentPage.commitTags();
     expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮して少し待機
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 確認
-    const updatedResult = await site.page.get(pageName);
-    expect(updatedResult.isOk()).toBe(true);
-    expect(updatedResult.value?.tags.length).toBe(0);
+    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
+    const updatedPage = await waitForCondition(
+      async () => {
+        const res = await site.page.get(pageName);
+        return res.isOk() ? res.value : null;
+      },
+      (p) => p !== null && p.tags.length === 0
+    );
+    expect(updatedPage?.tags.length).toBe(0);
   });
 });
