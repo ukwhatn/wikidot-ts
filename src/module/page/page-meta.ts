@@ -1,4 +1,3 @@
-import * as cheerio from 'cheerio';
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { PageRef } from '../types';
@@ -80,7 +79,7 @@ export class PageMetaCollection extends Array<PageMeta> {
         const result = await page.site.amcRequest([
           {
             moduleName: 'edit/EditMetaModule',
-            page_id: page.id,
+            pageId: page.id,
           },
         ]);
 
@@ -94,28 +93,24 @@ export class PageMetaCollection extends Array<PageMeta> {
         }
 
         const html = String(response.body ?? '');
-        const $ = cheerio.load(html);
         const metas: PageMeta[] = [];
 
-        // メタタグテーブルをパース
-        $('table.meta-table tr').each((_i, elem) => {
-          const $row = $(elem);
-          const $cells = $row.find('td');
-          if ($cells.length < 2) return;
-
-          const name = $($cells[0]).text().trim();
-          const content = $($cells[1]).text().trim();
-
+        // HTMLエンコードされたメタタグを正規表現でパース
+        // 形式: &lt;meta name="xxx" content="yyy"/&gt;
+        const metaRegex = /&lt;meta name="([^"]+)" content="([^"]*)"\/?&gt;/g;
+        for (const match of html.matchAll(metaRegex)) {
+          const name = match[1];
+          const content = match[2];
           if (name) {
             metas.push(
               new PageMeta({
                 page,
                 name,
-                content,
+                content: content ?? '',
               })
             );
           }
-        });
+        }
 
         return new PageMetaCollection(page, metas);
       })(),
@@ -149,10 +144,10 @@ export class PageMetaCollection extends Array<PageMeta> {
           {
             action: 'WikiPageAction',
             event: 'saveMetaTag',
-            moduleName: 'Empty',
-            page_id: page.id,
-            meta_name: name,
-            meta_content: content,
+            moduleName: 'edit/EditMetaModule',
+            pageId: page.id,
+            metaName: name,
+            metaContent: content,
           },
         ]);
 
@@ -189,9 +184,9 @@ export class PageMetaCollection extends Array<PageMeta> {
           {
             action: 'WikiPageAction',
             event: 'deleteMetaTag',
-            moduleName: 'Empty',
-            page_id: page.id,
-            meta_name: name,
+            moduleName: 'edit/EditMetaModule',
+            pageId: page.id,
+            metaName: name,
           },
         ]);
 
