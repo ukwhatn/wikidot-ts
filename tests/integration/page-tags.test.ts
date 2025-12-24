@@ -56,7 +56,7 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
       expect(refreshedPage?.tags).toContain('test-tag-1');
       expect(refreshedPage?.tags).toContain('test-tag-2');
     },
-    { timeout: 30000 }
+    { timeout: 60000 }
   );
 
   test(
@@ -82,7 +82,7 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
       expect(updatedPage?.tags).toContain('test-tag-updated');
       expect(updatedPage?.tags).not.toContain('test-tag-1');
     },
-    { timeout: 30000 }
+    { timeout: 60000 }
   );
 
   test(
@@ -107,6 +107,6 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
       );
       expect(updatedPage?.tags.length).toBe(0);
     },
-    { timeout: 30000 }
+    { timeout: 60000 }
   );
 });

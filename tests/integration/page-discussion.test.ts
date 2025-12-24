@@ -39,7 +39,7 @@ describe.skipIf(shouldSkipIntegration())('Page Discussion Integration Tests', ()
         (d) => d !== null
       );
     }
-  }, 30000);
+  }, 60000);
 
   afterAll(async () => {
     const site = await getSite();

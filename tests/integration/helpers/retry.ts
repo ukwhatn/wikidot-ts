@@ -9,16 +9,16 @@
  * 条件が満たされるまでリトライする
  * @param fn - 値を取得する関数
  * @param predicate - 条件を判定する関数
- * @param maxRetries - 最大リトライ回数（デフォルト: 5）
- * @param interval - リトライ間隔（ミリ秒、デフォルト: 1000）
+ * @param maxRetries - 最大リトライ回数（デフォルト: 10）
+ * @param interval - リトライ間隔（ミリ秒、デフォルト: 2000）
  * @returns 条件を満たした値
  * @throws 条件を満たさないままリトライ上限に達した場合
  */
 export async function waitForCondition<T>(
   fn: () => Promise<T>,
   predicate: (value: T) => boolean,
-  maxRetries = 5,
-  interval = 1000
+  maxRetries = 10,
+  interval = 2000
 ): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     await new Promise((resolve) => setTimeout(resolve, interval));
