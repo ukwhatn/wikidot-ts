@@ -39,17 +39,21 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
     '1. タグ追加と確認',
     async () => {
       expect(page).not.toBeNull();
+      console.log(`[DEBUG] Testing page: ${pageName}`);
 
       page!.tags = ['test-tag-1', 'test-tag-2'];
       const result = await page!.commitTags();
       expect(result.isOk()).toBe(true);
+      console.log('[DEBUG] commitTags succeeded');
 
       // Wikidot APIの eventual consistency を考慮してリトライ付き検証
       const site = await getSite();
       const refreshedPage = await waitForCondition(
         async () => {
           const res = await site.page.get(pageName);
-          return res.isOk() ? res.value : null;
+          const p = res.isOk() ? res.value : null;
+          console.log(`[DEBUG] Fetched tags: ${JSON.stringify(p?.tags)}`);
+          return p;
         },
         (p) => p?.tags.includes('test-tag-1') && p.tags.includes('test-tag-2')
       );
