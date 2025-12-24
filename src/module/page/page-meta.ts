@@ -3,7 +3,7 @@ import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { PageRef } from '../types';
 
 /**
- * ページメタタグデータ
+ * Page meta tag data
  */
 export interface PageMetaData {
   page: PageRef;
@@ -12,7 +12,7 @@ export interface PageMetaData {
 }
 
 /**
- * ページメタタグ
+ * Page meta tag
  */
 export class PageMeta {
   public readonly page: PageRef;
@@ -26,15 +26,15 @@ export class PageMeta {
   }
 
   /**
-   * メタタグの値を更新する
-   * @param content - 新しい値
+   * Update meta tag value
+   * @param content - New value
    */
   update(content: string): WikidotResultAsync<void> {
     return PageMetaCollection.setMeta(this.page, this.name, content);
   }
 
   /**
-   * メタタグを削除する
+   * Delete meta tag
    */
   delete(): WikidotResultAsync<void> {
     return PageMetaCollection.deleteMeta(this.page, this.name);
@@ -46,7 +46,7 @@ export class PageMeta {
 }
 
 /**
- * ページメタタグコレクション
+ * Page meta tag collection
  */
 export class PageMetaCollection extends Array<PageMeta> {
   public readonly page: PageRef;
@@ -60,18 +60,18 @@ export class PageMetaCollection extends Array<PageMeta> {
   }
 
   /**
-   * 名前で検索
-   * @param name - メタタグ名
-   * @returns メタタグ（存在しない場合はundefined）
+   * Find by name
+   * @param name - Meta tag name
+   * @returns Meta tag (undefined if not found)
    */
   findByName(name: string): PageMeta | undefined {
     return this.find((meta) => meta.name === name);
   }
 
   /**
-   * ページのメタタグを取得する
-   * @param page - ページ参照
-   * @returns メタタグコレクション
+   * Get page meta tags
+   * @param page - Page reference
+   * @returns Meta tag collection
    */
   static acquire(page: PageRef): WikidotResultAsync<PageMetaCollection> {
     return fromPromise(
@@ -95,8 +95,8 @@ export class PageMetaCollection extends Array<PageMeta> {
         const html = String(response.body ?? '');
         const metas: PageMeta[] = [];
 
-        // HTMLエンコードされたメタタグを正規表現でパース
-        // 形式: &lt;meta name="xxx" content="yyy"/&gt;
+        // Parse HTML-encoded meta tags with regex
+        // Format: &lt;meta name="xxx" content="yyy"/&gt;
         const metaRegex = /&lt;meta name="([^"]+)" content="([^"]*)"\/?&gt;/g;
         for (const match of html.matchAll(metaRegex)) {
           const name = match[1];
@@ -124,10 +124,10 @@ export class PageMetaCollection extends Array<PageMeta> {
   }
 
   /**
-   * メタタグを設定する
-   * @param page - ページ参照
-   * @param name - メタタグ名
-   * @param content - メタタグの値
+   * Set meta tag
+   * @param page - Page reference
+   * @param name - Meta tag name
+   * @param content - Meta tag value
    */
   static setMeta(page: PageRef, name: string, content: string): WikidotResultAsync<void> {
     const loginResult = page.site.client.requireLogin();
@@ -165,9 +165,9 @@ export class PageMetaCollection extends Array<PageMeta> {
   }
 
   /**
-   * メタタグを削除する
-   * @param page - ページ参照
-   * @param name - メタタグ名
+   * Delete meta tag
+   * @param page - Page reference
+   * @param name - Meta tag name
    */
   static deleteMeta(page: PageRef, name: string): WikidotResultAsync<void> {
     const loginResult = page.site.client.requireLogin();

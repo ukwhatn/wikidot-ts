@@ -1,7 +1,7 @@
 import type { Page } from './page';
 
 /**
- * ページソースデータ
+ * Page source data
  */
 export interface PageSourceData {
   page: Page;
@@ -9,13 +9,13 @@ export interface PageSourceData {
 }
 
 /**
- * ページのソースコード（Wikidot記法）
+ * Page source code (Wikidot syntax)
  */
 export class PageSource {
-  /** ソースが属するページ */
+  /** Page this source belongs to */
   public readonly page: Page;
 
-  /** ソースコード（Wikidot記法） */
+  /** Source code (Wikidot syntax) */
   public readonly wikiText: string;
 
   constructor(data: PageSourceData) {

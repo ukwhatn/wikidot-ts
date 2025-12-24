@@ -259,10 +259,10 @@ export class AMCClient {
 
     while (true) {
       try {
-        // wikidot_token7を追加
+        // Add wikidot_token7
         const requestBody = { ...body, wikidot_token7: WIKIDOT_TOKEN7 };
 
-        // URLエンコードされたボディを作成
+        // Create URL-encoded body
         const formData = new URLSearchParams();
         for (const [key, value] of Object.entries(requestBody)) {
           if (value !== undefined) {
@@ -275,7 +275,7 @@ export class AMCClient {
           body: formData.toString(),
         });
 
-        // JSONとしてパース
+        // Parse as JSON
         let responseData: unknown;
         try {
           responseData = await response.json();
@@ -285,7 +285,7 @@ export class AMCClient {
           );
         }
 
-        // zodでバリデーション
+        // Validate with zod
         const parseResult = amcResponseSchema.safeParse(responseData);
         if (!parseResult.success) {
           return wdErrAsync(
@@ -295,7 +295,7 @@ export class AMCClient {
 
         const amcResponse = parseResult.data;
 
-        // try_againの場合はリトライ
+        // Retry if try_again
         if (amcResponse.status === 'try_again') {
           retryCount++;
           if (retryCount >= this.config.retryLimit) {
@@ -311,7 +311,7 @@ export class AMCClient {
           continue;
         }
 
-        // no_permissionの場合はForbiddenError
+        // ForbiddenError if no_permission
         if (amcResponse.status === 'no_permission') {
           const targetStr = body.moduleName
             ? `moduleName: ${body.moduleName}`
@@ -325,7 +325,7 @@ export class AMCClient {
           );
         }
 
-        // okでない場合はエラー
+        // Error if status is not ok
         if (amcResponse.status !== 'ok') {
           return wdErrAsync(
             new WikidotStatusError(
@@ -337,7 +337,7 @@ export class AMCClient {
 
         return wdOkAsync(amcResponse);
       } catch (error) {
-        // HTTPエラーの場合はリトライ
+        // Retry on HTTP error
         retryCount++;
         if (retryCount >= this.config.retryLimit) {
           const statusCode =
