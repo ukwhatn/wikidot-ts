@@ -1,7 +1,7 @@
 import type { User } from './user';
 
 /**
- * ユーザーコレクション
+ * User collection
  */
 export class UserCollection extends Array<User | null> {
   constructor(users?: (User | null)[]) {
@@ -12,9 +12,9 @@ export class UserCollection extends Array<User | null> {
   }
 
   /**
-   * ユーザー名で検索
-   * @param name - ユーザー名
-   * @returns ユーザーまたはundefined
+   * Find by username
+   * @param name - Username
+   * @returns User or undefined
    */
   findByName(name: string): User | undefined {
     const lowerName = name.toLowerCase();
@@ -27,9 +27,9 @@ export class UserCollection extends Array<User | null> {
   }
 
   /**
-   * ユーザーIDで検索
-   * @param id - ユーザーID
-   * @returns ユーザーまたはundefined
+   * Find by user ID
+   * @param id - User ID
+   * @returns User or undefined
    */
   findById(id: number): User | undefined {
     for (const user of this) {
@@ -41,8 +41,8 @@ export class UserCollection extends Array<User | null> {
   }
 
   /**
-   * nullを除いたユーザーのみを返す
-   * @returns null以外のユーザー配列
+   * Return only non-null users
+   * @returns Array of non-null users
    */
   filterNonNull(): User[] {
     return this.filter((user): user is User => user !== null);

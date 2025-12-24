@@ -3,7 +3,7 @@ import { Site } from '../../site';
 import type { Client } from '../client';
 
 /**
- * サイト操作アクセサ
+ * Site operations accessor
  */
 export class SiteAccessor {
   public readonly client: Client;
@@ -13,16 +13,16 @@ export class SiteAccessor {
   }
 
   /**
-   * UNIX名からサイトを取得する
+   * Get site by UNIX name
    *
-   * @param unixName - サイトのUNIX名（例: 'scp-jp'）
-   * @returns Result型でラップされたサイトオブジェクト
+   * @param unixName - Site UNIX name (e.g., 'scp-jp')
+   * @returns Site object wrapped in Result type
    *
    * @example
    * ```typescript
    * const siteResult = await client.site.get('scp-jp');
    * if (!siteResult.isOk()) {
-   *   throw new Error('サイトの取得に失敗しました');
+   *   throw new Error('Failed to get site');
    * }
    * const site = siteResult.value;
    * ```

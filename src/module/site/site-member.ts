@@ -12,7 +12,7 @@ import type { AbstractUser } from '../user';
 import type { Site } from './site';
 
 /**
- * サイトメンバーデータ
+ * Site member data
  */
 export interface SiteMemberData {
   site: Site;
@@ -21,7 +21,7 @@ export interface SiteMemberData {
 }
 
 /**
- * サイトメンバー
+ * Site member
  */
 export class SiteMember {
   public readonly site: Site;
@@ -35,7 +35,7 @@ export class SiteMember {
   }
 
   /**
-   * HTMLからメンバー情報をパースする
+   * Parse member information from HTML
    */
   private static parse(site: Site, html: string): SiteMember[] {
     const $ = cheerio.load(html);
@@ -51,7 +51,7 @@ export class SiteMember {
 
       const user = parseUser(site.client, userElem);
 
-      // 2つ目のtdがあれば加入日時
+      // Second td contains join date if exists
       let joinedAt: Date | null = null;
       if (tds.length >= 2) {
         const odateElem = $(tds[1]).find('.odate');
@@ -67,9 +67,9 @@ export class SiteMember {
   }
 
   /**
-   * サイトメンバー一覧を取得する
-   * @param site - 対象サイト
-   * @param group - グループ（"admins", "moderators", または空文字で全メンバー）
+   * Get site member list
+   * @param site - Target site
+   * @param group - Group ("admins", "moderators", or empty string for all members)
    */
   static getMembers(
     site: Site,
@@ -79,7 +79,7 @@ export class SiteMember {
       (async () => {
         const members: SiteMember[] = [];
 
-        // 最初のページを取得
+        // Get first page
         const firstResult = await site.amcRequest([
           {
             moduleName: 'membership/MembersListModule',
@@ -100,7 +100,7 @@ export class SiteMember {
         const firstHtml = String(firstResponse.body ?? '');
         members.push(...SiteMember.parse(site, firstHtml));
 
-        // ページャーを確認
+        // Check pager
         const $first = cheerio.load(firstHtml);
         const pagerLinks = $first('div.pager a');
         if (pagerLinks.length < 2) {
@@ -115,7 +115,7 @@ export class SiteMember {
           return members;
         }
 
-        // 残りのページを取得
+        // Get remaining pages
         const bodies = [];
         for (let page = 2; page <= lastPage; page++) {
           bodies.push({
@@ -142,7 +142,7 @@ export class SiteMember {
   }
 
   /**
-   * グループ変更の内部メソッド
+   * Internal method to change group
    */
   @RequireLogin
   private changeGroup(
@@ -183,28 +183,28 @@ export class SiteMember {
   }
 
   /**
-   * モデレーターに昇格
+   * Promote to moderator
    */
   toModerator(): WikidotResultAsync<void> {
     return this.changeGroup('toModerators');
   }
 
   /**
-   * モデレーター権限を削除
+   * Remove moderator privileges
    */
   removeModerator(): WikidotResultAsync<void> {
     return this.changeGroup('removeModerator');
   }
 
   /**
-   * 管理者に昇格
+   * Promote to admin
    */
   toAdmin(): WikidotResultAsync<void> {
     return this.changeGroup('toAdmins');
   }
 
   /**
-   * 管理者権限を削除
+   * Remove admin privileges
    */
   removeAdmin(): WikidotResultAsync<void> {
     return this.changeGroup('removeAdmin');

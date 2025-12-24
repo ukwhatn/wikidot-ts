@@ -1,29 +1,29 @@
 /**
- * 循環依存を避けるための共通インターフェース定義
+ * Common interface definitions to avoid circular dependencies
  */
 
 import type { WikidotResultAsync } from '../common/types';
 import type { AMCRequestBody, AMCResponse } from '../connector';
 
 /**
- * クライアント参照インターフェース
- * Client型への直接依存を避けるために使用
+ * Client reference interface
+ * Used to avoid direct dependency on Client type
  */
 export interface ClientRef {
   /**
-   * ログインが必要な操作の前に呼び出す
-   * @returns ログインしていない場合はエラー
+   * Call before operations that require login
+   * @returns Error if not logged in
    */
   requireLogin(): { isErr(): boolean; error?: Error };
 
   /**
-   * ログイン済みかどうか
+   * Whether logged in
    */
   isLoggedIn(): boolean;
 }
 
 /**
- * AMCHeaderの最小インターフェース
+ * Minimal AMCHeader interface
  */
 export interface AMCHeaderRef {
   getHeaders(): Record<string, string>;
@@ -32,7 +32,7 @@ export interface AMCHeaderRef {
 }
 
 /**
- * AMCClientの最小インターフェース
+ * Minimal AMCClient interface
  */
 export interface AMCClientRef {
   header: AMCHeaderRef;
@@ -40,127 +40,127 @@ export interface AMCClientRef {
 }
 
 /**
- * 認証処理で必要なクライアントコンテキスト
- * auth.tsがclient.tsに直接依存することを避けるために使用
+ * Client context required for authentication
+ * Used to avoid auth.ts directly depending on client.ts
  */
 export interface AuthClientContext {
   amcClient: AMCClientRef;
 }
 
 /**
- * サイト参照インターフェース
- * Site型への直接依存を避けるために使用
+ * Site reference interface
+ * Used to avoid direct dependency on Site type
  */
 export interface SiteRef {
   /**
-   * サイトID
+   * Site ID
    */
   readonly id: number;
 
   /**
-   * UNIX名（例: scp-jp）
+   * UNIX name (e.g., scp-jp)
    */
   readonly unixName: string;
 
   /**
-   * ドメイン
+   * Domain
    */
   readonly domain: string;
 
   /**
-   * SSL対応フラグ
+   * SSL support flag
    */
   readonly sslSupported: boolean;
 
   /**
-   * クライアント参照
+   * Client reference
    */
   readonly client: ClientRef;
 
   /**
-   * AMCリクエストを実行
+   * Execute AMC request
    */
   amcRequest(bodies: AMCRequestBody[]): WikidotResultAsync<AMCResponse[]>;
 
   /**
-   * 単一のAMCリクエストを実行
+   * Execute single AMC request
    */
   amcRequestSingle(body: AMCRequestBody): WikidotResultAsync<AMCResponse>;
 }
 
 /**
- * フォーラムカテゴリ参照インターフェース
+ * Forum category reference interface
  */
 export interface ForumCategoryRef {
   /**
-   * カテゴリID
+   * Category ID
    */
   readonly id: number;
 
   /**
-   * カテゴリタイトル
+   * Category title
    */
   readonly title: string;
 
   /**
-   * サイト参照
+   * Site reference
    */
   readonly site: SiteRef;
 }
 
 /**
- * フォーラムスレッド参照インターフェース
- * ForumThread型への直接依存を避けるために使用
+ * Forum thread reference interface
+ * Used to avoid direct dependency on ForumThread type
  */
 export interface ForumThreadRef {
   /**
-   * スレッドID
+   * Thread ID
    */
   readonly id: number;
 
   /**
-   * スレッドタイトル
+   * Thread title
    */
   readonly title: string;
 
   /**
-   * サイト参照
+   * Site reference
    */
   readonly site: SiteRef;
 
   /**
-   * カテゴリ参照（存在する場合）
+   * Category reference (if exists)
    */
   readonly category?: ForumCategoryRef | null;
 }
 
 /**
- * ページ参照インターフェース
- * Page型への直接依存を避けるために使用
+ * Page reference interface
+ * Used to avoid direct dependency on Page type
  */
 export interface PageRef {
   /**
-   * ページID（取得後に設定される）
+   * Page ID (set after retrieval)
    */
   readonly id: number | null;
 
   /**
-   * フルネーム（category:name 形式）
+   * Fullname (category:name format)
    */
   readonly fullname: string;
 
   /**
-   * ページ名
+   * Page name
    */
   readonly name: string;
 
   /**
-   * カテゴリ
+   * Category
    */
   readonly category: string;
 
   /**
-   * サイト参照
+   * Site reference
    */
   readonly site: SiteRef;
 }

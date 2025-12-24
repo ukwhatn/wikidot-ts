@@ -5,7 +5,7 @@ import { Page, PageCollection, SearchPagesQuery } from '../../page';
 import type { Site } from '../site';
 
 /**
- * 単一ページ操作アクセサ
+ * Single page operations accessor
  */
 export class PageAccessor {
   public readonly site: Site;
@@ -15,9 +15,9 @@ export class PageAccessor {
   }
 
   /**
-   * UNIX名からページを取得する
-   * @param unixName - ページのUNIX名（例: 'scp-173'）
-   * @returns ページ（存在しない場合はnull）
+   * Get page by UNIX name
+   * @param unixName - Page UNIX name (e.g., 'scp-173')
+   * @returns Page (null if not found)
    */
   get(unixName: string): WikidotResultAsync<Page | null> {
     return fromPromise(
@@ -40,9 +40,9 @@ export class PageAccessor {
   }
 
   /**
-   * ページを作成する
-   * @param fullname - ページのフルネーム（例: 'scp-173'）
-   * @param options - 作成オプション
+   * Create a page
+   * @param fullname - Page fullname (e.g., 'scp-173')
+   * @param options - Creation options
    * @returns void
    */
   create(
