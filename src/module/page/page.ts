@@ -563,6 +563,93 @@ export class Page {
     );
   }
 
+  /**
+   * ページソースを取得する（未取得の場合は自動取得）
+   * @returns ページソース
+   */
+  getSource(): WikidotResultAsync<PageSource> {
+    return fromPromise(
+      (async () => {
+        if (this._source === null) {
+          const result = await PageCollection.acquirePageIds(this.site, [this]);
+          if (result.isErr()) {
+            throw result.error;
+          }
+          const sourceResult = await PageCollection.acquirePageSources(this.site, [this]);
+          if (sourceResult.isErr()) {
+            throw sourceResult.error;
+          }
+        }
+        if (this._source === null) {
+          throw new NotFoundException('Cannot find page source');
+        }
+        return this._source;
+      })(),
+      (error) => {
+        if (error instanceof NotFoundException) return error;
+        return new UnexpectedError(`Failed to get source: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
+   * リビジョン履歴を取得する（未取得の場合は自動取得）
+   * @returns リビジョンコレクション
+   */
+  getRevisions(): WikidotResultAsync<PageRevisionCollection> {
+    return fromPromise(
+      (async () => {
+        if (this._revisions === null) {
+          const result = await PageCollection.acquirePageIds(this.site, [this]);
+          if (result.isErr()) {
+            throw result.error;
+          }
+          const revResult = await PageCollection.acquirePageRevisions(this.site, [this]);
+          if (revResult.isErr()) {
+            throw revResult.error;
+          }
+        }
+        if (this._revisions === null) {
+          throw new NotFoundException('Cannot find page revisions');
+        }
+        return this._revisions;
+      })(),
+      (error) => {
+        if (error instanceof NotFoundException) return error;
+        return new UnexpectedError(`Failed to get revisions: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
+   * 投票情報を取得する（未取得の場合は自動取得）
+   * @returns 投票コレクション
+   */
+  getVotes(): WikidotResultAsync<PageVoteCollection> {
+    return fromPromise(
+      (async () => {
+        if (this._votes === null) {
+          const result = await PageCollection.acquirePageIds(this.site, [this]);
+          if (result.isErr()) {
+            throw result.error;
+          }
+          const votesResult = await PageCollection.acquirePageVotes(this.site, [this]);
+          if (votesResult.isErr()) {
+            throw votesResult.error;
+          }
+        }
+        if (this._votes === null) {
+          throw new NotFoundException('Cannot find page votes');
+        }
+        return this._votes;
+      })(),
+      (error) => {
+        if (error instanceof NotFoundException) return error;
+        return new UnexpectedError(`Failed to get votes: ${String(error)}`);
+      }
+    );
+  }
+
   toString(): string {
     return `Page(fullname=${this.fullname}, title=${this.title})`;
   }
@@ -746,7 +833,7 @@ export class PageCollection extends Array<Page> {
           const $ = cheerio.load(body);
           const revisions: PageRevision[] = [];
 
-          $('table.page-history > tr[id^=revision-row-]').each((_j, revElement) => {
+          $('table.page-history tr[id^="revision-row-"]').each((_j, revElement) => {
             const $rev = $(revElement);
             const revIdAttr = $rev.attr('id');
             if (!revIdAttr) return;
