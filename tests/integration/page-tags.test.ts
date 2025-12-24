@@ -35,66 +35,78 @@ describe.skipIf(shouldSkipIntegration())('Page Tags Integration Tests', () => {
     await cleanup();
   });
 
-  test('1. タグ追加と確認', async () => {
-    expect(page).not.toBeNull();
+  test(
+    '1. タグ追加と確認',
+    async () => {
+      expect(page).not.toBeNull();
 
-    page!.tags = ['test-tag-1', 'test-tag-2'];
-    const result = await page!.commitTags();
-    expect(result.isOk()).toBe(true);
+      page!.tags = ['test-tag-1', 'test-tag-2'];
+      const result = await page!.commitTags();
+      expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
-    const site = await getSite();
-    const refreshedPage = await waitForCondition(
-      async () => {
-        const res = await site.page.get(pageName);
-        return res.isOk() ? res.value : null;
-      },
-      (p) => p?.tags.includes('test-tag-1') && p.tags.includes('test-tag-2')
-    );
-    expect(refreshedPage?.tags).toContain('test-tag-1');
-    expect(refreshedPage?.tags).toContain('test-tag-2');
-  });
+      // Wikidot APIの eventual consistency を考慮してリトライ付き検証
+      const site = await getSite();
+      const refreshedPage = await waitForCondition(
+        async () => {
+          const res = await site.page.get(pageName);
+          return res.isOk() ? res.value : null;
+        },
+        (p) => p?.tags.includes('test-tag-1') && p.tags.includes('test-tag-2')
+      );
+      expect(refreshedPage?.tags).toContain('test-tag-1');
+      expect(refreshedPage?.tags).toContain('test-tag-2');
+    },
+    { timeout: 30000 }
+  );
 
-  test('2. タグ更新', async () => {
-    const site = await getSite();
-    const pageResult = await site.page.get(pageName);
-    expect(pageResult.isOk()).toBe(true);
+  test(
+    '2. タグ更新',
+    async () => {
+      const site = await getSite();
+      const pageResult = await site.page.get(pageName);
+      expect(pageResult.isOk()).toBe(true);
 
-    const currentPage = pageResult.value!;
-    currentPage.tags = ['test-tag-updated'];
-    const result = await currentPage.commitTags();
-    expect(result.isOk()).toBe(true);
+      const currentPage = pageResult.value!;
+      currentPage.tags = ['test-tag-updated'];
+      const result = await currentPage.commitTags();
+      expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
-    const updatedPage = await waitForCondition(
-      async () => {
-        const res = await site.page.get(pageName);
-        return res.isOk() ? res.value : null;
-      },
-      (p) => p?.tags.includes('test-tag-updated') && !p.tags.includes('test-tag-1')
-    );
-    expect(updatedPage?.tags).toContain('test-tag-updated');
-    expect(updatedPage?.tags).not.toContain('test-tag-1');
-  });
+      // Wikidot APIの eventual consistency を考慮してリトライ付き検証
+      const updatedPage = await waitForCondition(
+        async () => {
+          const res = await site.page.get(pageName);
+          return res.isOk() ? res.value : null;
+        },
+        (p) => p?.tags.includes('test-tag-updated') && !p.tags.includes('test-tag-1')
+      );
+      expect(updatedPage?.tags).toContain('test-tag-updated');
+      expect(updatedPage?.tags).not.toContain('test-tag-1');
+    },
+    { timeout: 30000 }
+  );
 
-  test('3. タグ削除（空配列）', async () => {
-    const site = await getSite();
-    const pageResult = await site.page.get(pageName);
-    expect(pageResult.isOk()).toBe(true);
+  test(
+    '3. タグ削除（空配列）',
+    async () => {
+      const site = await getSite();
+      const pageResult = await site.page.get(pageName);
+      expect(pageResult.isOk()).toBe(true);
 
-    const currentPage = pageResult.value!;
-    currentPage.tags = [];
-    const result = await currentPage.commitTags();
-    expect(result.isOk()).toBe(true);
+      const currentPage = pageResult.value!;
+      currentPage.tags = [];
+      const result = await currentPage.commitTags();
+      expect(result.isOk()).toBe(true);
 
-    // Wikidot APIの eventual consistency を考慮してリトライ付き検証
-    const updatedPage = await waitForCondition(
-      async () => {
-        const res = await site.page.get(pageName);
-        return res.isOk() ? res.value : null;
-      },
-      (p) => p !== null && p.tags.length === 0
-    );
-    expect(updatedPage?.tags.length).toBe(0);
-  });
+      // Wikidot APIの eventual consistency を考慮してリトライ付き検証
+      const updatedPage = await waitForCondition(
+        async () => {
+          const res = await site.page.get(pageName);
+          return res.isOk() ? res.value : null;
+        },
+        (p) => p !== null && p.tags.length === 0
+      );
+      expect(updatedPage?.tags.length).toBe(0);
+    },
+    { timeout: 30000 }
+  );
 });
