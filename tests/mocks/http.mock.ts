@@ -1,11 +1,11 @@
 /**
  * HTTP Mock
  *
- * fetch/kyのモック実装
+ * Mock implementation for fetch/ky
  */
 
 /**
- * モックレスポンス定義
+ * Mock response definition
  */
 export interface MockResponse {
   status: number;
@@ -16,7 +16,7 @@ export interface MockResponse {
 }
 
 /**
- * モックリクエストマッチャー
+ * Mock request matcher
  */
 export interface MockRequestMatcher {
   url?: string | RegExp;
@@ -24,7 +24,7 @@ export interface MockRequestMatcher {
 }
 
 /**
- * モックエントリ
+ * Mock entry
  */
 interface MockEntry {
   matcher: MockRequestMatcher;
@@ -32,7 +32,7 @@ interface MockEntry {
 }
 
 /**
- * HTTPモッククラス
+ * HTTP mock class
  */
 export class HttpMock {
   private mocks: MockEntry[] = [];
@@ -44,35 +44,35 @@ export class HttpMock {
   }
 
   /**
-   * モックを追加
+   * Add mock
    */
   addMock(matcher: MockRequestMatcher, response: MockResponse): void {
     this.mocks.push({ matcher, response });
   }
 
   /**
-   * モックをクリア
+   * Clear mocks
    */
   clearMocks(): void {
     this.mocks = [];
   }
 
   /**
-   * リクエスト履歴を取得
+   * Get request history
    */
   getRequestHistory(): { url: string; options?: RequestInit }[] {
     return [...this.requestHistory];
   }
 
   /**
-   * リクエスト履歴をクリア
+   * Clear request history
    */
   clearRequestHistory(): void {
     this.requestHistory = [];
   }
 
   /**
-   * fetchをモックに置き換え
+   * Replace fetch with mock
    */
   install(): void {
     const self = this;
@@ -85,7 +85,7 @@ export class HttpMock {
 
       self.requestHistory.push({ url, options: init });
 
-      // マッチするモックを検索
+      // Search for matching mock
       for (const mock of self.mocks) {
         const urlMatch =
           !mock.matcher.url ||
@@ -101,20 +101,20 @@ export class HttpMock {
         }
       }
 
-      // デフォルト: 404
+      // Default: 404
       return self.createResponse({ status: 404, body: 'Not Found' });
     } as typeof fetch;
   }
 
   /**
-   * 元のfetchを復元
+   * Restore original fetch
    */
   restore(): void {
     globalThis.fetch = this.originalFetch;
   }
 
   /**
-   * Responseオブジェクトを作成
+   * Create Response object
    */
   private createResponse(mock: MockResponse): Response {
     const body = typeof mock.body === 'object' ? JSON.stringify(mock.body) : (mock.body ?? '');
@@ -133,7 +133,7 @@ export class HttpMock {
 }
 
 /**
- * HTTPモックインスタンスを作成して設定
+ * Create and configure HTTP mock instance
  */
 export function createHttpMock(): HttpMock {
   const mock = new HttpMock();

@@ -1,18 +1,18 @@
 /**
- * リトライ付き検証ヘルパー
+ * Retry verification helper
  *
- * Wikidot APIのeventual consistencyを考慮し、
- * 期待する条件が満たされるまでリトライを行うためのヘルパー
+ * Helper for retrying until expected conditions are met,
+ * considering Wikidot API's eventual consistency
  */
 
 /**
- * 条件が満たされるまでリトライする
- * @param fn - 値を取得する関数
- * @param predicate - 条件を判定する関数
- * @param maxRetries - 最大リトライ回数（デフォルト: 10）
- * @param interval - リトライ間隔（ミリ秒、デフォルト: 2000）
- * @returns 条件を満たした値
- * @throws 条件を満たさないままリトライ上限に達した場合
+ * Retry until condition is met
+ * @param fn - Function to get value
+ * @param predicate - Function to check condition
+ * @param maxRetries - Maximum retry count (default: 10)
+ * @param interval - Retry interval in milliseconds (default: 2000)
+ * @returns Value that satisfies the condition
+ * @throws When retry limit reached without satisfying condition
  */
 export async function waitForCondition<T>(
   fn: () => Promise<T>,

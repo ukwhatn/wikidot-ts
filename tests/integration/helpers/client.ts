@@ -1,5 +1,5 @@
 /**
- * クライアント作成ヘルパー
+ * Client creation helper
  */
 import { Client, type Site } from '../../../src';
 import { requireCredentials, TEST_CONFIG } from '../setup';
@@ -8,13 +8,13 @@ let cachedClient: Client | null = null;
 let cachedSite: Site | null = null;
 
 /**
- * 認証済みクライアントを取得（キャッシュ）
+ * Get authenticated client (cached)
  */
 export async function getClient(): Promise<Client> {
   if (cachedClient) return cachedClient;
 
   requireCredentials();
-  // requireCredentials()で検証済みなのでstring型として扱う
+  // Already validated by requireCredentials(), so treat as string type
   const username = TEST_CONFIG.username as string;
   const password = TEST_CONFIG.password as string;
   const result = await Client.create({
@@ -31,7 +31,7 @@ export async function getClient(): Promise<Client> {
 }
 
 /**
- * テストサイトを取得（キャッシュ）
+ * Get test site (cached)
  */
 export async function getSite(): Promise<Site> {
   if (cachedSite) return cachedSite;
@@ -48,7 +48,7 @@ export async function getSite(): Promise<Site> {
 }
 
 /**
- * テスト終了時のクリーンアップ
+ * Cleanup after test completion
  */
 export async function cleanup(): Promise<void> {
   if (cachedClient) {

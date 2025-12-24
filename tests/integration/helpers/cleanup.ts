@@ -1,10 +1,10 @@
 /**
- * クリーンアップユーティリティ
+ * Cleanup utilities
  */
 import type { Site } from '../../../src';
 
 /**
- * ページを安全に削除
+ * Safely delete page
  */
 export async function safeDeletePage(site: Site, fullname: string): Promise<void> {
   try {
@@ -13,6 +13,6 @@ export async function safeDeletePage(site: Site, fullname: string): Promise<void
       await pageResult.value.destroy();
     }
   } catch {
-    // 削除失敗は無視（既に存在しない可能性）
+    // Ignore deletion failure (may not exist)
   }
 }

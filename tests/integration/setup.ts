@@ -1,9 +1,9 @@
 /**
- * 統合テスト用セットアップ
+ * Integration test setup
  */
 
 /**
- * テスト設定
+ * Test configuration
  */
 export const TEST_CONFIG = {
   siteUnixName: 'ukwhatn-ci',
@@ -12,15 +12,15 @@ export const TEST_CONFIG = {
 } as const;
 
 /**
- * 認証情報が設定されているかチェック
+ * Check if credentials are configured
  */
 export function hasCredentials(): boolean {
   return Boolean(TEST_CONFIG.username && TEST_CONFIG.password);
 }
 
 /**
- * 認証情報を必須としてチェック
- * @throws Error 認証情報が未設定の場合
+ * Require credentials to be set
+ * @throws Error if credentials are not configured
  */
 export function requireCredentials(): void {
   if (!hasCredentials()) {
@@ -29,7 +29,7 @@ export function requireCredentials(): void {
 }
 
 /**
- * 統合テストをスキップするべきかどうか
+ * Check if integration tests should be skipped
  */
 export function shouldSkipIntegration(): boolean {
   return !hasCredentials();
