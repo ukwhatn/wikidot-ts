@@ -146,8 +146,11 @@ export class SearchPagesQuery {
   asDict(): Record<string, unknown> {
     const result: Record<string, unknown> = {};
 
-    if (this.pagetype !== '*') result.pagetype = this.pagetype;
-    if (this.category !== '*') result.category = this.category;
+    // pagetype and category must always be included
+    // Wikidot defaults: pagetype="normal", category="." (current category)
+    // To get all pages, we need to explicitly send "*"
+    result.pagetype = this.pagetype;
+    result.category = this.category;
     if (this.tags !== null) {
       result.tags = Array.isArray(this.tags) ? this.tags.join(' ') : this.tags;
     }
