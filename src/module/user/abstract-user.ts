@@ -1,36 +1,36 @@
 import type { ClientRef } from '../types';
 
 /**
- * ユーザー種別
+ * User type
  */
 export type UserType = 'user' | 'deleted' | 'anonymous' | 'guest' | 'wikidot';
 
 /**
- * ユーザー基底インターフェース
+ * User base interface
  */
 export interface AbstractUser {
-  /** クライアント */
+  /** Client */
   readonly client: ClientRef;
 
-  /** ユーザーID */
+  /** User ID */
   readonly id: number;
 
-  /** ユーザー名 */
+  /** Username */
   readonly name: string;
 
-  /** UNIX形式のユーザー名 */
+  /** UNIX format username */
   readonly unixName: string | null;
 
-  /** アバターURL */
+  /** Avatar URL */
   readonly avatarUrl: string | null;
 
-  /** IPアドレス（匿名ユーザーの場合のみ） */
+  /** IP address (only for anonymous users) */
   readonly ip: string | null;
 
-  /** ユーザー種別 */
+  /** User type */
   readonly userType: UserType;
 
-  /** ユーザー種別を判定 */
+  /** Check user type */
   isUser(): boolean;
   isDeletedUser(): boolean;
   isAnonymousUser(): boolean;

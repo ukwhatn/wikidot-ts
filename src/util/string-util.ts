@@ -1,34 +1,34 @@
 /**
- * 文字列ユーティリティ
+ * String utilities
  */
 
 import { specialCharMap } from './table/char-table';
 
 /**
- * 文字列をUnix形式に変換する
+ * Convert string to Unix format
  *
- * legacy wikidotの実装に合わせた変換を行う。
- * - 特殊文字をASCII文字に変換
- * - 小文字に変換
- * - ASCII以外の文字をハイフンに変換
- * - 連続するハイフン/コロンを単一に
- * - 先頭/末尾のハイフン/コロンを削除
+ * Performs conversion following legacy wikidot implementation.
+ * - Converts special characters to ASCII characters
+ * - Converts to lowercase
+ * - Converts non-ASCII characters to hyphens
+ * - Reduces consecutive hyphens/colons to single
+ * - Removes leading/trailing hyphens/colons
  *
- * @param targetStr - 変換対象の文字列
- * @returns 変換された文字列
+ * @param targetStr - String to convert
+ * @returns Converted string
  */
 export function toUnix(targetStr: string): string {
-  // 特殊文字の変換
+  // Convert special characters
   let result = '';
   for (const char of targetStr) {
     const mapped = specialCharMap[char];
     result += mapped !== undefined ? mapped : char;
   }
 
-  // lowercaseへの変換
+  // Convert to lowercase
   result = result.toLowerCase();
 
-  // ascii以外の文字を削除
+  // Remove non-ASCII characters
   result = result.replace(/[^a-z0-9\-:_]/g, '-');
   result = result.replace(/^_/, ':_');
   result = result.replace(/(?<!:)_/g, '-');
@@ -41,7 +41,7 @@ export function toUnix(targetStr: string): string {
   result = result.replace(/_-/g, '_');
   result = result.replace(/-_/g, '_');
 
-  // 先頭と末尾の:を削除
+  // Remove leading and trailing colons
   result = result.replace(/^:/, '');
   result = result.replace(/:$/, '');
 
@@ -49,7 +49,7 @@ export function toUnix(targetStr: string): string {
 }
 
 /**
- * StringUtilクラス（Python互換）
+ * StringUtil class (Python compatible)
  */
 export const StringUtil = {
   toUnix,

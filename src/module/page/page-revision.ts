@@ -6,7 +6,7 @@ import type { Page } from './page';
 import type { PageSource } from './page-source';
 
 /**
- * ページリビジョンデータ
+ * Page revision data
  */
 export interface PageRevisionData {
   page: Page;
@@ -18,31 +18,31 @@ export interface PageRevisionData {
 }
 
 /**
- * ページのリビジョン（編集履歴のバージョン）
+ * Page revision (version in edit history)
  */
 export class PageRevision {
-  /** リビジョンが属するページ */
+  /** Page this revision belongs to */
   public readonly page: Page;
 
-  /** リビジョンID */
+  /** Revision ID */
   public readonly id: number;
 
-  /** リビジョン番号 */
+  /** Revision number */
   public readonly revNo: number;
 
-  /** リビジョン作成者 */
+  /** Revision creator */
   public readonly createdBy: AbstractUser;
 
-  /** リビジョン作成日時 */
+  /** Revision creation date */
   public readonly createdAt: Date;
 
-  /** 編集コメント */
+  /** Edit comment */
   public readonly comment: string;
 
-  /** ソースコード（内部キャッシュ） */
+  /** Source code (internal cache) */
   private _source: PageSource | null = null;
 
-  /** HTML表示（内部キャッシュ） */
+  /** HTML display (internal cache) */
   private _html: string | null = null;
 
   constructor(data: PageRevisionData) {
@@ -55,55 +55,55 @@ export class PageRevision {
   }
 
   /**
-   * ソースコードが取得済みかどうか
+   * Whether source code has been acquired
    */
   isSourceAcquired(): boolean {
     return this._source !== null;
   }
 
   /**
-   * HTML表示が取得済みかどうか
+   * Whether HTML display has been acquired
    */
   isHtmlAcquired(): boolean {
     return this._html !== null;
   }
 
   /**
-   * ソースコード（キャッシュ済み）を取得
+   * Get source code (cached)
    */
   get source(): PageSource | null {
     return this._source;
   }
 
   /**
-   * ソースコードを設定
+   * Set source code
    */
   set source(value: PageSource | null) {
     this._source = value;
   }
 
   /**
-   * HTML表示（キャッシュ済み）を取得
+   * Get HTML display (cached)
    */
   get html(): string | null {
     return this._html;
   }
 
   /**
-   * HTML表示を設定
+   * Set HTML display
    */
   set html(value: string | null) {
     this._html = value;
   }
 
   /**
-   * リビジョンのソースを取得する（REV-001）
-   * @returns ソース文字列
+   * Get revision source (REV-001)
+   * @returns Source string
    */
   getSource(): WikidotResultAsync<string> {
     return fromPromise(
       (async () => {
-        // キャッシュがあれば返す
+        // Return cache if available
         if (this._source) {
           return this._source.wikiText;
         }
@@ -127,7 +127,7 @@ export class PageRevision {
         const html = String(response.body ?? '');
         const $ = cheerio.load(html);
 
-        // ソースコードは<div class="page-source">内にある
+        // Source code is inside <div class="page-source">
         const sourceElem = $('div.page-source');
         if (sourceElem.length === 0) {
           throw new NoElementError('Source element not found');
@@ -146,13 +146,13 @@ export class PageRevision {
   }
 
   /**
-   * リビジョンのHTMLを取得する（REV-002）
-   * @returns HTML文字列
+   * Get revision HTML (REV-002)
+   * @returns HTML string
    */
   getHtml(): WikidotResultAsync<string> {
     return fromPromise(
       (async () => {
-        // キャッシュがあれば返す
+        // Return cache if available
         if (this._html) {
           return this._html;
         }
@@ -176,10 +176,10 @@ export class PageRevision {
         const html = String(response.body ?? '');
         const $ = cheerio.load(html);
 
-        // HTMLコンテンツは<div id="page-content">内にある
+        // HTML content is inside <div id="page-content">
         const contentElem = $('#page-content');
         if (contentElem.length === 0) {
-          // page-contentがない場合はbody全体を返す
+          // Return entire body if page-content doesn't exist
           this._html = html;
           return html;
         }
@@ -203,7 +203,7 @@ export class PageRevision {
 }
 
 /**
- * ページリビジョンコレクション
+ * Page revision collection
  */
 export class PageRevisionCollection extends Array<PageRevision> {
   public readonly page: Page | null;
@@ -217,17 +217,17 @@ export class PageRevisionCollection extends Array<PageRevision> {
   }
 
   /**
-   * IDで検索
-   * @param id - リビジョンID
-   * @returns リビジョン（存在しない場合はundefined）
+   * Find by ID
+   * @param id - Revision ID
+   * @returns Revision (undefined if not found)
    */
   findById(id: number): PageRevision | undefined {
     return this.find((revision) => revision.id === id);
   }
 
   /**
-   * 全リビジョンのソースを一括取得する
-   * @returns ソース文字列の配列
+   * Get sources for all revisions
+   * @returns Array of source strings
    */
   getSources(): WikidotResultAsync<string[]> {
     return fromPromise(
@@ -253,8 +253,8 @@ export class PageRevisionCollection extends Array<PageRevision> {
   }
 
   /**
-   * 全リビジョンのHTMLを一括取得する
-   * @returns HTML文字列の配列
+   * Get HTML for all revisions
+   * @returns Array of HTML strings
    */
   getHtmls(): WikidotResultAsync<string[]> {
     return fromPromise(

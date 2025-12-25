@@ -13,7 +13,7 @@ import type { AbstractUser } from '../user';
 import type { Site } from './site';
 
 /**
- * サイト参加申請データ
+ * Site membership application data
  */
 export interface SiteApplicationData {
   site: Site;
@@ -22,7 +22,7 @@ export interface SiteApplicationData {
 }
 
 /**
- * サイト参加申請
+ * Site membership application
  */
 export class SiteApplication {
   public readonly site: Site;
@@ -36,8 +36,8 @@ export class SiteApplication {
   }
 
   /**
-   * 未処理の参加申請をすべて取得する
-   * @param site - 対象サイト
+   * Get all pending membership applications
+   * @param site - Target site
    */
   static acquireAll(site: Site): WikidotResultAsync<SiteApplication[]> {
     const loginResult = site.client.requireLogin();
@@ -65,7 +65,7 @@ export class SiteApplication {
 
         const html = String(response.body ?? '');
 
-        // 権限チェック
+        // Permission check
         if (html.includes('WIKIDOT.page.listeners.loginClick(event)')) {
           throw new ForbiddenError('You are not allowed to access this page');
         }
@@ -107,7 +107,7 @@ export class SiteApplication {
   }
 
   /**
-   * 申請を処理する内部メソッド
+   * Internal method to process application
    */
   @RequireLogin
   private process(action: 'accept' | 'decline'): WikidotResultAsync<void> {
@@ -141,14 +141,14 @@ export class SiteApplication {
   }
 
   /**
-   * 参加申請を承認する
+   * Accept membership application
    */
   accept(): WikidotResultAsync<void> {
     return this.process('accept');
   }
 
   /**
-   * 参加申請を拒否する
+   * Decline membership application
    */
   decline(): WikidotResultAsync<void> {
     return this.process('decline');

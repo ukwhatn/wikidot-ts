@@ -1,8 +1,8 @@
 /**
- * 特殊記号・非英語アルファベットを英語アルファベットに変換するためのマッピングテーブル
+ * Mapping table for converting special symbols and non-English alphabets to English alphabets
  *
- * 非ASCII文字を対応するASCII文字に変換するためのマッピングを提供する。
- * 主にURL生成やページ名のunix形式への変換時に使用される。
+ * Provides mapping for converting non-ASCII characters to corresponding ASCII characters.
+ * Mainly used for URL generation and page name conversion to unix format.
  */
 
 export const specialCharMap: Record<string, string> = {

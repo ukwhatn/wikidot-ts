@@ -1,12 +1,12 @@
 /**
- * SearchPagesQueryのユニットテスト
+ * SearchPagesQuery unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from '../../../src/module/page';
 
 describe('SearchPagesQuery', () => {
-  describe('コンストラクタ', () => {
-    test('デフォルト値で初期化できる', () => {
+  describe('Constructor', () => {
+    test('Can initialize with default values', () => {
       const query = new SearchPagesQuery({});
 
       expect(query.category).toBe('*');
@@ -16,61 +16,61 @@ describe('SearchPagesQuery', () => {
       expect(query.offset).toBe(0);
     });
 
-    test('カテゴリを指定できる', () => {
+    test('Can specify category', () => {
       const query = new SearchPagesQuery({ category: '_default' });
 
       expect(query.category).toBe('_default');
     });
 
-    test('タグを指定できる（文字列）', () => {
+    test('Can specify tags (string)', () => {
       const query = new SearchPagesQuery({ tags: 'scp' });
 
       expect(query.tags).toBe('scp');
     });
 
-    test('タグを指定できる（配列）', () => {
+    test('Can specify tags (array)', () => {
       const query = new SearchPagesQuery({ tags: ['scp', 'safe'] });
 
       expect(query.tags).toEqual(['scp', 'safe']);
     });
 
-    test('作成者を指定できる', () => {
+    test('Can specify createdBy', () => {
       const query = new SearchPagesQuery({ createdBy: 'test-user' });
 
       expect(query.createdBy).toBe('test-user');
     });
 
-    test('レーティングを指定できる', () => {
+    test('Can specify rating', () => {
       const query = new SearchPagesQuery({ rating: '>10' });
 
       expect(query.rating).toBe('>10');
     });
 
-    test('親ページを指定できる', () => {
+    test('Can specify parent', () => {
       const query = new SearchPagesQuery({ parent: 'scp-001' });
 
       expect(query.parent).toBe('scp-001');
     });
 
-    test('ソート順を指定できる', () => {
+    test('Can specify order', () => {
       const query = new SearchPagesQuery({ order: 'rating desc' });
 
       expect(query.order).toBe('rating desc');
     });
 
-    test('オフセットを指定できる', () => {
+    test('Can specify offset', () => {
       const query = new SearchPagesQuery({ offset: 100 });
 
       expect(query.offset).toBe(100);
     });
 
-    test('リミットを指定できる', () => {
+    test('Can specify limit', () => {
       const query = new SearchPagesQuery({ limit: 50 });
 
       expect(query.limit).toBe(50);
     });
 
-    test('1ページあたりの件数を指定できる', () => {
+    test('Can specify perPage', () => {
       const query = new SearchPagesQuery({ perPage: 100 });
 
       expect(query.perPage).toBe(100);
@@ -78,7 +78,7 @@ describe('SearchPagesQuery', () => {
   });
 
   describe('asDict', () => {
-    test('デフォルトクエリの辞書を生成できる', () => {
+    test('Can generate dictionary from default query', () => {
       const query = new SearchPagesQuery({});
       const dict = query.asDict();
 
@@ -87,49 +87,49 @@ describe('SearchPagesQuery', () => {
       expect(dict.perPage).toBe(DEFAULT_PER_PAGE);
     });
 
-    test('タグ（文字列）を含む辞書を生成できる', () => {
+    test('Can generate dictionary with tags (string)', () => {
       const query = new SearchPagesQuery({ tags: 'scp' });
       const dict = query.asDict();
 
       expect(dict.tags).toBe('scp');
     });
 
-    test('タグ（配列）を含む辞書を生成できる', () => {
+    test('Can generate dictionary with tags (array)', () => {
       const query = new SearchPagesQuery({ tags: ['scp', 'safe'] });
       const dict = query.asDict();
 
       expect(dict.tags).toBe('scp safe');
     });
 
-    test('複数のタグをAND検索用に変換できる', () => {
+    test('Can convert multiple tags for AND search', () => {
       const query = new SearchPagesQuery({ tags: ['+scp', '+safe', '-euclid'] });
       const dict = query.asDict();
 
       expect(dict.tags).toBe('+scp +safe -euclid');
     });
 
-    test('親ページを含む辞書を生成できる', () => {
+    test('Can generate dictionary with parent', () => {
       const query = new SearchPagesQuery({ parent: 'scp-001' });
       const dict = query.asDict();
 
       expect(dict.parent).toBe('scp-001');
     });
 
-    test('レーティングを含む辞書を生成できる', () => {
+    test('Can generate dictionary with rating', () => {
       const query = new SearchPagesQuery({ rating: '>10' });
       const dict = query.asDict();
 
       expect(dict.rating).toBe('>10');
     });
 
-    test('オフセットを含む辞書を生成できる', () => {
+    test('Can generate dictionary with offset', () => {
       const query = new SearchPagesQuery({ offset: 100 });
       const dict = query.asDict();
 
       expect(dict.offset).toBe(100);
     });
 
-    test('リミットを含む辞書を生成できる', () => {
+    test('Can generate dictionary with limit', () => {
       const query = new SearchPagesQuery({ limit: 50 });
       const dict = query.asDict();
 
@@ -137,16 +137,16 @@ describe('SearchPagesQuery', () => {
     });
   });
 
-  describe('エッジケース', () => {
-    test('空のタグ配列はスペースで結合される', () => {
+  describe('Edge cases', () => {
+    test('Empty tag array is joined with space', () => {
       const query = new SearchPagesQuery({ tags: [] });
       const dict = query.asDict();
 
-      // 空配列は空文字列になる
+      // Empty array becomes empty string
       expect(dict.tags).toBe('');
     });
 
-    test('undefinedのパラメータは含まれない', () => {
+    test('Undefined parameters are not included', () => {
       const query = new SearchPagesQuery({});
       const dict = query.asDict();
 
@@ -157,12 +157,12 @@ describe('SearchPagesQuery', () => {
   });
 });
 
-describe('定数', () => {
-  test('DEFAULT_PER_PAGEが正しい値', () => {
+describe('Constants', () => {
+  test('DEFAULT_PER_PAGE has correct value', () => {
     expect(DEFAULT_PER_PAGE).toBe(250);
   });
 
-  test('DEFAULT_MODULE_BODYが正しいフォーマット', () => {
+  test('DEFAULT_MODULE_BODY has correct format', () => {
     expect(DEFAULT_MODULE_BODY).toContain('fullname');
     expect(DEFAULT_MODULE_BODY).toContain('name');
     expect(DEFAULT_MODULE_BODY).toContain('category');

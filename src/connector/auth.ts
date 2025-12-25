@@ -5,11 +5,11 @@ import type { AuthClientContext } from '../module/types';
 const LOGIN_URL = 'https://www.wikidot.com/default--flow/login__LoginPopupScreen';
 
 /**
- * ユーザー名とパスワードでWikidotにログインする
- * @param client - クライアントコンテキスト（AMCClientを持つオブジェクト）
- * @param username - ユーザー名
- * @param password - パスワード
- * @returns 成功時はvoid、失敗時はSessionCreateError
+ * Login to Wikidot with username and password
+ * @param client - Client context (object with AMCClient)
+ * @param username - Username
+ * @param password - Password
+ * @returns void on success, SessionCreateError on failure
  */
 export function login(
   client: AuthClientContext,
@@ -71,9 +71,9 @@ export function login(
 }
 
 /**
- * ログアウトする
- * @param client - クライアントコンテキスト（AMCClientを持つオブジェクト）
- * @returns 成功時はvoid
+ * Logout from Wikidot
+ * @param client - Client context (object with AMCClient)
+ * @returns void on success
  */
 export function logout(client: AuthClientContext): WikidotResultAsync<void> {
   // Try to logout via AMC, then always remove session cookie

@@ -1,5 +1,5 @@
 /**
- * 共有型定義のテスト
+ * Shared type definitions tests
  */
 import { describe, expect, test } from 'bun:test';
 import { wdOkAsync } from '../../../src/common/types';
@@ -12,10 +12,10 @@ import type {
   SiteRef,
 } from '../../../src/module/types';
 
-describe('共有型定義', () => {
+describe('Shared type definitions', () => {
   describe('ClientRef', () => {
-    test('必須プロパティが定義されている', () => {
-      // 型のテスト用のモックオブジェクト
+    test('Required properties are defined', () => {
+      // Mock object for type testing
       const mockClient: ClientRef = {
         requireLogin: () => ({ isErr: () => false }),
         isLoggedIn: () => true,
@@ -27,7 +27,7 @@ describe('共有型定義', () => {
   });
 
   describe('SiteRef', () => {
-    test('必須プロパティが定義されている', () => {
+    test('Required properties are defined', () => {
       const mockSite: SiteRef = {
         id: 123456,
         unixName: 'test-site',
@@ -49,7 +49,7 @@ describe('共有型定義', () => {
   });
 
   describe('ForumCategoryRef', () => {
-    test('必須プロパティが定義されている', () => {
+    test('Required properties are defined', () => {
       const mockCategory: ForumCategoryRef = {
         id: 1,
         title: 'Test Category',
@@ -62,7 +62,7 @@ describe('共有型定義', () => {
   });
 
   describe('ForumThreadRef', () => {
-    test('必須プロパティが定義されている', () => {
+    test('Required properties are defined', () => {
       const mockThread: ForumThreadRef = {
         id: 100,
         title: 'Test Thread',
@@ -74,7 +74,7 @@ describe('共有型定義', () => {
       expect(mockThread.title).toBe('Test Thread');
     });
 
-    test('categoryはnullまたはForumCategoryRefを持てる', () => {
+    test('category can be null or ForumCategoryRef', () => {
       const threadWithoutCategory: ForumThreadRef = {
         id: 100,
         title: 'Test Thread',
@@ -99,7 +99,7 @@ describe('共有型定義', () => {
   });
 
   describe('PageRef', () => {
-    test('必須プロパティが定義されている', () => {
+    test('Required properties are defined', () => {
       const mockPage: PageRef = {
         id: 12345,
         fullname: 'scp-001',
@@ -114,7 +114,7 @@ describe('共有型定義', () => {
       expect(mockPage.category).toBe('_default');
     });
 
-    test('idはnullを持てる', () => {
+    test('id can be null', () => {
       const pageWithoutId: PageRef = {
         id: null,
         fullname: 'new-page',

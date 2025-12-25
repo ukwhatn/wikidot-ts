@@ -1,17 +1,17 @@
 /**
- * ロギング機能を提供するモジュール
+ * Module providing logging functionality
  *
- * このモジュールは、ライブラリ全体で使用されるロガーを設定し、提供する。
- * デフォルトでは出力を行わず、アプリケーション側でのログ制御を可能にする。
+ * This module configures and provides loggers used throughout the library.
+ * By default, it does not output anything, allowing application-side log control.
  */
 
 /**
- * ログレベル
+ * Log level
  */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
- * ログレベルの優先度（数値が大きいほど重要）
+ * Log level priority (higher number = more important)
  */
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 0,
@@ -21,7 +21,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 /**
- * ロガーハンドラー
+ * Logger handler
  */
 export type LogHandler = (
   level: LogLevel,
@@ -31,14 +31,14 @@ export type LogHandler = (
 ) => void;
 
 /**
- * NullHandler: 何も出力しない（デフォルト）
+ * NullHandler: Outputs nothing (default)
  */
 export const nullHandler: LogHandler = () => {
-  // 何もしない
+  // Do nothing
 };
 
 /**
- * ConsoleHandler: コンソールに出力する
+ * ConsoleHandler: Outputs to console
  */
 export const consoleHandler: LogHandler = (
   level: LogLevel,
@@ -66,7 +66,7 @@ export const consoleHandler: LogHandler = (
 };
 
 /**
- * ロガークラス
+ * Logger class
  */
 export class Logger {
   private readonly name: string;
@@ -80,28 +80,28 @@ export class Logger {
   }
 
   /**
-   * ハンドラーを設定
+   * Set handler
    */
   setHandler(handler: LogHandler): void {
     this.handler = handler;
   }
 
   /**
-   * ログレベルを設定
+   * Set log level
    */
   setLevel(level: LogLevel): void {
     this.level = level;
   }
 
   /**
-   * 指定レベルがログ出力対象かどうか
+   * Check if the specified level should be logged
    */
   private shouldLog(level: LogLevel): boolean {
     return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[this.level];
   }
 
   /**
-   * ログ出力
+   * Output log
    */
   private log(level: LogLevel, message: string, ...args: unknown[]): void {
     if (this.shouldLog(level)) {
@@ -127,18 +127,18 @@ export class Logger {
 }
 
 /**
- * ロガーを取得
- * @param name - ロガー名（デフォルト: "wikidot"）
- * @returns ロガーインスタンス
+ * Get logger
+ * @param name - Logger name (default: "wikidot")
+ * @returns Logger instance
  */
 export function getLogger(name = 'wikidot'): Logger {
   return new Logger(name);
 }
 
 /**
- * コンソール出力用ハンドラを設定
- * @param logger - 設定するロガー
- * @param level - ログレベル（デフォルト: "warn"）
+ * Setup console output handler
+ * @param logger - Logger to configure
+ * @param level - Log level (default: "warn")
  */
 export function setupConsoleHandler(logger: Logger, level: LogLevel = 'warn'): void {
   logger.setHandler(consoleHandler);
@@ -146,6 +146,6 @@ export function setupConsoleHandler(logger: Logger, level: LogLevel = 'warn'): v
 }
 
 /**
- * パッケージ全体で使用されるデフォルトロガー
+ * Default logger used throughout the package
  */
 export const logger: Logger = getLogger();

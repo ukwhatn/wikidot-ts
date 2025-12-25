@@ -11,7 +11,7 @@ import type { ForumCategory } from './forum-category';
 import { ForumPostCollection } from './forum-post';
 
 /**
- * フォーラムスレッドデータ
+ * Forum thread data
  */
 export interface ForumThreadData {
   site: Site;
@@ -25,7 +25,7 @@ export interface ForumThreadData {
 }
 
 /**
- * フォーラムスレッド
+ * Forum thread
  */
 export class ForumThread {
   public readonly site: Site;
@@ -50,14 +50,14 @@ export class ForumThread {
   }
 
   /**
-   * スレッドURL
+   * Get thread URL
    */
   getUrl(): string {
     return `${this.site.getBaseUrl()}/forum/t-${this.id}/`;
   }
 
   /**
-   * 投稿一覧を取得
+   * Get post list
    */
   getPosts(): WikidotResultAsync<ForumPostCollection> {
     if (this._posts !== null) {
@@ -68,7 +68,7 @@ export class ForumThread {
   }
 
   /**
-   * スレッドに返信
+   * Reply to thread
    */
   @RequireLogin
   reply(
@@ -105,7 +105,7 @@ export class ForumThread {
   }
 
   /**
-   * IDからスレッドを取得
+   * Get thread by ID
    */
   static getFromId(
     site: Site,
@@ -133,7 +133,7 @@ export class ForumThread {
 }
 
 /**
- * フォーラムスレッドコレクション
+ * Forum thread collection
  */
 export class ForumThreadCollection extends Array<ForumThread> {
   public readonly site: Site;
@@ -147,14 +147,14 @@ export class ForumThreadCollection extends Array<ForumThread> {
   }
 
   /**
-   * IDで検索
+   * Find by ID
    */
   findById(id: number): ForumThread | undefined {
     return this.find((thread) => thread.id === id);
   }
 
   /**
-   * カテゴリ内の全スレッドを取得
+   * Get all threads in category
    */
   static acquireAllInCategory(category: ForumCategory): WikidotResultAsync<ForumThreadCollection> {
     return fromPromise(
@@ -193,7 +193,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
           const description = $row.find('div.description').text().trim();
           const postCount = Number.parseInt($row.find('td.posts').text().trim(), 10) || 0;
 
-          // ユーザーと日時のパース
+          // Parse user and timestamp
           const $userElem = $row.find('td.started span.printuser');
           const $odateElem = $row.find('td.started span.odate');
 
@@ -270,7 +270,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
             const description = $row.find('div.description').text().trim();
             const postCount = Number.parseInt($row.find('td.posts').text().trim(), 10) || 0;
 
-            // ユーザーと日時のパース
+            // Parse user and timestamp
             const $userElem = $row.find('td.started span.printuser');
             const $odateElem = $row.find('td.started span.odate');
 
@@ -308,9 +308,9 @@ export class ForumThreadCollection extends Array<ForumThread> {
   }
 
   /**
-   * スレッドIDから単一のスレッドを取得
-   * @param site - サイト
-   * @param threadId - スレッドID
+   * Get a single thread by thread ID
+   * @param site - Site instance
+   * @param threadId - Thread ID
    */
   static fromId(site: Site, threadId: number): WikidotResultAsync<ForumThread> {
     return fromPromise(
@@ -333,7 +333,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
   }
 
   /**
-   * スレッドIDからスレッドを取得
+   * Get threads by thread IDs
    */
   static acquireFromThreadIds(
     site: Site,

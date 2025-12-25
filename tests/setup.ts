@@ -1,13 +1,13 @@
 /**
  * Bun Test Setup
  *
- * テスト全体の共通セットアップを定義
+ * Define common setup for all tests
  */
 
 import type { AMCConfig } from '../src/connector/amc-config';
 
 /**
- * テスト用AMC設定（短いタイムアウト）
+ * Test AMC configuration (short timeout)
  */
 export const TEST_AMC_CONFIG: AMCConfig = {
   timeout: 5000,
@@ -19,7 +19,7 @@ export const TEST_AMC_CONFIG: AMCConfig = {
 };
 
 /**
- * テスト用認証情報
+ * Test credentials
  */
 export const TEST_CREDENTIALS = {
   username: 'test_user',
@@ -27,7 +27,7 @@ export const TEST_CREDENTIALS = {
 } as const;
 
 /**
- * テスト用サイトデータ
+ * Test site data
  */
 export const TEST_SITE_DATA = {
   id: 123456,
@@ -38,7 +38,7 @@ export const TEST_SITE_DATA = {
 } as const;
 
 /**
- * テスト用ページデータ
+ * Test page data
  */
 export const TEST_PAGE_DATA = {
   fullname: 'test-page',
@@ -57,7 +57,7 @@ export const TEST_PAGE_DATA = {
 } as const;
 
 /**
- * テスト用フォーラムカテゴリデータ
+ * Test forum category data
  */
 export const TEST_FORUM_CATEGORY_DATA = {
   id: 1001,
@@ -68,7 +68,7 @@ export const TEST_FORUM_CATEGORY_DATA = {
 } as const;
 
 /**
- * テスト用フォーラムスレッドデータ
+ * Test forum thread data
  */
 export const TEST_FORUM_THREAD_DATA = {
   id: 3001,
@@ -78,7 +78,7 @@ export const TEST_FORUM_THREAD_DATA = {
 } as const;
 
 /**
- * テスト用フォーラム投稿データ
+ * Test forum post data
  */
 export const TEST_FORUM_POST_DATA = {
   id: 5001,

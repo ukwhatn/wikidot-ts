@@ -10,7 +10,7 @@ import type { ForumThreadRef } from '../types';
 import type { AbstractUser } from '../user';
 
 /**
- * フォーラム投稿データ
+ * Forum post data
  */
 export interface ForumPostData {
   thread: ForumThreadRef;
@@ -26,7 +26,7 @@ export interface ForumPostData {
 }
 
 /**
- * フォーラム投稿
+ * Forum post
  */
 export class ForumPost {
   public readonly thread: ForumThreadRef;
@@ -55,14 +55,14 @@ export class ForumPost {
   }
 
   /**
-   * 親投稿ID
+   * Parent post ID
    */
   get parentId(): number | null {
     return this._parentId;
   }
 
   /**
-   * ソースコード（Wikidot記法）を取得
+   * Get source code (Wikidot syntax)
    */
   getSource(): WikidotResultAsync<string> {
     if (this._source !== null) {
@@ -104,15 +104,15 @@ export class ForumPost {
   }
 
   /**
-   * 投稿を編集する
-   * @param source - 新しいソース（Wikidot記法）
-   * @param title - 新しいタイトル（省略時は現在のタイトルを維持）
+   * Edit post
+   * @param source - New source (Wikidot syntax)
+   * @param title - New title (keeps current title if omitted)
    */
   @RequireLogin
   edit(source: string, title?: string): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
-        // 現在のリビジョンIDを取得
+        // Get current revision ID
         const formResult = await this.thread.site.amcRequest([
           {
             moduleName: 'forum/sub/ForumEditPostFormModule',
@@ -142,7 +142,7 @@ export class ForumPost {
           throw new NoElementError('Invalid revision ID value');
         }
 
-        // 編集を保存
+        // Save edit
         const editResult = await this.thread.site.amcRequest([
           {
             action: 'ForumAction',
@@ -159,7 +159,7 @@ export class ForumPost {
           throw editResult.error;
         }
 
-        // ローカル状態を更新
+        // Update local state
         if (title !== undefined) {
           this.title = title;
         }
@@ -180,7 +180,7 @@ export class ForumPost {
 }
 
 /**
- * フォーラム投稿コレクション
+ * Forum post collection
  */
 export class ForumPostCollection extends Array<ForumPost> {
   public readonly thread: ForumThreadRef;
@@ -194,16 +194,16 @@ export class ForumPostCollection extends Array<ForumPost> {
   }
 
   /**
-   * IDで検索
-   * @param id - 投稿ID
-   * @returns 投稿（存在しない場合はundefined）
+   * Find by ID
+   * @param id - Post ID
+   * @returns Post (undefined if not found)
    */
   findById(id: number): ForumPost | undefined {
     return this.find((post) => post.id === id);
   }
 
   /**
-   * HTMLから投稿をパースする（内部メソッド）
+   * Parse posts from HTML (internal method)
    */
   private static _parse(thread: ForumThreadRef, $: CheerioAPI): ForumPost[] {
     const posts: ForumPost[] = [];
@@ -216,7 +216,7 @@ export class ForumPostCollection extends Array<ForumPost> {
       const postId = Number.parseInt(postIdAttr.replace('post-', ''), 10);
       if (Number.isNaN(postId)) return;
 
-      // 親投稿IDの取得
+      // Get parent post ID
       let parentId: number | null = null;
       const $parentContainer = $post.parent();
       if ($parentContainer.length > 0) {
@@ -235,7 +235,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         }
       }
 
-      // タイトルと本文の取得
+      // Get title and content
       const $wrapper = $post.find('div.long');
       if ($wrapper.length === 0) return;
 
@@ -248,7 +248,7 @@ export class ForumPostCollection extends Array<ForumPost> {
       const $content = $wrapper.find('div.content');
       const text = $content.html() ?? '';
 
-      // 投稿者と日時
+      // Author and timestamp
       const $info = $head.find('div.info');
       if ($info.length === 0) return;
 
@@ -262,7 +262,7 @@ export class ForumPostCollection extends Array<ForumPost> {
 
       const createdAt = parseOdate($odateElem as Cheerio<AnyNode>) ?? new Date();
 
-      // 編集情報（存在する場合）
+      // Edit info (if exists)
       let editedBy: AbstractUser | null = null;
       let editedAt: Date | null = null;
       const $changes = $wrapper.find('div.changes');
@@ -295,7 +295,7 @@ export class ForumPostCollection extends Array<ForumPost> {
   }
 
   /**
-   * スレッド内の全投稿を取得
+   * Get all posts in a thread
    */
   static acquireAllInThread(thread: ForumThreadRef): WikidotResultAsync<ForumPostCollection> {
     return fromPromise(
@@ -324,7 +324,7 @@ export class ForumPostCollection extends Array<ForumPost> {
 
         posts.push(...ForumPostCollection._parse(thread, $first));
 
-        // ページネーション確認
+        // Check pagination
         const $pager = $first('div.pager');
         if ($pager.length === 0) {
           return new ForumPostCollection(thread, posts);
@@ -335,7 +335,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           return new ForumPostCollection(thread, posts);
         }
 
-        // 最後から2番目のページリンクから最終ページ番号を取得
+        // Get last page number from second to last page link
         const lastPageText = $pagerTargets
           .eq($pagerTargets.length - 2)
           .text()
@@ -345,7 +345,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           return new ForumPostCollection(thread, posts);
         }
 
-        // 残りのページを取得
+        // Get remaining pages
         const bodies: { moduleName: string; pageNo: string; t: string }[] = [];
         for (let page = 2; page <= lastPage; page++) {
           bodies.push({

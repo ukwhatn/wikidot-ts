@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * AMCリクエストボディの値型
+ * AMC request body value type
  */
 export type AMCRequestBodyValue =
   | string
@@ -13,7 +13,7 @@ export type AMCRequestBodyValue =
   | AMCRequestBodyValue[];
 
 /**
- * AMCリクエストボディの型定義
+ * AMC request body type definition
  */
 export interface AMCRequestBody {
   moduleName?: string;
@@ -23,7 +23,7 @@ export interface AMCRequestBody {
 }
 
 /**
- * AMCレスポンスのベーススキーマ
+ * AMC response base schema
  */
 const baseSchema: z.ZodObject<{
   status: z.ZodString;
@@ -36,18 +36,18 @@ const baseSchema: z.ZodObject<{
 });
 
 /**
- * AMCレスポンススキーマ
+ * AMC response schema
  */
 export const amcResponseSchema: z.ZodType<z.infer<typeof baseSchema> & Record<string, unknown>> =
   baseSchema.passthrough();
 
 /**
- * AMCレスポンス型
+ * AMC response type
  */
 export type AMCResponse = z.infer<typeof amcResponseSchema>;
 
 /**
- * 成功したAMCレスポンス
+ * Successful AMC response
  */
 export interface AMCSuccessResponse {
   status: 'ok';
@@ -56,9 +56,9 @@ export interface AMCSuccessResponse {
 }
 
 /**
- * AMCレスポンスが成功かどうかを判定する型ガード
- * @param response - AMCレスポンス
- * @returns 成功レスポンスの場合true
+ * Type guard to check if AMC response is successful
+ * @param response - AMC response
+ * @returns true if response is successful
  */
 export function isSuccessResponse(response: AMCResponse): response is AMCSuccessResponse {
   return response.status === 'ok';

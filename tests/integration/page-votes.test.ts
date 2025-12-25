@@ -1,12 +1,12 @@
 /**
- * ページ投票の統合テスト
+ * Page votes integration tests
  */
 import { describe, expect, test } from 'bun:test';
 import { getSite } from './helpers/client';
 import { shouldSkipIntegration } from './setup';
 
 describe.skipIf(shouldSkipIntegration())('Page Votes Integration Tests', () => {
-  test('1. 既存ページの投票情報取得', async () => {
+  test('1. Get existing page votes', async () => {
     const site = await getSite();
     const pageResult = await site.page.get('start');
     expect(pageResult.isOk()).toBe(true);
@@ -17,11 +17,11 @@ describe.skipIf(shouldSkipIntegration())('Page Votes Integration Tests', () => {
 
     const votes = votesResult.value;
     expect(votes).not.toBeNull();
-    // 投票がなくても空のコレクションが返る
+    // Empty collection is returned even if no votes exist
     expect(Array.isArray(votes)).toBe(true);
   });
 
-  test('2. 投票プロパティ確認', async () => {
+  test('2. Verify vote properties', async () => {
     const site = await getSite();
     const pageResult = await site.page.get('start');
     expect(pageResult.isOk()).toBe(true);
@@ -31,7 +31,7 @@ describe.skipIf(shouldSkipIntegration())('Page Votes Integration Tests', () => {
     expect(votesResult.isOk()).toBe(true);
 
     const votes = votesResult.value!;
-    // 投票がある場合はプロパティを確認
+    // Verify properties if votes exist
     if (votes.length > 0) {
       const vote = votes[0];
       expect(vote.page).toBeDefined();

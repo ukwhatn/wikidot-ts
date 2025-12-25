@@ -1,5 +1,5 @@
 /**
- * PrivateMessageモジュールのユニットテスト
+ * PrivateMessage module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { Client } from '../../../src/module/client';
@@ -13,7 +13,7 @@ import type { ClientRef } from '../../../src/module/types';
 import { User } from '../../../src/module/user/user';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef {
   return {
@@ -23,7 +23,7 @@ function createMockClient(): ClientRef {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = createMockClient();
@@ -35,7 +35,7 @@ function createMockUser(name: string): User {
 }
 
 /**
- * テスト用メッセージ作成
+ * Create test message
  */
 function createTestMessage(
   options: { id?: number; subject?: string; body?: string; sender?: User; recipient?: User } = {}
@@ -55,9 +55,9 @@ function createTestMessage(
   });
 }
 
-describe('PrivateMessageデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('PrivateMessage data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const message = createTestMessage();
 
       const result = message.toString();
@@ -67,32 +67,32 @@ describe('PrivateMessageデータクラス', () => {
       expect(result).toContain('subject=Test Subject');
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const message = createTestMessage({ id: 9999 });
 
       expect(message.id).toBe(9999);
     });
 
-    test('subjectが正しく設定される', () => {
+    test('subject is correctly set', () => {
       const message = createTestMessage({ subject: 'Custom Subject' });
 
       expect(message.subject).toBe('Custom Subject');
     });
 
-    test('bodyが正しく設定される', () => {
+    test('body is correctly set', () => {
       const message = createTestMessage({ body: 'Custom body text' });
 
       expect(message.body).toBe('Custom body text');
     });
 
-    test('senderが正しく設定される', () => {
+    test('sender is correctly set', () => {
       const sender = createMockUser('TestSender');
       const message = createTestMessage({ sender });
 
       expect(message.sender.name).toBe('TestSender');
     });
 
-    test('recipientが正しく設定される', () => {
+    test('recipient is correctly set', () => {
       const recipient = createMockUser('TestRecipient');
       const message = createTestMessage({ recipient });
 
@@ -102,14 +102,14 @@ describe('PrivateMessageデータクラス', () => {
 });
 
 describe('PrivateMessageCollection', () => {
-  test('空のコレクションを作成できる', () => {
+  test('Can create empty collection', () => {
     const client = createMockClient() as unknown as Client;
     const collection = new PrivateMessageCollection(client);
 
     expect(collection.length).toBe(0);
   });
 
-  test('メッセージを追加できる', () => {
+  test('Can add message', () => {
     const client = createMockClient() as unknown as Client;
     const collection = new PrivateMessageCollection(client);
     const message = createTestMessage();
@@ -120,7 +120,7 @@ describe('PrivateMessageCollection', () => {
     expect(collection[0]).toBe(message);
   });
 
-  test('複数メッセージで初期化できる', () => {
+  test('Can initialize with multiple messages', () => {
     const client = createMockClient() as unknown as Client;
     const messages = [
       createTestMessage({ id: 1 }),
@@ -134,7 +134,7 @@ describe('PrivateMessageCollection', () => {
 });
 
 describe('PrivateMessageInbox', () => {
-  test('Inboxを作成できる', () => {
+  test('Can create Inbox', () => {
     const client = createMockClient() as unknown as Client;
     const inbox = new PrivateMessageInbox(client);
 
@@ -142,7 +142,7 @@ describe('PrivateMessageInbox', () => {
     expect(inbox.length).toBe(0);
   });
 
-  test('メッセージ付きで初期化できる', () => {
+  test('Can initialize with messages', () => {
     const client = createMockClient() as unknown as Client;
     const messages = [createTestMessage({ id: 1 }), createTestMessage({ id: 2 })];
     const inbox = new PrivateMessageInbox(client, messages);
@@ -152,7 +152,7 @@ describe('PrivateMessageInbox', () => {
 });
 
 describe('PrivateMessageSentBox', () => {
-  test('SentBoxを作成できる', () => {
+  test('Can create SentBox', () => {
     const client = createMockClient() as unknown as Client;
     const sentBox = new PrivateMessageSentBox(client);
 
@@ -160,7 +160,7 @@ describe('PrivateMessageSentBox', () => {
     expect(sentBox.length).toBe(0);
   });
 
-  test('メッセージ付きで初期化できる', () => {
+  test('Can initialize with messages', () => {
     const client = createMockClient() as unknown as Client;
     const messages = [createTestMessage({ id: 1 }), createTestMessage({ id: 2 })];
     const sentBox = new PrivateMessageSentBox(client, messages);

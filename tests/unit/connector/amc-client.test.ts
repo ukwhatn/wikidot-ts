@@ -1,20 +1,20 @@
 /**
- * AMCClientのユニットテスト
+ * AMCClient unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { AMCClient, maskSensitiveData } from '../../../src/connector/amc-client';
 import { TEST_AMC_CONFIG } from '../../setup';
 
 describe('AMCClient', () => {
-  describe('コンストラクタ', () => {
-    test('デフォルト設定で作成できる', () => {
+  describe('Constructor', () => {
+    test('Can create with default settings', () => {
       const client = new AMCClient();
 
       expect(client.domain).toBe('wikidot.com');
       expect(client.header).toBeDefined();
     });
 
-    test('カスタム設定で作成できる', () => {
+    test('Can create with custom settings', () => {
       const client = new AMCClient(TEST_AMC_CONFIG, 'custom.wikidot.com');
 
       expect(client.domain).toBe('custom.wikidot.com');
@@ -23,8 +23,8 @@ describe('AMCClient', () => {
     });
   });
 
-  describe('設定', () => {
-    test('configが正しく設定される', () => {
+  describe('Configuration', () => {
+    test('Config is set correctly', () => {
       const client = new AMCClient(TEST_AMC_CONFIG);
 
       expect(client.config.timeout).toBe(5000);
@@ -36,8 +36,8 @@ describe('AMCClient', () => {
     });
   });
 
-  describe('ヘッダー', () => {
-    test('headerが初期化される', () => {
+  describe('Header', () => {
+    test('Header is initialized', () => {
       const client = new AMCClient();
 
       expect(client.header).toBeDefined();
@@ -47,7 +47,7 @@ describe('AMCClient', () => {
 });
 
 describe('maskSensitiveData', () => {
-  test('passwordがマスクされる', () => {
+  test('Password is masked', () => {
     const body = {
       moduleName: 'test',
       password: 'secret123',
@@ -59,7 +59,7 @@ describe('maskSensitiveData', () => {
     expect(result.moduleName).toBe('test');
   });
 
-  test('loginがマスクされる', () => {
+  test('Login is masked', () => {
     const body = {
       moduleName: 'test',
       login: 'username',
@@ -70,7 +70,7 @@ describe('maskSensitiveData', () => {
     expect(result.login).toBe('***MASKED***');
   });
 
-  test('WIKIDOT_SESSION_IDがマスクされる', () => {
+  test('WIKIDOT_SESSION_ID is masked', () => {
     const body = {
       moduleName: 'test',
       WIKIDOT_SESSION_ID: 'session123',
@@ -81,7 +81,7 @@ describe('maskSensitiveData', () => {
     expect(result.WIKIDOT_SESSION_ID).toBe('***MASKED***');
   });
 
-  test('wikidot_token7がマスクされる', () => {
+  test('wikidot_token7 is masked', () => {
     const body = {
       moduleName: 'test',
       wikidot_token7: 'token123',
@@ -92,7 +92,7 @@ describe('maskSensitiveData', () => {
     expect(result.wikidot_token7).toBe('***MASKED***');
   });
 
-  test('非機密データはマスクされない', () => {
+  test('Non-sensitive data is not masked', () => {
     const body = {
       moduleName: 'test',
       page_id: 12345,
@@ -106,7 +106,7 @@ describe('maskSensitiveData', () => {
     expect(result.action).toBe('someAction');
   });
 
-  test('複数の機密データが同時にマスクされる', () => {
+  test('Multiple sensitive data are masked at once', () => {
     const body = {
       moduleName: 'test',
       password: 'secret',

@@ -2,27 +2,27 @@ import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
 
 /**
- * 削除済みユーザー
+ * Deleted user
  */
 export class DeletedUser implements AbstractUser {
   public readonly client: ClientRef;
 
-  /** 削除済みユーザーID */
+  /** Deleted user ID */
   public readonly id: number;
 
-  /** ユーザー名（削除済みは"account deleted"） */
+  /** Username ("account deleted" for deleted users) */
   public readonly name: string = 'account deleted';
 
-  /** UNIX形式のユーザー名 */
+  /** UNIX format username */
   public readonly unixName: string = 'account_deleted';
 
-  /** アバターURL（削除済みはnull） */
+  /** Avatar URL (null for deleted) */
   public readonly avatarUrl: string | null = null;
 
-  /** IPアドレス（削除済みはnull） */
+  /** IP address (null for deleted) */
   public readonly ip: string | null = null;
 
-  /** ユーザー種別 */
+  /** User type */
   public readonly userType: UserType = 'deleted';
 
   constructor(client: ClientRef, id: number) {
@@ -30,7 +30,7 @@ export class DeletedUser implements AbstractUser {
     this.id = id;
   }
 
-  // AbstractUser実装
+  // AbstractUser implementation
   isUser(): boolean {
     return false;
   }

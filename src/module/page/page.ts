@@ -25,8 +25,8 @@ import { PageVote, PageVoteCollection } from './page-vote';
 import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './search-query';
 
 /**
- * ListPagesModuleパース結果のスキーマ
- * 型安全性のためにZodを使用してパース結果を検証
+ * Schema for ListPagesModule parse result
+ * Uses Zod for type-safe validation of parse results
  */
 const pageParamsSchema = z.object({
   fullname: z.preprocess((v) => v ?? '', z.string()),
@@ -51,7 +51,7 @@ const pageParamsSchema = z.object({
 });
 
 /**
- * ページデータ
+ * Page data
  */
 export interface PageData {
   site: Site;
@@ -77,7 +77,7 @@ export interface PageData {
 }
 
 /**
- * Wikidotページ
+ * Wikidot page
  */
 export class Page {
   public readonly site: Site;
@@ -130,77 +130,77 @@ export class Page {
   }
 
   /**
-   * ページURLを取得
+   * Get page URL
    */
   getUrl(): string {
     return `${this.site.getBaseUrl()}/${this.fullname}`;
   }
 
   /**
-   * ページIDが取得済みかどうか
+   * Whether page ID has been acquired
    */
   isIdAcquired(): boolean {
     return this._id !== null;
   }
 
   /**
-   * ページIDを取得
+   * Get page ID
    */
   get id(): number | null {
     return this._id;
   }
 
   /**
-   * ページIDを設定
+   * Set page ID
    */
   set id(value: number | null) {
     this._id = value;
   }
 
   /**
-   * ソースコードを取得
+   * Get source code
    */
   get source(): PageSource | null {
     return this._source;
   }
 
   /**
-   * ソースコードを設定
+   * Set source code
    */
   set source(value: PageSource | null) {
     this._source = value;
   }
 
   /**
-   * リビジョン履歴を取得
+   * Get revision history
    */
   get revisions(): PageRevisionCollection | null {
     return this._revisions;
   }
 
   /**
-   * リビジョン履歴を設定
+   * Set revision history
    */
   set revisions(value: PageRevisionCollection | null) {
     this._revisions = value;
   }
 
   /**
-   * 投票情報を取得
+   * Get vote information
    */
   get votes(): PageVoteCollection | null {
     return this._votes;
   }
 
   /**
-   * 投票情報を設定
+   * Set vote information
    */
   set votes(value: PageVoteCollection | null) {
     this._votes = value;
   }
 
   /**
-   * 最新リビジョンを取得
+   * Get latest revision
    */
   get latestRevision(): PageRevision | undefined {
     if (!this._revisions || this._revisions.length === 0) return undefined;
@@ -208,9 +208,9 @@ export class Page {
   }
 
   /**
-   * ページIDを確保する（未取得の場合は自動取得）
-   * @param operation - 操作名（エラーメッセージ用）
-   * @throws IDの取得に失敗した場合
+   * Ensure page ID is available (auto-acquire if not yet acquired)
+   * @param operation - Operation name (for error message)
+   * @throws If ID acquisition fails
    */
   private async ensureId(operation: string): Promise<number> {
     if (this._id === null) {
@@ -228,7 +228,7 @@ export class Page {
   }
 
   /**
-   * ページを削除する
+   * Delete page
    */
   @RequireLogin
   destroy(): WikidotResultAsync<void> {
@@ -252,7 +252,7 @@ export class Page {
   }
 
   /**
-   * タグを保存する
+   * Save tags
    */
   @RequireLogin
   commitTags(): WikidotResultAsync<void> {
@@ -277,8 +277,8 @@ export class Page {
   }
 
   /**
-   * 親ページを設定する
-   * @param parentFullname - 親ページのフルネーム（nullで解除）
+   * Set parent page
+   * @param parentFullname - Parent page fullname (null to remove)
    */
   @RequireLogin
   setParent(parentFullname: string | null): WikidotResultAsync<void> {
@@ -304,9 +304,9 @@ export class Page {
   }
 
   /**
-   * ページに投票する
-   * @param value - 投票値
-   * @returns 新しいレーティング
+   * Vote on page
+   * @param value - Vote value
+   * @returns New rating
    */
   @RequireLogin
   vote(value: number): WikidotResultAsync<number> {
@@ -339,8 +339,8 @@ export class Page {
   }
 
   /**
-   * 投票をキャンセルする
-   * @returns 新しいレーティング
+   * Cancel vote
+   * @returns New rating
    */
   @RequireLogin
   cancelVote(): WikidotResultAsync<number> {
@@ -371,8 +371,8 @@ export class Page {
   }
 
   /**
-   * ページを編集する
-   * @param options - 編集オプション
+   * Edit the page
+   * @param options - Edit options
    */
   @RequireLogin
   edit(options: {
@@ -385,19 +385,19 @@ export class Page {
       (async () => {
         const pageId = await this.ensureId('editing');
 
-        // 現在のソースを取得（指定がない場合）
+        // Get current source (if not specified)
         let currentSource = options.source;
         if (currentSource === undefined) {
           const existingSource = this._source;
           if (existingSource !== null) {
             currentSource = existingSource.wikiText;
           } else {
-            // ソースを取得
+            // Acquire source
             const sourceResult = await PageCollection.acquirePageSources(this.site, [this]);
             if (sourceResult.isErr()) {
               throw sourceResult.error;
             }
-            // acquirePageSources後、this._sourceにセットされる
+            // After acquirePageSources, this._source is set
             currentSource = this._source?.wikiText ?? '';
           }
         }
@@ -423,8 +423,8 @@ export class Page {
   }
 
   /**
-   * ページ名を変更する
-   * @param newFullname - 新しいフルネーム
+   * Rename the page
+   * @param newFullname - New fullname
    */
   @RequireLogin
   rename(newFullname: string): WikidotResultAsync<void> {
@@ -443,7 +443,7 @@ export class Page {
         if (result.isErr()) {
           throw result.error;
         }
-        // プロパティを更新（readonlyなのでObject.assignで）
+        // Update properties (using Object.assign since readonly)
         Object.assign(this, {
           fullname: newFullname,
           category: newFullname.includes(':') ? newFullname.split(':')[0] : '_default',
@@ -455,14 +455,14 @@ export class Page {
   }
 
   /**
-   * ページに添付されたファイル一覧を取得する
+   * Get list of files attached to the page
    */
   getFiles(): WikidotResultAsync<PageFileCollection> {
     return PageFileCollection.acquire(this);
   }
 
   /**
-   * ページのディスカッションスレッドを取得する
+   * Get the discussion thread for the page
    */
   getDiscussion(): WikidotResultAsync<import('../forum').ForumThread | null> {
     return fromPromise(
@@ -486,7 +486,7 @@ export class Page {
         }
 
         const html = String(response.body ?? '');
-        // スレッドIDを抽出
+        // Extract thread ID
         const match = html.match(
           /WIKIDOT\.modules\.ForumViewThreadModule\.vars\.threadId\s*=\s*(\d+)/
         );
@@ -496,7 +496,7 @@ export class Page {
 
         const threadId = Number.parseInt(match[1], 10);
 
-        // ForumThreadを取得
+        // Get ForumThread
         const { ForumThread } = await import('../forum');
         const threadResult = await ForumThread.getFromId(this.site, threadId);
         if (threadResult.isErr()) {
@@ -509,8 +509,8 @@ export class Page {
   }
 
   /**
-   * ページのメタタグ一覧を取得する
-   * @returns メタタグコレクション
+   * Get the list of meta tags for the page
+   * @returns Meta tag collection
    */
   getMetas(): WikidotResultAsync<PageMetaCollection> {
     return fromPromise(
@@ -527,9 +527,9 @@ export class Page {
   }
 
   /**
-   * メタタグを設定する
-   * @param name - メタタグ名
-   * @param content - メタタグの値
+   * Set a meta tag
+   * @param name - Meta tag name
+   * @param content - Meta tag value
    */
   @RequireLogin
   setMeta(name: string, content: string): WikidotResultAsync<void> {
@@ -546,8 +546,8 @@ export class Page {
   }
 
   /**
-   * メタタグを削除する
-   * @param name - メタタグ名
+   * Delete a meta tag
+   * @param name - Meta tag name
    */
   @RequireLogin
   deleteMeta(name: string): WikidotResultAsync<void> {
@@ -564,8 +564,8 @@ export class Page {
   }
 
   /**
-   * ページソースを取得する（未取得の場合は自動取得）
-   * @returns ページソース
+   * Get page source (auto-acquire if not yet acquired)
+   * @returns Page source
    */
   getSource(): WikidotResultAsync<PageSource> {
     return fromPromise(
@@ -593,8 +593,8 @@ export class Page {
   }
 
   /**
-   * リビジョン履歴を取得する（未取得の場合は自動取得）
-   * @returns リビジョンコレクション
+   * Get revision history (auto-acquire if not yet acquired)
+   * @returns Revision collection
    */
   getRevisions(): WikidotResultAsync<PageRevisionCollection> {
     return fromPromise(
@@ -622,8 +622,8 @@ export class Page {
   }
 
   /**
-   * 投票情報を取得する（未取得の場合は自動取得）
-   * @returns 投票コレクション
+   * Get vote information (auto-acquire if not yet acquired)
+   * @returns Vote collection
    */
   getVotes(): WikidotResultAsync<PageVoteCollection> {
     return fromPromise(
@@ -656,7 +656,7 @@ export class Page {
 }
 
 /**
- * ページコレクション
+ * Page collection
  */
 export class PageCollection extends Array<Page> {
   public readonly site: Site;
@@ -670,44 +670,44 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * フルネームで検索
-   * @param fullname - ページのフルネーム
-   * @returns ページ（存在しない場合はundefined）
+   * Find by fullname
+   * @param fullname - Page fullname
+   * @returns Page (undefined if not found)
    */
   findByFullname(fullname: string): Page | undefined {
     return this.find((page) => page.fullname === fullname);
   }
 
   /**
-   * ページIDを一括取得
+   * Acquire page IDs in bulk
    */
   getPageIds(): WikidotResultAsync<PageCollection> {
     return PageCollection.acquirePageIds(this.site, this);
   }
 
   /**
-   * ページソースを一括取得
+   * Acquire page sources in bulk
    */
   getPageSources(): WikidotResultAsync<PageCollection> {
     return PageCollection.acquirePageSources(this.site, this);
   }
 
   /**
-   * ページリビジョンを一括取得
+   * Acquire page revisions in bulk
    */
   getPageRevisions(): WikidotResultAsync<PageCollection> {
     return PageCollection.acquirePageRevisions(this.site, this);
   }
 
   /**
-   * ページ投票を一括取得
+   * Acquire page votes in bulk
    */
   getPageVotes(): WikidotResultAsync<PageCollection> {
     return PageCollection.acquirePageVotes(this.site, this);
   }
 
   /**
-   * ページIDを一括取得する内部メソッド
+   * Internal method to acquire page IDs in bulk
    */
   static acquirePageIds(site: Site, pages: Page[]): WikidotResultAsync<PageCollection> {
     return fromPromise(
@@ -718,10 +718,10 @@ export class PageCollection extends Array<Page> {
           return new PageCollection(site, pages);
         }
 
-        // 同時接続数を制限（AMCClientと同じsemaphoreLimitを使用）
+        // Limit concurrent connections (using same semaphoreLimit as AMCClient)
         const limit = pLimit(site.client.amcClient.config.semaphoreLimit);
 
-        // norender, noredirectでアクセス
+        // Access with norender, noredirect
         const responses = await Promise.all(
           targetPages.map((page) =>
             limit(async () => {
@@ -753,7 +753,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ページソースを一括取得する内部メソッド
+   * Internal method to acquire page sources in bulk
    */
   static acquirePageSources(site: Site, pages: Page[]): WikidotResultAsync<PageCollection> {
     return fromPromise(
@@ -799,7 +799,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ページリビジョンを一括取得する内部メソッド
+   * Internal method to acquire page revisions in bulk
    */
   static acquirePageRevisions(site: Site, pages: Page[]): WikidotResultAsync<PageCollection> {
     return fromPromise(
@@ -823,7 +823,7 @@ export class PageCollection extends Array<Page> {
           throw result.error;
         }
 
-        // リビジョンをパース
+        // Parse revisions
         for (let i = 0; i < targetPages.length; i++) {
           const page = targetPages[i];
           const response = result.value[i];
@@ -880,7 +880,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ページ投票を一括取得する内部メソッド
+   * Internal method to acquire page votes in bulk
    */
   static acquirePageVotes(site: Site, pages: Page[]): WikidotResultAsync<PageCollection> {
     return fromPromise(
@@ -902,7 +902,7 @@ export class PageCollection extends Array<Page> {
           throw result.error;
         }
 
-        // 投票をパース
+        // Parse votes
         for (let i = 0; i < targetPages.length; i++) {
           const page = targetPages[i];
           const response = result.value[i];
@@ -948,7 +948,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ListPagesModuleレスポンスをパース
+   * Parse ListPagesModule response
    */
   static parse(
     site: Site,
@@ -961,10 +961,10 @@ export class PageCollection extends Array<Page> {
       const $page = htmlBody(pageElement);
       const pageParams: Record<string, unknown> = {};
 
-      // 5つ星レーティング判定
+      // Check for 5-star rating
       const is5StarRating = $page.find('span.rating span.page-rate-list-pages-start').length > 0;
 
-      // 各値を取得
+      // Get each value
       $page.find('span.set').each((_j, setElement) => {
         const $set = htmlBody(setElement);
         const keyElement = $set.find('span.name');
@@ -1009,7 +1009,7 @@ export class PageCollection extends Array<Page> {
           value = valueElement.text().trim();
         }
 
-        // キー変換
+        // Key conversion
         if (key.includes('_linked')) {
           key = key.replace('_linked', '');
         } else if (['comments', 'children', 'revisions'].includes(key)) {
@@ -1021,15 +1021,15 @@ export class PageCollection extends Array<Page> {
         pageParams[key] = value;
       });
 
-      // タグ統合
+      // Merge tags
       const tags = Array.isArray(pageParams.tags) ? pageParams.tags : [];
       const hiddenTags = Array.isArray(pageParams._tags) ? pageParams._tags : [];
       pageParams.tags = [...tags, ...hiddenTags];
 
-      // Zodスキーマで検証・デフォルト値適用
+      // Validate with Zod schema and apply defaults
       const parsed = pageParamsSchema.parse(pageParams);
 
-      // Pageオブジェクト作成
+      // Create Page object
       pages.push(
         new Page({
           site,
@@ -1060,7 +1060,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ページ検索
+   * Search pages
    */
   static searchPages(
     site: Site,
@@ -1072,7 +1072,7 @@ export class PageCollection extends Array<Page> {
         const q = query ?? new SearchPagesQuery();
         const queryDict = q.asDict();
 
-        // モジュールボディ生成
+        // Generate module body
         const moduleBody = `[[div class="page"]]\n${DEFAULT_MODULE_BODY.map(
           (key) =>
             `[[span class="set ${key}"]][[span class="name"]] ${key} [[/span]][[span class="value"]] %%${key}%% [[/span]][[/span]]`
@@ -1099,7 +1099,7 @@ export class PageCollection extends Array<Page> {
         let total = 1;
         const htmlBodies: cheerio.CheerioAPI[] = [$first];
 
-        // ページネーション確認
+        // Check pagination
         const pagerElement = $first('div.pager');
         if (pagerElement.length > 0) {
           const lastPagerElements = $first('div.pager span.target');
@@ -1112,7 +1112,7 @@ export class PageCollection extends Array<Page> {
           }
         }
 
-        // 追加ページ取得
+        // Get additional pages
         if (total > 1) {
           const additionalBodies: AMCRequestBody[] = [];
           for (let i = 1; i < total; i++) {
@@ -1135,7 +1135,7 @@ export class PageCollection extends Array<Page> {
           }
         }
 
-        // パース
+        // Parse
         const pages: Page[] = [];
         for (const $html of htmlBodies) {
           const parsed = PageCollection.parse(site, $html, parseUser);
@@ -1154,7 +1154,7 @@ export class PageCollection extends Array<Page> {
   }
 
   /**
-   * ページを作成または編集
+   * Create or edit a page
    */
   static createOrEdit(
     site: Site,
@@ -1187,7 +1187,7 @@ export class PageCollection extends Array<Page> {
           raiseOnExists = false,
         } = options;
 
-        // ページロック取得
+        // Acquire page lock
         const lockRequestBody: AMCRequestBody = {
           mode: 'page',
           wiki_page: fullname,
@@ -1221,7 +1221,7 @@ export class PageCollection extends Array<Page> {
         const lockSecret = String(lockResponse?.lock_secret ?? '');
         const pageRevisionId = String(lockResponse?.page_revision_id ?? '');
 
-        // ページ保存
+        // Save page
         const editRequestBody: AMCRequestBody = {
           action: 'WikiPageAction',
           event: 'savePage',

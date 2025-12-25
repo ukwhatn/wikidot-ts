@@ -1,11 +1,11 @@
-/** 日時型（ISO 8601形式） */
+/** DateTime type (ISO 8601 format) */
 export type DateTimeString = string;
 
-/** ユーザーIDまたはユーザー名 */
+/** User ID or username */
 export type UserIdentifier = number | string;
 
-/** サイトUNIX名 */
+/** Site UNIX name */
 export type SiteUnixName = string;
 
-/** ページフルネーム（カテゴリ:名前） */
+/** Page fullname (category:name) */
 export type PageFullname = string;

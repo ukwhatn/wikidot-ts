@@ -1,5 +1,5 @@
 /**
- * SiteMemberモジュールのユニットテスト
+ * SiteMember module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { SiteMember } from '../../../src/module/site/site-member';
@@ -9,7 +9,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_SITE_DATA } from '../../setup';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef {
   return {
@@ -19,7 +19,7 @@ function createMockClient(): ClientRef {
 }
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -39,7 +39,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = createMockClient();
@@ -51,7 +51,7 @@ function createMockUser(name: string): User {
 }
 
 /**
- * テスト用メンバー作成
+ * Create test member
  */
 function createTestMember(
   options: { user?: User; joinedAt?: Date; role?: string } = {}
@@ -65,9 +65,9 @@ function createTestMember(
   });
 }
 
-describe('SiteMemberデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('SiteMember data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const member = createTestMember();
 
       const result = member.toString();
@@ -76,14 +76,14 @@ describe('SiteMemberデータクラス', () => {
       expect(result).toContain('user=TestMember');
     });
 
-    test('userが正しく設定される', () => {
+    test('user is correctly set', () => {
       const user = createMockUser('CustomUser');
       const member = createTestMember({ user });
 
       expect(member.user.name).toBe('CustomUser');
     });
 
-    test('joinedAtが正しく設定される', () => {
+    test('joinedAt is correctly set', () => {
       const date = new Date('2024-01-01T00:00:00Z');
       const member = createTestMember({ joinedAt: date });
 

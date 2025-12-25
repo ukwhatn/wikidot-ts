@@ -4,7 +4,7 @@ import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { Page } from './page';
 
 /**
- * ページファイルデータ
+ * Page file data
  */
 export interface PageFileData {
   page: Page;
@@ -16,7 +16,7 @@ export interface PageFileData {
 }
 
 /**
- * ページ添付ファイル
+ * Page attachment file
  */
 export class PageFile {
   public readonly page: Page;
@@ -41,7 +41,7 @@ export class PageFile {
 }
 
 /**
- * ページファイルコレクション
+ * Page file collection
  */
 export class PageFileCollection extends Array<PageFile> {
   public readonly page: Page;
@@ -55,21 +55,21 @@ export class PageFileCollection extends Array<PageFile> {
   }
 
   /**
-   * IDで検索
+   * Find by ID
    */
   findById(id: number): PageFile | undefined {
     return this.find((file) => file.id === id);
   }
 
   /**
-   * 名前で検索
+   * Find by name
    */
   findByName(name: string): PageFile | undefined {
     return this.find((file) => file.name === name);
   }
 
   /**
-   * サイズ文字列をバイト数に変換
+   * Convert size string to bytes
    */
   private static parseSize(sizeText: string): number {
     const text = sizeText.trim();
@@ -89,7 +89,7 @@ export class PageFileCollection extends Array<PageFile> {
   }
 
   /**
-   * ページに添付されたファイル一覧を取得する
+   * Get list of files attached to page
    */
   static acquire(page: Page): WikidotResultAsync<PageFileCollection> {
     if (page.id === null) {

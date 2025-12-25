@@ -1,7 +1,7 @@
 /**
  * AMCClient Mock
  *
- * AMCClientのモック実装（HTTPリクエストなし）
+ * Mock implementation for AMCClient (no HTTP requests)
  */
 
 import { err, ok, type ResultAsync } from 'neverthrow';
@@ -12,12 +12,12 @@ import type { AMCRequestBody, AMCResponse } from '../../src/connector/amc-types'
 import { TEST_AMC_CONFIG } from '../setup';
 
 /**
- * モックレスポンスハンドラー型
+ * Mock response handler type
  */
 export type MockResponseHandler = (body: AMCRequestBody) => AMCResponse | WikidotError;
 
 /**
- * AMCClient モック
+ * AMCClient mock
  */
 export class MockAMCClient {
   public readonly header: AMCHeader;
@@ -34,42 +34,42 @@ export class MockAMCClient {
   }
 
   /**
-   * モックレスポンスハンドラーを追加
+   * Add mock response handler
    */
   addResponseHandler(handler: MockResponseHandler): void {
     this.responseHandlers.push(handler);
   }
 
   /**
-   * レスポンスハンドラーをクリア
+   * Clear response handlers
    */
   clearResponseHandlers(): void {
     this.responseHandlers = [];
   }
 
   /**
-   * リクエスト履歴を取得
+   * Get request history
    */
   getRequestHistory(): AMCRequestBody[] {
     return [...this.requestHistory];
   }
 
   /**
-   * リクエスト履歴をクリア
+   * Clear request history
    */
   clearRequestHistory(): void {
     this.requestHistory = [];
   }
 
   /**
-   * SSL対応チェック（常にtrue）
+   * Check SSL support (always returns true)
    */
   checkSiteSSL(_siteName: string): ResultAsync<boolean, WikidotError> {
     return ok(true) as unknown as ResultAsync<boolean, WikidotError>;
   }
 
   /**
-   * モックリクエスト実行
+   * Execute mock request
    */
   request(
     bodies: AMCRequestBody[],
@@ -83,7 +83,7 @@ export class MockAMCClient {
     for (const body of bodies) {
       let response: AMCResponse | WikidotError | null = null;
 
-      // ハンドラーを順番に試す
+      // Try handlers in order
       for (const handler of this.responseHandlers) {
         const result = handler(body);
         if (result) {
@@ -92,7 +92,7 @@ export class MockAMCClient {
         }
       }
 
-      // ハンドラーが見つからない場合はデフォルトレスポンス
+      // Default response if no handler matches
       if (!response) {
         response = {
           status: 'ok',
@@ -101,7 +101,7 @@ export class MockAMCClient {
         };
       }
 
-      // エラーの場合
+      // If error
       if (response instanceof Error) {
         return err(response as WikidotError) as unknown as ResultAsync<AMCResponse[], WikidotError>;
       }
@@ -114,7 +114,7 @@ export class MockAMCClient {
 }
 
 /**
- * 成功レスポンスを作成
+ * Create success response
  */
 export function createOkResponse(body = ''): AMCResponse {
   return {
@@ -125,7 +125,7 @@ export function createOkResponse(body = ''): AMCResponse {
 }
 
 /**
- * エラーレスポンスを作成
+ * Create error response
  */
 export function createErrorResponse(status: string, message = ''): AMCResponse {
   return {
@@ -136,7 +136,7 @@ export function createErrorResponse(status: string, message = ''): AMCResponse {
 }
 
 /**
- * try_againレスポンスを作成
+ * Create try_again response
  */
 export function createTryAgainResponse(): AMCResponse {
   return {
@@ -146,7 +146,7 @@ export function createTryAgainResponse(): AMCResponse {
 }
 
 /**
- * no_permissionレスポンスを作成
+ * Create no_permission response
  */
 export function createNoPermissionResponse(): AMCResponse {
   return {

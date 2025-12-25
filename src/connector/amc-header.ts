@@ -1,5 +1,5 @@
 /**
- * AMCリクエストヘッダーを管理するクラス
+ * Class for managing AMC request headers
  */
 export class AMCHeader {
   private cookies: Map<string, string>;
@@ -8,7 +8,7 @@ export class AMCHeader {
   private referer: string;
 
   /**
-   * @param options - ヘッダー初期化オプション
+   * @param options - Header initialization options
    */
   constructor(options?: { contentType?: string; userAgent?: string; referer?: string }) {
     this.contentType = options?.contentType ?? 'application/x-www-form-urlencoded; charset=UTF-8';
@@ -18,34 +18,34 @@ export class AMCHeader {
   }
 
   /**
-   * Cookieを設定する
-   * @param name - Cookie名
-   * @param value - Cookie値
+   * Set a cookie
+   * @param name - Cookie name
+   * @param value - Cookie value
    */
   setCookie(name: string, value: string): void {
     this.cookies.set(name, value);
   }
 
   /**
-   * Cookieを削除する
-   * @param name - Cookie名
+   * Delete a cookie
+   * @param name - Cookie name
    */
   deleteCookie(name: string): void {
     this.cookies.delete(name);
   }
 
   /**
-   * Cookieを取得する
-   * @param name - Cookie名
-   * @returns Cookie値、存在しない場合はundefined
+   * Get a cookie
+   * @param name - Cookie name
+   * @returns Cookie value, undefined if not exists
    */
   getCookie(name: string): string | undefined {
     return this.cookies.get(name);
   }
 
   /**
-   * HTTPヘッダーオブジェクトを取得する
-   * @returns ヘッダー辞書
+   * Get HTTP headers object
+   * @returns Headers dictionary
    */
   getHeaders(): Record<string, string> {
     const cookieString = Array.from(this.cookies.entries())

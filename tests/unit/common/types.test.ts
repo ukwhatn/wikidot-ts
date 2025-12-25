@@ -1,5 +1,5 @@
 /**
- * 共通型のユニットテスト
+ * Common types unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { UnexpectedError } from '../../../src/common/errors';
@@ -7,7 +7,7 @@ import { fromPromise, wdErr, wdErrAsync, wdOk, wdOkAsync } from '../../../src/co
 
 describe('WikidotResult', () => {
   describe('wdOk', () => {
-    test('成功結果を作成できる', () => {
+    test('Can create success result', () => {
       const result = wdOk('success');
 
       expect(result.isOk()).toBe(true);
@@ -15,7 +15,7 @@ describe('WikidotResult', () => {
       expect(result.value).toBe('success');
     });
 
-    test('様々な型の値を包める', () => {
+    test('Can wrap various value types', () => {
       const numResult = wdOk(42);
       const objResult = wdOk({ key: 'value' });
       const arrResult = wdOk([1, 2, 3]);
@@ -27,7 +27,7 @@ describe('WikidotResult', () => {
   });
 
   describe('wdErr', () => {
-    test('エラー結果を作成できる', () => {
+    test('Can create error result', () => {
       const error = new UnexpectedError('test error');
       const result = wdErr(error);
 
@@ -40,7 +40,7 @@ describe('WikidotResult', () => {
 
 describe('WikidotResultAsync', () => {
   describe('wdOkAsync', () => {
-    test('非同期成功結果を作成できる', async () => {
+    test('Can create async success result', async () => {
       const result = await wdOkAsync('async success');
 
       expect(result.isOk()).toBe(true);
@@ -49,7 +49,7 @@ describe('WikidotResultAsync', () => {
   });
 
   describe('wdErrAsync', () => {
-    test('非同期エラー結果を作成できる', async () => {
+    test('Can create async error result', async () => {
       const error = new UnexpectedError('async error');
       const result = await wdErrAsync(error);
 
@@ -59,7 +59,7 @@ describe('WikidotResultAsync', () => {
   });
 
   describe('fromPromise', () => {
-    test('成功するPromiseをラップできる', async () => {
+    test('Can wrap resolving promise', async () => {
       const promise = Promise.resolve('resolved');
       const result = await fromPromise(promise, (e) => new UnexpectedError(String(e)));
 
@@ -67,7 +67,7 @@ describe('WikidotResultAsync', () => {
       expect(result.value).toBe('resolved');
     });
 
-    test('失敗するPromiseをラップできる', async () => {
+    test('Can wrap rejecting promise', async () => {
       const promise = Promise.reject(new Error('rejected'));
       const result = await fromPromise(promise, (e) => new UnexpectedError(String(e)));
 
@@ -76,7 +76,7 @@ describe('WikidotResultAsync', () => {
       expect(result.error.message).toContain('rejected');
     });
 
-    test('エラーマッパーでカスタムエラーを返せる', async () => {
+    test('Can return custom error via error mapper', async () => {
       const promise = Promise.reject(new Error('original'));
       const result = await fromPromise(promise, () => new UnexpectedError('custom error message'));
 
@@ -86,8 +86,8 @@ describe('WikidotResultAsync', () => {
   });
 });
 
-describe('Result チェーン', () => {
-  test('mapで値を変換できる', async () => {
+describe('Result chaining', () => {
+  test('Can transform value with map', async () => {
     const result = await wdOkAsync(10);
     const mapped = result.map((v) => v * 2);
 
@@ -95,7 +95,7 @@ describe('Result チェーン', () => {
     expect(mapped.value).toBe(20);
   });
 
-  test('エラー時はmapをスキップする', async () => {
+  test('Skips map on error', async () => {
     const result = await wdErrAsync(new UnexpectedError('error'));
     const mapped = result.map((v: number) => v * 2);
 

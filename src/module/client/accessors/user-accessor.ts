@@ -4,15 +4,15 @@ import { User, type UserCollection } from '../../user';
 import type { Client } from '../client';
 
 /**
- * ユーザー取得オプション
+ * User retrieval options
  */
 export interface GetUserOptions {
-  /** ユーザーが見つからない場合にエラーを発生させる（デフォルト: false） */
+  /** Throw error if user not found (default: false) */
   raiseWhenNotFound?: boolean;
 }
 
 /**
- * ユーザー操作アクセサ
+ * User operations accessor
  */
 export class UserAccessor {
   public readonly client: Client;
@@ -22,17 +22,17 @@ export class UserAccessor {
   }
 
   /**
-   * ユーザー名からユーザーを取得する
+   * Get user by username
    *
-   * @param name - ユーザー名
-   * @param options - 取得オプション
-   * @returns Result型でラップされたユーザー（存在しない場合はnull、raiseWhenNotFoundがtrueの場合はエラー）
+   * @param name - Username
+   * @param options - Retrieval options
+   * @returns User wrapped in Result type (null if not found, error if raiseWhenNotFound is true)
    *
    * @example
    * ```typescript
    * const userResult = await client.user.get('username');
    * if (!userResult.isOk()) {
-   *   throw new Error('ユーザーの取得に失敗しました');
+   *   throw new Error('Failed to get user');
    * }
    * const user = userResult.value;
    * ```
@@ -49,10 +49,10 @@ export class UserAccessor {
   }
 
   /**
-   * 複数ユーザー名からユーザーを取得する
-   * @param names - ユーザー名配列
-   * @param options - 取得オプション
-   * @returns ユーザーコレクション（存在しないユーザーはnull、raiseWhenNotFoundがtrueの場合はエラー）
+   * Get users from multiple usernames
+   * @param names - Array of usernames
+   * @param options - Retrieval options
+   * @returns User collection (null for non-existent users, error if raiseWhenNotFound is true)
    */
   getMany(names: string[], options: GetUserOptions = {}): WikidotResultAsync<UserCollection> {
     const { raiseWhenNotFound = false } = options;

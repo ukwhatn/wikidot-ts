@@ -1,21 +1,21 @@
 import { WikidotError } from './base';
 
 /**
- * Ajax Module Connector関連の基底エラー
+ * Base error for Ajax Module Connector related issues
  */
 export class AMCError extends WikidotError {}
 
 /**
- * HTTPステータスコードエラー
- * AMCへのリクエストがHTTPエラーで失敗した場合
+ * HTTP status code error
+ * Thrown when an AMC request fails with an HTTP error
  */
 export class AMCHttpError extends AMCError {
-  /** HTTPステータスコード */
+  /** HTTP status code */
   public readonly statusCode: number;
 
   /**
-   * @param message - エラーメッセージ
-   * @param statusCode - HTTPステータスコード
+   * @param message - Error message
+   * @param statusCode - HTTP status code
    */
   constructor(message: string, statusCode: number) {
     super(message);
@@ -24,16 +24,16 @@ export class AMCHttpError extends AMCError {
 }
 
 /**
- * Wikidotステータスコードエラー
- * AMCレスポンスのstatusがokでない場合
+ * Wikidot status code error
+ * Thrown when AMC response status is not ok
  */
 export class WikidotStatusError extends AMCError {
-  /** Wikidotステータスコード文字列 */
+  /** Wikidot status code string */
   public readonly statusCode: string;
 
   /**
-   * @param message - エラーメッセージ
-   * @param statusCode - ステータスコード（例: 'not_ok', 'try_again'）
+   * @param message - Error message
+   * @param statusCode - Status code (e.g., 'not_ok', 'try_again')
    */
   constructor(message: string, statusCode: string) {
     super(message);
@@ -42,7 +42,7 @@ export class WikidotStatusError extends AMCError {
 }
 
 /**
- * レスポンスデータエラー
- * レスポンスのパースに失敗した場合
+ * Response data error
+ * Thrown when response parsing fails
  */
 export class ResponseDataError extends AMCError {}

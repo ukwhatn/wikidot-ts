@@ -20,9 +20,9 @@ import { AMCHeader } from './amc-header';
 import { type AMCRequestBody, type AMCResponse, amcResponseSchema } from './amc-types';
 
 /**
- * 機密情報をマスクする（ログ出力用）
- * @param body - マスク対象のリクエストボディ
- * @returns マスクされたボディ
+ * Mask sensitive information (for logging)
+ * @param body - Request body to mask
+ * @returns Masked body
  */
 export function maskSensitiveData(body: AMCRequestBody): Record<string, unknown> {
   const masked = { ...body };
@@ -36,12 +36,12 @@ export function maskSensitiveData(body: AMCRequestBody): Record<string, unknown>
 }
 
 /**
- * 指数バックオフ間隔を計算する（ジッター付き）
- * @param retryCount - 現在のリトライ回数（1から開始）
- * @param baseInterval - 基本間隔（ミリ秒）
- * @param backoffFactor - バックオフ係数
- * @param maxBackoff - 最大バックオフ間隔（ミリ秒）
- * @returns 計算されたバックオフ間隔（ミリ秒）
+ * Calculate exponential backoff interval (with jitter)
+ * @param retryCount - Current retry count (starts from 1)
+ * @param baseInterval - Base interval (milliseconds)
+ * @param backoffFactor - Backoff factor
+ * @param maxBackoff - Maximum backoff interval (milliseconds)
+ * @returns Calculated backoff interval (milliseconds)
  */
 function calculateBackoff(
   retryCount: number,
@@ -55,51 +55,51 @@ function calculateBackoff(
 }
 
 /**
- * 指定時間待機する
- * @param ms - 待機時間（ミリ秒）
+ * Sleep for specified duration
+ * @param ms - Duration in milliseconds
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * AMCリクエストオプション
+ * AMC request options
  */
 export interface AMCRequestOptions {
-  /** サイト名（デフォルト: www） */
+  /** Site name (default: www) */
   siteName?: string;
-  /** SSL対応（省略時は自動検出） */
+  /** SSL support (auto-detected if omitted) */
   sslSupported?: boolean;
-  /** エラーを例外として投げずに結果に含める（デフォルト: false） */
+  /** Include errors in results instead of throwing (default: false) */
   returnExceptions?: boolean;
 }
 
 /**
- * Ajax Module Connectorクライアント
- * Wikidot AMCエンドポイントへのリクエストを管理する
+ * Ajax Module Connector client
+ * Manages requests to Wikidot AMC endpoint
  */
 export class AMCClient {
-  /** kyインスタンス */
+  /** ky instance */
   private readonly ky: KyInstance;
 
-  /** 並列リクエスト制限 */
+  /** Concurrent request limiter */
   private readonly limit: LimitFunction;
 
-  /** ヘッダー管理 */
+  /** Header manager */
   public readonly header: AMCHeader;
 
-  /** 設定 */
+  /** Configuration */
   public readonly config: AMCConfig;
 
-  /** ベースドメイン */
+  /** Base domain */
   public readonly domain: string;
 
-  /** SSL対応状況のキャッシュ */
+  /** SSL support status cache */
   private sslCache: Map<string, boolean> = new Map();
 
   /**
-   * @param config - AMC設定（省略時はデフォルト値）
-   * @param domain - ベースドメイン（デフォルト: wikidot.com）
+   * @param config - AMC configuration (uses defaults if omitted)
+   * @param domain - Base domain (default: wikidot.com)
    */
   constructor(config: Partial<AMCConfig> = {}, domain = 'wikidot.com') {
     this.config = { ...DEFAULT_AMC_CONFIG, ...config };
@@ -109,26 +109,26 @@ export class AMCClient {
 
     this.ky = ky.create({
       timeout: this.config.timeout,
-      retry: 0, // 手動でリトライを制御
+      retry: 0, // Manual retry control
     });
 
-    // wwwは常にSSL対応
+    // www always supports SSL
     this.sslCache.set('www', true);
   }
 
   /**
-   * サイトの存在とSSL対応状況を確認する
-   * @param siteName - サイト名
-   * @returns SSL対応状況（true: HTTPS、false: HTTP）
+   * Check site existence and SSL support status
+   * @param siteName - Site name
+   * @returns SSL support status (true: HTTPS, false: HTTP)
    */
   checkSiteSSL(siteName: string): WikidotResultAsync<boolean> {
-    // キャッシュに存在すればそれを返す
+    // Return cached value if exists
     const cached = this.sslCache.get(siteName);
     if (cached !== undefined) {
       return wdOkAsync(cached);
     }
 
-    // wwwは常にSSL対応
+    // www always supports SSL
     if (siteName === 'www') {
       return wdOkAsync(true);
     }
@@ -140,16 +140,16 @@ export class AMCClient {
           redirect: 'manual',
         });
 
-        // 404の場合はサイトが存在しない
+        // 404 means site does not exist
         if (response.status === 404) {
           throw new NotFoundException(`Site is not found: ${siteName}.${this.domain}`);
         }
 
-        // 301リダイレクトでhttpsに向かう場合はSSL対応
+        // SSL supported if 301 redirect to https
         const isSSL =
           response.status === 301 && response.headers.get('Location')?.startsWith('https') === true;
 
-        // キャッシュに保存
+        // Save to cache
         this.sslCache.set(siteName, isSSL);
         return isSSL;
       })(),
@@ -163,11 +163,11 @@ export class AMCClient {
   }
 
   /**
-   * AMCリクエストを実行する
-   * @param bodies - リクエストボディ配列
-   * @param siteName - サイト名（省略時はwww）
-   * @param sslSupported - SSL対応（省略時は自動検出）
-   * @returns レスポンス配列
+   * Execute AMC request
+   * @param bodies - Request body array
+   * @param siteName - Site name (default: www)
+   * @param sslSupported - SSL support (auto-detected if omitted)
+   * @returns Response array
    */
   request(
     bodies: AMCRequestBody[],
@@ -182,10 +182,10 @@ export class AMCClient {
   }
 
   /**
-   * AMCリクエストを実行する（オプション指定版）
-   * @param bodies - リクエストボディ配列
-   * @param options - リクエストオプション
-   * @returns レスポンス配列（returnExceptionsがtrueの場合はエラーも含む）
+   * Execute AMC request (with options)
+   * @param bodies - Request body array
+   * @param options - Request options
+   * @returns Response array (includes errors if returnExceptions is true)
    */
   requestWithOptions(
     bodies: AMCRequestBody[],
@@ -195,7 +195,7 @@ export class AMCClient {
 
     return fromPromise(
       (async () => {
-        // SSL対応状況を取得
+        // Get SSL support status
         let ssl = sslSupported;
         if (ssl === undefined) {
           const sslResult = await this.checkSiteSSL(siteName);
@@ -208,13 +208,13 @@ export class AMCClient {
         const protocol = ssl ? 'https' : 'http';
         const url = `${protocol}://${siteName}.${this.domain}/ajax-module-connector.php`;
 
-        // 並列でリクエストを実行
+        // Execute requests in parallel
         const results = await Promise.all(
           bodies.map((body) => this.limit(() => this.singleRequest(body, url)))
         );
 
         if (returnExceptions) {
-          // エラーも含めてすべての結果を返す
+          // Return all results including errors
           return results.map((r) => {
             if (r.isOk()) {
               return r.value;
@@ -223,7 +223,7 @@ export class AMCClient {
           });
         }
 
-        // エラーがあれば最初のエラーをスロー
+        // Throw first error if any
         const firstError = results.find((r) => r.isErr());
         if (firstError?.isErr()) {
           throw firstError.error;
@@ -246,10 +246,10 @@ export class AMCClient {
   }
 
   /**
-   * 単一リクエストを実行する内部メソッド
-   * @param body - リクエストボディ
-   * @param url - リクエストURL
-   * @returns レスポンス
+   * Internal method to execute a single request
+   * @param body - Request body
+   * @param url - Request URL
+   * @returns Response
    */
   private async singleRequest(
     body: AMCRequestBody,
@@ -259,10 +259,10 @@ export class AMCClient {
 
     while (true) {
       try {
-        // wikidot_token7を追加
+        // Add wikidot_token7
         const requestBody = { ...body, wikidot_token7: WIKIDOT_TOKEN7 };
 
-        // URLエンコードされたボディを作成
+        // Create URL-encoded body
         const formData = new URLSearchParams();
         for (const [key, value] of Object.entries(requestBody)) {
           if (value !== undefined) {
@@ -275,7 +275,7 @@ export class AMCClient {
           body: formData.toString(),
         });
 
-        // JSONとしてパース
+        // Parse as JSON
         let responseData: unknown;
         try {
           responseData = await response.json();
@@ -285,7 +285,7 @@ export class AMCClient {
           );
         }
 
-        // zodでバリデーション
+        // Validate with zod
         const parseResult = amcResponseSchema.safeParse(responseData);
         if (!parseResult.success) {
           return wdErrAsync(
@@ -295,7 +295,7 @@ export class AMCClient {
 
         const amcResponse = parseResult.data;
 
-        // try_againの場合はリトライ
+        // Retry if try_again
         if (amcResponse.status === 'try_again') {
           retryCount++;
           if (retryCount >= this.config.retryLimit) {
@@ -311,7 +311,7 @@ export class AMCClient {
           continue;
         }
 
-        // no_permissionの場合はForbiddenError
+        // ForbiddenError if no_permission
         if (amcResponse.status === 'no_permission') {
           const targetStr = body.moduleName
             ? `moduleName: ${body.moduleName}`
@@ -325,7 +325,7 @@ export class AMCClient {
           );
         }
 
-        // okでない場合はエラー
+        // Error if status is not ok
         if (amcResponse.status !== 'ok') {
           return wdErrAsync(
             new WikidotStatusError(
@@ -337,7 +337,7 @@ export class AMCClient {
 
         return wdOkAsync(amcResponse);
       } catch (error) {
-        // HTTPエラーの場合はリトライ
+        // Retry on HTTP error
         retryCount++;
         if (retryCount >= this.config.retryLimit) {
           const statusCode =

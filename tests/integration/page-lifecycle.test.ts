@@ -1,5 +1,5 @@
 /**
- * ページライフサイクル（作成→取得→編集→削除）の統合テスト
+ * Page lifecycle (create -> get -> edit -> delete) integration tests
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { Page } from '../../src';
@@ -17,13 +17,13 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
   });
 
   afterAll(async () => {
-    // テスト失敗時のクリーンアップ
+    // Cleanup on test failure
     const site = await getSite();
     await safeDeletePage(site, pageName);
     await cleanup();
   });
 
-  test('1. ページ作成', async () => {
+  test('1. Create page', async () => {
     const site = await getSite();
 
     const createResult = await site.page.create(pageName, {
@@ -35,7 +35,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
     expect(createResult.isOk()).toBe(true);
   });
 
-  test('2. 作成ページ取得', async () => {
+  test('2. Get created page', async () => {
     const site = await getSite();
 
     const pageResult = await site.page.get(pageName);
@@ -47,7 +47,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
     expect(createdPage.title).toBe('Test Page');
   });
 
-  test('3. ページソース取得', async () => {
+  test('3. Get page source', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -58,7 +58,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
     expect(sourceResult.value?.wikiText).toBe('This is test content.');
   });
 
-  test('4. ページ編集', async () => {
+  test('4. Edit page', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -72,7 +72,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
 
     expect(editResult.isOk()).toBe(true);
 
-    // 再取得して確認
+    // Re-fetch and verify
     const updatedResult = await site.page.get(pageName);
     expect(updatedResult.isOk()).toBe(true);
     expect(updatedResult.value?.title).toBe('Updated Test Page');
@@ -82,7 +82,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
     expect(sourceResult.value?.wikiText).toBe('Updated content.');
   });
 
-  test('5. ページ削除', async () => {
+  test('5. Delete page', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -91,7 +91,7 @@ describe.skipIf(shouldSkipIntegration())('Page Lifecycle Integration Tests', () 
     const deleteResult = await page.destroy();
     expect(deleteResult.isOk()).toBe(true);
 
-    // NOTE: 削除確認はWikidotのeventual consistencyにより不安定なためスキップ
-    // destroy()の成功をもって削除完了とする（afterAllでクリーンアップも実行される）
+    // NOTE: Deletion verification skipped due to Wikidot's eventual consistency
+    // Successful destroy() is considered deletion complete (afterAll also runs cleanup)
   });
 });

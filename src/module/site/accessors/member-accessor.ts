@@ -13,7 +13,7 @@ import { SiteApplication } from '../site-application';
 import { SiteMember } from '../site-member';
 
 /**
- * サイトメンバー操作アクセサ
+ * Site member operations accessor
  */
 export class MemberAccessor {
   public readonly site: Site;
@@ -23,50 +23,50 @@ export class MemberAccessor {
   }
 
   /**
-   * 全メンバーを取得する
-   * @returns メンバー一覧
+   * Get all members
+   * @returns Member list
    */
   getAll(): WikidotResultAsync<SiteMember[]> {
     return SiteMember.getMembers(this.site, '');
   }
 
   /**
-   * モデレーター一覧を取得する
-   * @returns モデレーター一覧
+   * Get moderator list
+   * @returns Moderator list
    */
   getModerators(): WikidotResultAsync<SiteMember[]> {
     return SiteMember.getMembers(this.site, 'moderators');
   }
 
   /**
-   * 管理者一覧を取得する
-   * @returns 管理者一覧
+   * Get admin list
+   * @returns Admin list
    */
   getAdmins(): WikidotResultAsync<SiteMember[]> {
     return SiteMember.getMembers(this.site, 'admins');
   }
 
   /**
-   * 未処理の参加申請を取得する
-   * @returns 参加申請一覧
+   * Get pending membership applications
+   * @returns Application list
    */
   getApplications(): WikidotResultAsync<SiteApplication[]> {
     return SiteApplication.acquireAll(this.site);
   }
 
   /**
-   * メンバーを検索する
-   * @param query - 検索クエリ（ユーザー名の一部）
-   * @returns マッチしたユーザー一覧（QMCUser形式）
+   * Search members
+   * @param query - Search query (part of username)
+   * @returns Matched user list (QMCUser format)
    */
   lookup(query: string): WikidotResultAsync<QMCUser[]> {
     return QuickModule.memberLookup(this.site.id, query);
   }
 
   /**
-   * ユーザーをサイトに招待する
-   * @param user - 招待するユーザー
-   * @param text - 招待メッセージ
+   * Invite user to site
+   * @param user - User to invite
+   * @param text - Invitation message
    */
   @RequireLogin
   invite(user: User, text: string): WikidotResultAsync<void> {

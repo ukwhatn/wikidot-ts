@@ -9,7 +9,7 @@ import type { AbstractUser, UserType } from './abstract-user';
 import { UserCollection } from './user-collection';
 
 /**
- * ユーザーデータ
+ * User data
  */
 export interface UserData {
   id: number;
@@ -20,30 +20,30 @@ export interface UserData {
 }
 
 /**
- * 通常ユーザー
+ * Regular user
  */
 export class User implements AbstractUser {
   public readonly client: ClientRef;
 
-  /** ユーザーID */
+  /** User ID */
   public readonly id: number;
 
-  /** ユーザー名 */
+  /** Username */
   public readonly name: string;
 
-  /** 表示名 */
+  /** Display name */
   public readonly displayName: string | null;
 
-  /** アバターURL */
+  /** Avatar URL */
   public readonly avatarUrl: string | null;
 
-  /** UNIX形式のユーザー名 */
+  /** UNIX format username */
   public readonly unixName: string;
 
-  /** IPアドレス（通常ユーザーではnull） */
+  /** IP address (null for regular users) */
   public readonly ip: string | null = null;
 
-  /** ユーザー種別 */
+  /** User type */
   public readonly userType: UserType = 'user';
 
   constructor(client: ClientRef, data: UserData) {
@@ -56,10 +56,10 @@ export class User implements AbstractUser {
   }
 
   /**
-   * ユーザー名からユーザーを取得する
-   * @param client - クライアント
-   * @param name - ユーザー名
-   * @returns ユーザー（存在しない場合はnull）
+   * Get user from username
+   * @param client - Client
+   * @param name - Username
+   * @returns User (null if not found)
    */
   static fromName(client: ClientRef, name: string): WikidotResultAsync<User | null> {
     return fromPromise(
@@ -75,12 +75,12 @@ export class User implements AbstractUser {
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        // 存在チェック
+        // Check existence
         if ($('div.error-block').length > 0) {
           return null;
         }
 
-        // id取得
+        // Get id
         const userIdElem = $('a.btn.btn-default.btn-xs');
         if (userIdElem.length === 0) {
           throw new NoElementError('User ID element not found');
@@ -91,7 +91,7 @@ export class User implements AbstractUser {
         }
         const userId = Number.parseInt(href.split('/').pop() ?? '0', 10);
 
-        // name取得
+        // Get name
         const nameElem = $('h1.profile-title');
         if (nameElem.length === 0) {
           throw new NoElementError('User name element not found');
@@ -114,15 +114,15 @@ export class User implements AbstractUser {
   }
 
   /**
-   * 複数ユーザー名からユーザーを取得する
-   * @param client - クライアント
-   * @param names - ユーザー名配列
-   * @returns ユーザーコレクション
+   * Get users from multiple usernames
+   * @param client - Client
+   * @param names - Array of usernames
+   * @returns User collection
    */
   static fromNames(client: ClientRef, names: string[]): WikidotResultAsync<UserCollection> {
     return fromPromise(
       (async () => {
-        // 同時接続数を制限
+        // Limit concurrent connections
         const limit = pLimit(DEFAULT_AMC_CONFIG.semaphoreLimit);
 
         const results = await Promise.all(
@@ -139,7 +139,7 @@ export class User implements AbstractUser {
     );
   }
 
-  // AbstractUser実装
+  // AbstractUser implementation
   isUser(): boolean {
     return true;
   }

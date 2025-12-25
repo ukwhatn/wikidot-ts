@@ -2,27 +2,27 @@ import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
 
 /**
- * 匿名ユーザー
+ * Anonymous user
  */
 export class AnonymousUser implements AbstractUser {
   public readonly client: ClientRef;
 
-  /** ユーザーID（匿名は0） */
+  /** User ID (0 for anonymous) */
   public readonly id: number = 0;
 
-  /** ユーザー名（匿名は"Anonymous"） */
+  /** Username ("Anonymous" for anonymous users) */
   public readonly name: string = 'Anonymous';
 
-  /** UNIX形式のユーザー名 */
+  /** UNIX format username */
   public readonly unixName: string = 'anonymous';
 
-  /** アバターURL（匿名はnull） */
+  /** Avatar URL (null for anonymous) */
   public readonly avatarUrl: string | null = null;
 
-  /** IPアドレス */
+  /** IP address */
   public readonly ip: string;
 
-  /** ユーザー種別 */
+  /** User type */
   public readonly userType: UserType = 'anonymous';
 
   constructor(client: ClientRef, ip: string) {
@@ -30,7 +30,7 @@ export class AnonymousUser implements AbstractUser {
     this.ip = ip;
   }
 
-  // AbstractUser実装
+  // AbstractUser implementation
   isUser(): boolean {
     return false;
   }

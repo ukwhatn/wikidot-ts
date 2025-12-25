@@ -6,7 +6,7 @@ import type { Site } from '../site';
 import type { AbstractUser } from '../user';
 
 /**
- * サイト変更履歴データ
+ * Site change history data
  */
 export interface SiteChangeData {
   site: Site;
@@ -20,7 +20,7 @@ export interface SiteChangeData {
 }
 
 /**
- * サイト変更履歴
+ * Site change history
  */
 export class SiteChange {
   public readonly site: Site;
@@ -44,7 +44,7 @@ export class SiteChange {
   }
 
   /**
-   * ページURL
+   * Get page URL
    */
   getPageUrl(): string {
     return `${this.site.getBaseUrl()}/${this.pageFullname}`;
@@ -56,7 +56,7 @@ export class SiteChange {
 }
 
 /**
- * サイト変更履歴コレクション
+ * Site change history collection
  */
 export class SiteChangeCollection extends Array<SiteChange> {
   public readonly site: Site;
@@ -70,10 +70,10 @@ export class SiteChangeCollection extends Array<SiteChange> {
   }
 
   /**
-   * 最近の変更履歴を取得する
-   * @param site - サイト
-   * @param options - オプション
-   * @returns 変更履歴コレクション
+   * Get recent change history
+   * @param site - Site instance
+   * @param options - Options
+   * @returns Change history collection
    */
   static acquire(
     site: Site,
@@ -106,24 +106,24 @@ export class SiteChangeCollection extends Array<SiteChange> {
         const $ = cheerio.load(html);
         const changes: SiteChange[] = [];
 
-        // テーブル行をパース
+        // Parse table rows
         $('table.wiki-content-table tr').each((_i, elem) => {
           const $row = $(elem);
           const $cells = $row.find('td');
           if ($cells.length < 4) return;
 
-          // ページリンク
+          // Page link
           const pageLink = $($cells[0]).find('a');
           const href = pageLink.attr('href') ?? '';
           const pageFullname = href.replace(/^\//, '').split('/')[0] ?? '';
           const pageTitle = pageLink.text().trim();
 
-          // リビジョン番号
+          // Revision number
           const revText = $($cells[1]).text().trim();
           const revMatch = revText.match(/(\d+)/);
           const revisionNo = revMatch?.[1] ? Number.parseInt(revMatch[1], 10) : 0;
 
-          // フラグ
+          // Flags
           const flagsCell = $($cells[2]);
           const flags: string[] = [];
           flagsCell.find('span').each((_j, flagElem) => {
@@ -134,7 +134,7 @@ export class SiteChangeCollection extends Array<SiteChange> {
             }
           });
 
-          // ユーザーと日時
+          // User and timestamp
           const infoCell = $($cells[3]);
           const userElem = infoCell.find('span.printuser');
           const changedBy = userElem.length > 0 ? parseUser(site.client, userElem) : null;
@@ -142,7 +142,7 @@ export class SiteChangeCollection extends Array<SiteChange> {
           const odateElem = infoCell.find('span.odate');
           const changedAt = odateElem.length > 0 ? parseOdate(odateElem) : null;
 
-          // コメント
+          // Comment
           const commentElem = infoCell.find('span.comments');
           const comment = commentElem
             .text()
@@ -163,7 +163,7 @@ export class SiteChangeCollection extends Array<SiteChange> {
           );
         });
 
-        // limitが指定されている場合は結果を制限
+        // Limit results if limit is specified
         const limitedChanges = limit !== undefined ? changes.slice(0, limit) : changes;
         return new SiteChangeCollection(site, limitedChanges);
       })(),

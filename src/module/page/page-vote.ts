@@ -2,7 +2,7 @@ import type { AbstractUser } from '../user';
 import type { Page } from './page';
 
 /**
- * ページ投票データ
+ * Page vote data
  */
 export interface PageVoteData {
   page: Page;
@@ -11,16 +11,16 @@ export interface PageVoteData {
 }
 
 /**
- * ページへの投票（レーティング）
+ * Page vote (rating)
  */
 export class PageVote {
-  /** 投票が属するページ */
+  /** Page this vote belongs to */
   public readonly page: Page;
 
-  /** 投票したユーザー */
+  /** User who voted */
   public readonly user: AbstractUser;
 
-  /** 投票値（+1/-1 または 数値） */
+  /** Vote value (+1/-1 or numeric) */
   public readonly value: number;
 
   constructor(data: PageVoteData) {
@@ -35,7 +35,7 @@ export class PageVote {
 }
 
 /**
- * ページ投票コレクション
+ * Page vote collection
  */
 export class PageVoteCollection extends Array<PageVote> {
   public readonly page: Page;
@@ -49,9 +49,9 @@ export class PageVoteCollection extends Array<PageVote> {
   }
 
   /**
-   * ユーザーで検索
-   * @param user - 検索するユーザー
-   * @returns 投票（存在しない場合はundefined）
+   * Find by user
+   * @param user - User to search for
+   * @returns Vote (undefined if not found)
    */
   findByUser(user: AbstractUser): PageVote | undefined {
     return this.find((vote) => vote.user.id === user.id);

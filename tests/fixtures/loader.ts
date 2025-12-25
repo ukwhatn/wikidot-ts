@@ -1,7 +1,7 @@
 /**
  * Fixture Loader
  *
- * テストフィクスチャを読み込むユーティリティ
+ * Utility for loading test fixtures
  */
 
 import { readFileSync } from 'node:fs';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
- * HTMLフィクスチャを読み込む
+ * Load HTML fixture
  */
 export function loadHtmlFixture(filename: string): string {
   const path = join(__dirname, 'html_samples', filename);
@@ -19,7 +19,7 @@ export function loadHtmlFixture(filename: string): string {
 }
 
 /**
- * JSONフィクスチャを読み込む
+ * Load JSON fixture
  */
 export function loadJsonFixture<T = Record<string, unknown>>(subdir: string, filename: string): T {
   const path = join(__dirname, 'amc_responses', subdir, filename);
@@ -27,7 +27,7 @@ export function loadJsonFixture<T = Record<string, unknown>>(subdir: string, fil
   return JSON.parse(content) as T;
 }
 
-// HTMLフィクスチャローダー
+// HTML fixture loader
 export const htmlFixtures = {
   // Printuser
   printuserRegular: () => loadHtmlFixture('printuser_regular.html'),
@@ -50,7 +50,7 @@ export const htmlFixtures = {
   userProfileNotFound: () => loadHtmlFixture('user_profile_notfound.html'),
 };
 
-// AMCレスポンスフィクスチャローダー
+// AMC response fixture loader
 export const amcFixtures = {
   // Page
   page: {
@@ -112,7 +112,7 @@ export const amcFixtures = {
 };
 
 /**
- * odate HTMLファクトリ
+ * odate HTML factory
  */
 export function createOdateHtml(unixTimestamp: number): string {
   return `<span class="odate time_${unixTimestamp} format_%25e%20%25b%20%25Y%2C%20%25H%3A%25M%7Cagohover" style="cursor: help; display: inline;">17 Dec 2025, 12:00</span>`;

@@ -1,5 +1,5 @@
 /**
- * PageFileモジュールのユニットテスト
+ * PageFile module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { Page } from '../../../src/module/page/page';
@@ -9,7 +9,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_SITE_DATA } from '../../setup';
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -32,7 +32,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ページモック作成
+ * Create test page mock
  */
 function createMockPage(): Page {
   return {
@@ -44,7 +44,7 @@ function createMockPage(): Page {
 }
 
 /**
- * テスト用ファイル作成
+ * Create test file
  */
 function createTestFile(
   options: {
@@ -67,9 +67,9 @@ function createTestFile(
   });
 }
 
-describe('PageFileデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('PageFile data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const file = createTestFile();
 
       const result = file.toString();
@@ -79,31 +79,31 @@ describe('PageFileデータクラス', () => {
       expect(result).toContain('name=test-file.png');
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const file = createTestFile({ id: 99999 });
 
       expect(file.id).toBe(99999);
     });
 
-    test('nameが正しく設定される', () => {
+    test('name is correctly set', () => {
       const file = createTestFile({ name: 'document.pdf' });
 
       expect(file.name).toBe('document.pdf');
     });
 
-    test('urlが正しく設定される', () => {
+    test('url is correctly set', () => {
       const file = createTestFile({ url: 'https://example.com/files/doc.pdf' });
 
       expect(file.url).toBe('https://example.com/files/doc.pdf');
     });
 
-    test('sizeが正しく設定される', () => {
+    test('size is correctly set', () => {
       const file = createTestFile({ size: 5000 });
 
       expect(file.size).toBe(5000);
     });
 
-    test('mimeTypeが正しく設定される', () => {
+    test('mimeType is correctly set', () => {
       const file = createTestFile({ mimeType: 'application/pdf' });
 
       expect(file.mimeType).toBe('application/pdf');
@@ -112,14 +112,14 @@ describe('PageFileデータクラス', () => {
 });
 
 describe('PageFileCollection', () => {
-  test('空のコレクションを作成できる', () => {
+  test('Can create empty collection', () => {
     const page = createMockPage();
     const collection = new PageFileCollection(page);
 
     expect(collection.length).toBe(0);
   });
 
-  test('ファイルを追加できる', () => {
+  test('Can add file', () => {
     const page = createMockPage();
     const collection = new PageFileCollection(page);
     const file = createTestFile({ page });
@@ -130,7 +130,7 @@ describe('PageFileCollection', () => {
     expect(collection[0]).toBe(file);
   });
 
-  test('複数ファイルで初期化できる', () => {
+  test('Can initialize with multiple files', () => {
     const page = createMockPage();
     const files = [
       createTestFile({ name: 'file1.png', page }),
@@ -142,7 +142,7 @@ describe('PageFileCollection', () => {
     expect(collection.length).toBe(3);
   });
 
-  test('名前でファイルを検索できる', () => {
+  test('Can find file by name', () => {
     const page = createMockPage();
     const files = [
       createTestFile({ name: 'image.png', page }),
@@ -156,7 +156,7 @@ describe('PageFileCollection', () => {
     expect(found?.name).toBe('document.pdf');
   });
 
-  test('MIMEタイプでファイルをフィルタできる', () => {
+  test('Can filter files by MIME type', () => {
     const page = createMockPage();
     const files = [
       createTestFile({ name: 'image1.png', mimeType: 'image/png', page }),

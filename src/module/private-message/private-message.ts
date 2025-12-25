@@ -12,7 +12,7 @@ import type { AbstractUser } from '../user';
 import type { User } from '../user/user';
 
 /**
- * プライベートメッセージデータ
+ * Private message data
  */
 export interface PrivateMessageData {
   client: Client;
@@ -25,7 +25,7 @@ export interface PrivateMessageData {
 }
 
 /**
- * プライベートメッセージ
+ * Private message
  */
 export class PrivateMessage {
   public readonly client: Client;
@@ -47,10 +47,10 @@ export class PrivateMessage {
   }
 
   /**
-   * メッセージIDからメッセージを取得する
-   * @param client - クライアント
-   * @param messageId - メッセージID
-   * @returns プライベートメッセージ
+   * Get message by message ID
+   * @param client - Client instance
+   * @param messageId - Message ID
+   * @returns Private message
    */
   static fromId(client: Client, messageId: number): WikidotResultAsync<PrivateMessage> {
     return fromPromise(
@@ -75,11 +75,11 @@ export class PrivateMessage {
   }
 
   /**
-   * プライベートメッセージを送信する
-   * @param client - クライアント
-   * @param recipient - 受信者
-   * @param subject - 件名
-   * @param body - 本文
+   * Send private message
+   * @param client - Client instance
+   * @param recipient - Recipient
+   * @param subject - Subject
+   * @param body - Body
    */
   static send(
     client: Client,
@@ -121,7 +121,7 @@ export class PrivateMessage {
 }
 
 /**
- * プライベートメッセージコレクション
+ * Private message collection
  */
 export class PrivateMessageCollection extends Array<PrivateMessage> {
   public readonly client: Client;
@@ -135,14 +135,14 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
   }
 
   /**
-   * IDで検索
+   * Find by ID
    */
   findById(id: number): PrivateMessage | undefined {
     return this.find((message) => message.id === id);
   }
 
   /**
-   * メッセージIDのリストからメッセージを取得する
+   * Get messages from list of message IDs
    */
   static fromIds(
     client: Client,
@@ -178,7 +178,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           const html = String(response.body ?? '');
           const $ = cheerio.load(html);
 
-          // ユーザー情報を取得
+          // Get user information
           const printuserElems = $('div.pmessage div.header span.printuser');
           if (printuserElems.length < 2) {
             throw new ForbiddenError(`Failed to get message: ${messageId}`);
@@ -190,15 +190,15 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           const sender = parseUser(client, senderElem);
           const recipient = parseUser(client, recipientElem);
 
-          // 件名
+          // Subject
           const subjectElem = $('div.pmessage div.header span.subject');
           const subject = subjectElem.text().trim();
 
-          // 本文
+          // Body
           const bodyElem = $('div.pmessage div.body');
           const body = bodyElem.text().trim();
 
-          // 日時
+          // Timestamp
           const odateElem = $('div.header span.odate');
           const createdAt =
             odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0);
@@ -228,7 +228,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
   }
 
   /**
-   * モジュールからメッセージを取得する内部メソッド
+   * Internal method to get messages from module
    */
   protected static acquireFromModule(
     client: Client,
@@ -244,7 +244,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
 
     return fromPromise(
       (async () => {
-        // ページャー取得
+        // Get pager
         const firstResult = await client.amcClient.request([{ moduleName }]);
         if (firstResult.isErr()) {
           throw firstResult.error;
@@ -258,7 +258,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
         const firstHtml = String(firstResponse.body ?? '');
         const $first = cheerio.load(firstHtml);
 
-        // ページ数を取得
+        // Get page count
         const pagerTargets = $first('div.pager span.target');
         let maxPage = 1;
         if (pagerTargets.length > 2) {
@@ -268,7 +268,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           maxPage = Number.parseInt(lastPageText, 10) || 1;
         }
 
-        // 全ページからメッセージIDを取得
+        // Get message IDs from all pages
         const messageIds: number[] = [];
 
         if (maxPage > 1) {
@@ -302,7 +302,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           });
         }
 
-        // メッセージを取得
+        // Get messages
         const messagesResult = await PrivateMessageCollection.fromIds(client, messageIds);
         if (messagesResult.isErr()) {
           throw messagesResult.error;
@@ -325,11 +325,11 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
 }
 
 /**
- * 受信箱
+ * Inbox
  */
 export class PrivateMessageInbox extends PrivateMessageCollection {
   /**
-   * 受信箱のメッセージをすべて取得する
+   * Get all messages in inbox
    */
   static acquire(client: Client): WikidotResultAsync<PrivateMessageInbox> {
     return fromPromise(
@@ -356,11 +356,11 @@ export class PrivateMessageInbox extends PrivateMessageCollection {
 }
 
 /**
- * 送信箱
+ * Sent box
  */
 export class PrivateMessageSentBox extends PrivateMessageCollection {
   /**
-   * 送信箱のメッセージをすべて取得する
+   * Get all messages in sent box
    */
   static acquire(client: Client): WikidotResultAsync<PrivateMessageSentBox> {
     return fromPromise(

@@ -1,7 +1,7 @@
 /**
- * QuickModule - Wikidot軽量API
+ * QuickModule - Wikidot lightweight API
  *
- * quickmodule.phpエンドポイントを使用した検索機能
+ * Search functionality using quickmodule.php endpoint
  */
 
 import { z } from 'zod';
@@ -9,12 +9,12 @@ import { NotFoundException, UnexpectedError } from '../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../common/types';
 
 /**
- * QuickModuleモジュール名
+ * QuickModule module name
  */
 export type QuickModuleName = 'MemberLookupQModule' | 'UserLookupQModule' | 'PageLookupQModule';
 
 /**
- * QuickModuleユーザー情報
+ * QuickModule user information
  */
 export interface QMCUser {
   id: number;
@@ -22,7 +22,7 @@ export interface QMCUser {
 }
 
 /**
- * QuickModuleページ情報
+ * QuickModule page information
  */
 export interface QMCPage {
   title: string;
@@ -30,7 +30,7 @@ export interface QMCPage {
 }
 
 /**
- * QuickModuleレスポンススキーマ
+ * QuickModule response schema
  */
 const quickModuleUserResponseSchema = z.object({
   users: z.union([
@@ -57,7 +57,7 @@ const quickModulePageResponseSchema = z.object({
 });
 
 /**
- * QuickModuleエンドポイントにリクエストを送信
+ * Send request to QuickModule endpoint
  */
 async function requestQuickModule(
   moduleName: QuickModuleName,
@@ -85,10 +85,10 @@ async function requestQuickModule(
 }
 
 /**
- * サイトメンバーを検索
- * @param siteId - サイトID
- * @param query - 検索クエリ（ユーザー名の一部）
- * @returns マッチしたユーザー一覧
+ * Search site members
+ * @param siteId - Site ID
+ * @param query - Search query (partial username)
+ * @returns List of matching users
  */
 export function memberLookup(siteId: number, query: string): WikidotResultAsync<QMCUser[]> {
   return fromPromise(
@@ -113,10 +113,10 @@ export function memberLookup(siteId: number, query: string): WikidotResultAsync<
 }
 
 /**
- * Wikidot全体からユーザーを検索
- * @param siteId - サイトID（任意のサイトIDで可）
- * @param query - 検索クエリ（ユーザー名の一部）
- * @returns マッチしたユーザー一覧
+ * Search users across all Wikidot
+ * @param siteId - Site ID (any site ID works)
+ * @param query - Search query (partial username)
+ * @returns List of matching users
  */
 export function userLookup(siteId: number, query: string): WikidotResultAsync<QMCUser[]> {
   return fromPromise(
@@ -141,10 +141,10 @@ export function userLookup(siteId: number, query: string): WikidotResultAsync<QM
 }
 
 /**
- * サイト内のページを検索
- * @param siteId - サイトID
- * @param query - 検索クエリ（ページ名の一部）
- * @returns マッチしたページ一覧
+ * Search pages within site
+ * @param siteId - Site ID
+ * @param query - Search query (partial page name)
+ * @returns List of matching pages
  */
 export function pageLookup(siteId: number, query: string): WikidotResultAsync<QMCPage[]> {
   return fromPromise(
@@ -169,8 +169,8 @@ export function pageLookup(siteId: number, query: string): WikidotResultAsync<QM
 }
 
 /**
- * QuickModule API（後方互換性のため維持）
- * @deprecated 代わりに個別の関数（memberLookup, userLookup, pageLookup）を使用してください
+ * QuickModule API (maintained for backwards compatibility)
+ * @deprecated Use individual functions (memberLookup, userLookup, pageLookup) instead
  */
 export const QuickModule: {
   memberLookup: typeof memberLookup;

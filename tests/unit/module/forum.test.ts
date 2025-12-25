@@ -1,5 +1,5 @@
 /**
- * Forumモジュールのユニットテスト
+ * Forum module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import type { Element } from 'domhandler';
@@ -17,7 +17,7 @@ import {
 } from '../../setup';
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -40,7 +40,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用スレッド参照作成
+ * Create test thread reference
  */
 function createMockThreadRef(site: SiteRef): ForumThreadRef {
   return {
@@ -50,7 +50,7 @@ function createMockThreadRef(site: SiteRef): ForumThreadRef {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = {
@@ -64,9 +64,9 @@ function createMockUser(name: string): User {
   });
 }
 
-describe('ForumCategoryデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('ForumCategory data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -84,7 +84,7 @@ describe('ForumCategoryデータクラス', () => {
       expect(result).toContain(`title=${TEST_FORUM_CATEGORY_DATA.title}`);
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -98,7 +98,7 @@ describe('ForumCategoryデータクラス', () => {
       expect(category.id).toBe(999);
     });
 
-    test('titleが正しく設定される', () => {
+    test('title is correctly set', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -112,7 +112,7 @@ describe('ForumCategoryデータクラス', () => {
       expect(category.title).toBe('Custom Title');
     });
 
-    test('descriptionが正しく設定される', () => {
+    test('description is correctly set', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -126,7 +126,7 @@ describe('ForumCategoryデータクラス', () => {
       expect(category.description).toBe('Custom Description');
     });
 
-    test('threadsCountが正しく設定される', () => {
+    test('threadsCount is correctly set', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -140,7 +140,7 @@ describe('ForumCategoryデータクラス', () => {
       expect(category.threadsCount).toBe(50);
     });
 
-    test('postsCountが正しく設定される', () => {
+    test('postsCount is correctly set', () => {
       const site = createMockSite();
       const category = new ForumCategory({
         site: site as unknown as Parameters<typeof ForumCategory.prototype.constructor>[0]['site'],
@@ -156,9 +156,9 @@ describe('ForumCategoryデータクラス', () => {
   });
 });
 
-describe('ForumThreadデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('ForumThread data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const site = createMockSite();
       const thread = new ForumThread({
         site: site as unknown as Parameters<typeof ForumThread.prototype.constructor>[0]['site'],
@@ -177,7 +177,7 @@ describe('ForumThreadデータクラス', () => {
       expect(result).toContain(`title=${TEST_FORUM_THREAD_DATA.title}`);
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const site = createMockSite();
       const thread = new ForumThread({
         site: site as unknown as Parameters<typeof ForumThread.prototype.constructor>[0]['site'],
@@ -192,7 +192,7 @@ describe('ForumThreadデータクラス', () => {
       expect(thread.id).toBe(5000);
     });
 
-    test('titleが正しく設定される', () => {
+    test('title is correctly set', () => {
       const site = createMockSite();
       const thread = new ForumThread({
         site: site as unknown as Parameters<typeof ForumThread.prototype.constructor>[0]['site'],
@@ -207,7 +207,7 @@ describe('ForumThreadデータクラス', () => {
       expect(thread.title).toBe('Custom Title');
     });
 
-    test('descriptionが正しく設定される', () => {
+    test('description is correctly set', () => {
       const site = createMockSite();
       const thread = new ForumThread({
         site: site as unknown as Parameters<typeof ForumThread.prototype.constructor>[0]['site'],
@@ -222,7 +222,7 @@ describe('ForumThreadデータクラス', () => {
       expect(thread.description).toBe('Custom Description');
     });
 
-    test('postCountが正しく設定される', () => {
+    test('postCount is correctly set', () => {
       const site = createMockSite();
       const thread = new ForumThread({
         site: site as unknown as Parameters<typeof ForumThread.prototype.constructor>[0]['site'],
@@ -239,9 +239,9 @@ describe('ForumThreadデータクラス', () => {
   });
 });
 
-describe('ForumPostデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('ForumPost data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const site = createMockSite();
       const threadRef = createMockThreadRef(site);
       const createdBy = createMockUser('TestUser');
@@ -266,7 +266,7 @@ describe('ForumPostデータクラス', () => {
       expect(result).toContain(`title=${TEST_FORUM_POST_DATA.title}`);
     });
 
-    test('idが正しく設定される', () => {
+    test('id is correctly set', () => {
       const site = createMockSite();
       const threadRef = createMockThreadRef(site);
       const createdBy = createMockUser('TestUser');
@@ -287,7 +287,7 @@ describe('ForumPostデータクラス', () => {
       expect(post.id).toBe(9999);
     });
 
-    test('titleが正しく設定される', () => {
+    test('title is correctly set', () => {
       const site = createMockSite();
       const threadRef = createMockThreadRef(site);
       const createdBy = createMockUser('TestUser');
@@ -308,7 +308,7 @@ describe('ForumPostデータクラス', () => {
       expect(post.title).toBe('Custom Title');
     });
 
-    test('textが正しく設定される', () => {
+    test('text is correctly set', () => {
       const site = createMockSite();
       const threadRef = createMockThreadRef(site);
       const createdBy = createMockUser('TestUser');
@@ -329,7 +329,7 @@ describe('ForumPostデータクラス', () => {
       expect(post.text).toBe('<p>Custom content</p>');
     });
 
-    test('parentIdがnullの場合', () => {
+    test('parentId when null', () => {
       const site = createMockSite();
       const threadRef = createMockThreadRef(site);
       const createdBy = createMockUser('TestUser');

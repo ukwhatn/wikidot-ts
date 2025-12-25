@@ -9,7 +9,7 @@ import {
 import type { Site } from '../site';
 
 /**
- * フォーラム操作アクセサ
+ * Forum operations accessor
  */
 export class ForumAccessor {
   public readonly site: Site;
@@ -19,26 +19,26 @@ export class ForumAccessor {
   }
 
   /**
-   * フォーラムカテゴリ一覧を取得
-   * @returns カテゴリ一覧
+   * Get forum category list
+   * @returns Category list
    */
   getCategories(): WikidotResultAsync<ForumCategoryCollection> {
     return ForumCategoryCollection.acquireAll(this.site);
   }
 
   /**
-   * スレッドを取得
-   * @param threadId - スレッドID
-   * @returns スレッド
+   * Get thread
+   * @param threadId - Thread ID
+   * @returns Thread
    */
   getThread(threadId: number): WikidotResultAsync<ForumThread> {
     return ForumThread.getFromId(this.site, threadId);
   }
 
   /**
-   * 複数スレッドを取得
-   * @param threadIds - スレッドID配列
-   * @returns スレッドコレクション
+   * Get multiple threads
+   * @param threadIds - Array of thread IDs
+   * @returns Thread collection
    */
   getThreads(threadIds: number[]): WikidotResultAsync<ForumThreadCollection> {
     return ForumThreadCollection.acquireFromThreadIds(this.site, threadIds);

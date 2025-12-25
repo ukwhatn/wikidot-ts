@@ -6,7 +6,7 @@ import type { Site } from '../site';
 import { ForumThread, ForumThreadCollection } from './forum-thread';
 
 /**
- * フォーラムカテゴリデータ
+ * Forum category data
  */
 export interface ForumCategoryData {
   site: Site;
@@ -18,7 +18,7 @@ export interface ForumCategoryData {
 }
 
 /**
- * フォーラムカテゴリ
+ * Forum category
  */
 export class ForumCategory {
   public readonly site: Site;
@@ -39,7 +39,7 @@ export class ForumCategory {
   }
 
   /**
-   * スレッド一覧を取得
+   * Get thread list
    */
   getThreads(): WikidotResultAsync<ForumThreadCollection> {
     if (this._threads !== null) {
@@ -60,7 +60,7 @@ export class ForumCategory {
   }
 
   /**
-   * スレッド一覧を再取得
+   * Reload thread list
    */
   reloadThreads(): WikidotResultAsync<ForumThreadCollection> {
     this._threads = null;
@@ -68,7 +68,7 @@ export class ForumCategory {
   }
 
   /**
-   * スレッドを作成
+   * Create thread
    */
   @RequireLogin
   createThread(
@@ -121,7 +121,7 @@ export class ForumCategory {
 }
 
 /**
- * フォーラムカテゴリコレクション
+ * Forum category collection
  */
 export class ForumCategoryCollection extends Array<ForumCategory> {
   public readonly site: Site;
@@ -135,14 +135,14 @@ export class ForumCategoryCollection extends Array<ForumCategory> {
   }
 
   /**
-   * IDで検索
+   * Find by ID
    */
   findById(id: number): ForumCategory | undefined {
     return this.find((category) => category.id === id);
   }
 
   /**
-   * サイトの全カテゴリを取得
+   * Get all categories for a site
    */
   static acquireAll(site: Site): WikidotResultAsync<ForumCategoryCollection> {
     return fromPromise(

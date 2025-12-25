@@ -1,5 +1,5 @@
 /**
- * ページメタ操作の統合テスト
+ * Page meta operations integration tests
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import type { Page } from '../../src';
@@ -16,7 +16,7 @@ describe.skipIf(shouldSkipIntegration())('Page Meta Integration Tests', () => {
     pageName = generatePageName('meta');
     const site = await getSite();
 
-    // テスト用ページを作成
+    // Create test page
     await site.page.create(pageName, {
       title: 'Meta Test Page',
       source: 'Content for meta test.',
@@ -34,14 +34,14 @@ describe.skipIf(shouldSkipIntegration())('Page Meta Integration Tests', () => {
     await cleanup();
   });
 
-  test('1. メタ設定', async () => {
+  test('1. Set meta', async () => {
     expect(page).not.toBeNull();
 
     const result = await page!.setMeta('description', 'Test description');
     expect(result.isOk()).toBe(true);
   });
 
-  test('2. メタ取得', async () => {
+  test('2. Get meta', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -56,7 +56,7 @@ describe.skipIf(shouldSkipIntegration())('Page Meta Integration Tests', () => {
     expect(descMeta?.content).toBe('Test description');
   });
 
-  test('3. メタ更新', async () => {
+  test('3. Update meta', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -65,14 +65,14 @@ describe.skipIf(shouldSkipIntegration())('Page Meta Integration Tests', () => {
     const result = await currentPage.setMeta('description', 'Updated description');
     expect(result.isOk()).toBe(true);
 
-    // 確認
+    // Verify
     const metasResult = await currentPage.getMetas();
     expect(metasResult.isOk()).toBe(true);
     const descMeta = metasResult.value?.findByName('description');
     expect(descMeta?.content).toBe('Updated description');
   });
 
-  test('4. メタ削除', async () => {
+  test('4. Delete meta', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
@@ -81,26 +81,26 @@ describe.skipIf(shouldSkipIntegration())('Page Meta Integration Tests', () => {
     const result = await currentPage.deleteMeta('description');
     expect(result.isOk()).toBe(true);
 
-    // 確認
+    // Verify
     const metasResult = await currentPage.getMetas();
     expect(metasResult.isOk()).toBe(true);
     const descMeta = metasResult.value?.findByName('description');
     expect(descMeta).toBeUndefined();
   });
 
-  test('5. 複数メタの設定', async () => {
+  test('5. Set multiple metas', async () => {
     const site = await getSite();
     const pageResult = await site.page.get(pageName);
     expect(pageResult.isOk()).toBe(true);
 
     const currentPage = pageResult.value!;
 
-    // 複数メタを設定
+    // Set multiple metas
     await currentPage.setMeta('description', 'Page description');
     await currentPage.setMeta('keywords', 'keyword1, keyword2');
     await currentPage.setMeta('author', 'Test Author');
 
-    // 確認
+    // Verify
     const metasResult = await currentPage.getMetas();
     expect(metasResult.isOk()).toBe(true);
     expect(metasResult.value?.findByName('description')?.content).toBe('Page description');

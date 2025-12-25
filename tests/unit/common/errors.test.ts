@@ -1,5 +1,5 @@
 /**
- * エラークラスのユニットテスト
+ * Error classes unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import {
@@ -18,7 +18,7 @@ import {
 } from '../../../src/common/errors';
 
 describe('WikidotError', () => {
-  test('基本エラーを作成できる', () => {
+  test('Can create basic error', () => {
     const error = new WikidotError('test error');
 
     expect(error).toBeInstanceOf(Error);
@@ -29,7 +29,7 @@ describe('WikidotError', () => {
 });
 
 describe('UnexpectedError', () => {
-  test('予期しないエラーを作成できる', () => {
+  test('Can create unexpected error', () => {
     const error = new UnexpectedError('unexpected error');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -40,7 +40,7 @@ describe('UnexpectedError', () => {
 });
 
 describe('LoginRequiredError', () => {
-  test('ログイン必須エラーを作成できる', () => {
+  test('Can create login required error', () => {
     const error = new LoginRequiredError('login required');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -51,7 +51,7 @@ describe('LoginRequiredError', () => {
 });
 
 describe('AMCError', () => {
-  test('AMCエラーを作成できる', () => {
+  test('Can create AMC error', () => {
     const error = new AMCError('amc error');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -61,7 +61,7 @@ describe('AMCError', () => {
 });
 
 describe('AMCHttpError', () => {
-  test('HTTPステータスエラーを作成できる', () => {
+  test('Can create HTTP status error', () => {
     const error = new AMCHttpError('http error', 404);
 
     expect(error).toBeInstanceOf(AMCError);
@@ -70,7 +70,7 @@ describe('AMCHttpError', () => {
     expect(error.statusCode).toBe(404);
   });
 
-  test('ステータスコードを含むメッセージ', () => {
+  test('Message includes status code', () => {
     const error = new AMCHttpError('Not Found', 404);
 
     expect(error.statusCode).toBe(404);
@@ -78,7 +78,7 @@ describe('AMCHttpError', () => {
 });
 
 describe('WikidotStatusError', () => {
-  test('Wikidotステータスエラーを作成できる', () => {
+  test('Can create Wikidot status error', () => {
     const error = new WikidotStatusError('wikidot error', 'no_permission');
 
     expect(error).toBeInstanceOf(AMCError);
@@ -87,7 +87,7 @@ describe('WikidotStatusError', () => {
     expect(error.statusCode).toBe('no_permission');
   });
 
-  test('様々なステータスコード', () => {
+  test('Various status codes', () => {
     const tryAgain = new WikidotStatusError('retry', 'try_again');
     const notOk = new WikidotStatusError('failed', 'not_ok');
 
@@ -97,7 +97,7 @@ describe('WikidotStatusError', () => {
 });
 
 describe('ResponseDataError', () => {
-  test('レスポンスデータエラーを作成できる', () => {
+  test('Can create response data error', () => {
     const error = new ResponseDataError('invalid response');
 
     expect(error).toBeInstanceOf(AMCError);
@@ -107,7 +107,7 @@ describe('ResponseDataError', () => {
 });
 
 describe('NotFoundException', () => {
-  test('リソース未検出エラーを作成できる', () => {
+  test('Can create resource not found error', () => {
     const error = new NotFoundException('page not found');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -117,7 +117,7 @@ describe('NotFoundException', () => {
 });
 
 describe('TargetExistsError', () => {
-  test('リソース重複エラーを作成できる', () => {
+  test('Can create resource already exists error', () => {
     const error = new TargetExistsError('page already exists');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -127,7 +127,7 @@ describe('TargetExistsError', () => {
 });
 
 describe('TargetError', () => {
-  test('ターゲットエラーを作成できる', () => {
+  test('Can create target error', () => {
     const error = new TargetError('target error');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -137,7 +137,7 @@ describe('TargetError', () => {
 });
 
 describe('ForbiddenError', () => {
-  test('アクセス禁止エラーを作成できる', () => {
+  test('Can create access forbidden error', () => {
     const error = new ForbiddenError('access denied');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -147,7 +147,7 @@ describe('ForbiddenError', () => {
 });
 
 describe('NoElementError', () => {
-  test('要素未検出エラーを作成できる', () => {
+  test('Can create element not found error', () => {
     const error = new NoElementError('element not found');
 
     expect(error).toBeInstanceOf(WikidotError);
@@ -156,8 +156,8 @@ describe('NoElementError', () => {
   });
 });
 
-describe('エラー階層', () => {
-  test('すべてのエラーはWikidotErrorを継承している', () => {
+describe('Error hierarchy', () => {
+  test('All errors inherit from WikidotError', () => {
     const errors = [
       new UnexpectedError(''),
       new LoginRequiredError(''),
@@ -177,7 +177,7 @@ describe('エラー階層', () => {
     }
   });
 
-  test('AMC関連エラーはAMCErrorを継承している', () => {
+  test('AMC related errors inherit from AMCError', () => {
     const amcErrors = [
       new AMCHttpError('', 500),
       new WikidotStatusError('', 'error'),

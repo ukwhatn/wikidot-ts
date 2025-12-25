@@ -11,7 +11,7 @@ import {
 import type { Site } from '../site';
 
 /**
- * ページ一覧操作アクセサ
+ * Page list operations accessor
  */
 export class PagesAccessor {
   public readonly site: Site;
@@ -21,9 +21,9 @@ export class PagesAccessor {
   }
 
   /**
-   * 条件に合うページを検索する
-   * @param params - 検索条件
-   * @returns ページコレクション
+   * Search pages matching conditions
+   * @param params - Search conditions
+   * @returns Page collection
    */
   search(params?: SearchPagesQueryParams): WikidotResultAsync<PageCollection> {
     return fromPromise(
@@ -43,19 +43,19 @@ export class PagesAccessor {
   }
 
   /**
-   * 全ページを取得する
-   * @returns ページコレクション
+   * Get all pages
+   * @returns Page collection
    */
   all(): WikidotResultAsync<PageCollection> {
     return this.search({});
   }
 
   /**
-   * 最近の変更履歴を取得する
-   * @param options - オプション
-   * @param options.perPage - 1ページあたりの件数（デフォルト: 20）
-   * @param options.page - ページ番号（デフォルト: 1）
-   * @returns 変更履歴コレクション
+   * Get recent changes
+   * @param options - Options
+   * @param options.perPage - Items per page (default: 20)
+   * @param options.page - Page number (default: 1)
+   * @returns Change history collection
    */
   getRecentChanges(options?: {
     perPage?: number;

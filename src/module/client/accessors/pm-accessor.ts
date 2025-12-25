@@ -9,14 +9,14 @@ import type { User } from '../../user/user';
 import type { Client } from '../client';
 
 /**
- * プライベートメッセージ操作アクセサ
+ * Private message operations accessor
  *
  * @example
  * ```typescript
- * // 受信箱を取得
+ * // Get inbox
  * const inboxResult = await client.privateMessage.inbox();
  * if (!inboxResult.isOk()) {
- *   throw new Error('受信箱の取得に失敗しました');
+ *   throw new Error('Failed to get inbox');
  * }
  * const inbox = inboxResult.value;
  * ```
@@ -29,45 +29,45 @@ export class PrivateMessageAccessor {
   }
 
   /**
-   * メッセージIDからメッセージを取得する
+   * Get message by message ID
    *
-   * @param id - メッセージID
-   * @returns Result型でラップされたメッセージオブジェクト
+   * @param id - Message ID
+   * @returns Message object wrapped in Result type
    */
   get(id: number): WikidotResultAsync<PrivateMessage> {
     return PrivateMessage.fromId(this.client, id);
   }
 
   /**
-   * 複数のメッセージIDからメッセージを取得する
-   * @param ids - メッセージID配列
-   * @returns メッセージコレクション
+   * Get messages from multiple message IDs
+   * @param ids - Array of message IDs
+   * @returns Message collection
    */
   getMessages(ids: number[]): WikidotResultAsync<PrivateMessageCollection> {
     return PrivateMessageCollection.fromIds(this.client, ids);
   }
 
   /**
-   * 受信箱のメッセージ一覧を取得する
-   * @returns 受信箱
+   * Get inbox message list
+   * @returns Inbox
    */
   inbox(): WikidotResultAsync<PrivateMessageInbox> {
     return PrivateMessageInbox.acquire(this.client);
   }
 
   /**
-   * 送信箱のメッセージ一覧を取得する
-   * @returns 送信箱
+   * Get sent box message list
+   * @returns Sent box
    */
   sentBox(): WikidotResultAsync<PrivateMessageSentBox> {
     return PrivateMessageSentBox.acquire(this.client);
   }
 
   /**
-   * プライベートメッセージを送信する
-   * @param recipient - 受信者
-   * @param subject - 件名
-   * @param body - 本文
+   * Send a private message
+   * @param recipient - Recipient
+   * @param subject - Subject
+   * @param body - Body
    */
   send(recipient: User, subject: string, body: string): WikidotResultAsync<void> {
     return PrivateMessage.send(this.client, recipient, subject, body);

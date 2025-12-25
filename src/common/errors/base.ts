@@ -1,13 +1,13 @@
 /**
- * Wikidotライブラリの基底エラークラス
- * 全てのカスタムエラーはこのクラスを継承する
+ * Base error class for the Wikidot library
+ * All custom errors inherit from this class
  */
 export abstract class WikidotError extends Error {
-  /** エラー名 */
+  /** Error name */
   public override readonly name: string;
 
   /**
-   * @param message - エラーメッセージ
+   * @param message - Error message
    */
   constructor(message: string) {
     super(message);
@@ -17,7 +17,7 @@ export abstract class WikidotError extends Error {
 }
 
 /**
- * 予期せぬエラー
- * 内部的な不整合やバグを表す
+ * Unexpected error
+ * Represents internal inconsistencies or bugs
  */
 export class UnexpectedError extends WikidotError {}

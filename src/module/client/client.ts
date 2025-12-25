@@ -14,111 +14,111 @@ import { SiteAccessor } from './accessors/site-accessor';
 import { UserAccessor } from './accessors/user-accessor';
 
 /**
- * クライアント作成オプション
+ * Client creation options
  */
 export interface ClientOptions {
-  /** Wikidotユーザー名 */
+  /** Wikidot username */
   username?: string;
 
-  /** Wikidotパスワード */
+  /** Wikidot password */
   password?: string;
 
-  /** ベースドメイン（デフォルト: wikidot.com） */
+  /** Base domain (default: wikidot.com) */
   domain?: string;
 
-  /** AMC設定オーバーライド */
+  /** AMC configuration override */
   amcConfig?: Partial<AMCConfig>;
 }
 
 /**
- * Wikidotクライアント
- * ライブラリのメインエントリポイント
+ * Wikidot client
+ * Main entry point of the library
  */
 export class Client {
-  /** AMCクライアント */
+  /** AMC client */
   public readonly amcClient: AMCClient;
 
-  /** ベースドメイン */
+  /** Base domain */
   public readonly domain: string;
 
-  /** ユーザー操作アクセサ */
+  /** User operations accessor */
   public readonly user: UserAccessor;
 
-  /** サイト操作アクセサ */
+  /** Site operations accessor */
   public readonly site: SiteAccessor;
 
-  /** プライベートメッセージ操作アクセサ */
+  /** Private message operations accessor */
   public readonly privateMessage: PrivateMessageAccessor;
 
-  /** ログイン中のユーザー名 */
+  /** Username of the logged-in user */
   private _username: string | null;
 
-  /** ログイン中のユーザー */
+  /** Logged-in user */
   private _me: User | null = null;
 
   /**
-   * プライベートコンストラクタ
-   * createメソッドを使用してインスタンスを作成する
+   * Private constructor
+   * Use the create method to create an instance
    */
   private constructor(amcClient: AMCClient, domain: string, username: string | null = null) {
     this.amcClient = amcClient;
     this.domain = domain;
     this._username = username;
 
-    // アクセサを初期化
+    // Initialize accessors
     this.user = new UserAccessor(this);
     this.site = new SiteAccessor(this);
     this.privateMessage = new PrivateMessageAccessor(this);
   }
 
   /**
-   * ログイン中のユーザー名を取得
+   * Get the username of the logged-in user
    */
   get username(): string | null {
     return this._username;
   }
 
   /**
-   * ログイン中のユーザーを取得
-   * ログインしていない場合はnull
+   * Get the logged-in user
+   * Returns null if not logged in
    */
   get me(): User | null {
     return this._me;
   }
 
   /**
-   * クライアントを作成する
+   * Create a client
    *
-   * @param options - クライアントオプション
-   * @returns Result型でラップされたクライアントインスタンス
+   * @param options - Client options
+   * @returns Client instance wrapped in Result type
    *
    * @example
    * ```typescript
    * import { Client } from '@ukwhatn/wikidot';
    *
-   * // クライアントを作成
+   * // Create a client
    * const clientResult = await Client.create({
    *   username: 'your_username',
    *   password: 'your_password',
    * });
    *
-   * // Result型なのでisOk()でチェック後、.valueで取得
+   * // Result type requires isOk() check before accessing .value
    * if (!clientResult.isOk()) {
-   *   throw new Error('クライアントの作成に失敗しました');
+   *   throw new Error('Failed to create client');
    * }
    * const client = clientResult.value;
    *
-   * // これでclient.site等にアクセス可能
+   * // Now you can access client.site, etc.
    * const siteResult = await client.site.get('scp-jp');
    * ```
    */
   static create(options: ClientOptions = {}): WikidotResultAsync<Client> {
     const { username, password, domain = 'wikidot.com', amcConfig = {} } = options;
 
-    // AMCクライアントを作成
+    // Create AMC client
     const amcClient = new AMCClient(amcConfig, domain);
 
-    // 認証情報がある場合はログイン
+    // Login if credentials are provided
     if (username && password) {
       return fromPromise(
         (async () => {
@@ -128,7 +128,7 @@ export class Client {
             throw loginResult.error;
           }
 
-          // ログイン中のユーザー情報を取得
+          // Get logged-in user information
           const userResult = await User.fromName(client, username);
           if (userResult.isOk() && userResult.value) {
             client._me = userResult.value;
@@ -145,14 +145,14 @@ export class Client {
       );
     }
 
-    // 認証なしのクライアントを返す
+    // Return unauthenticated client
     return wdOkAsync(new Client(amcClient, domain));
   }
 
   /**
-   * 未認証クライアントを作成する
-   * @param options - クライアントオプション（認証情報以外）
-   * @returns クライアントインスタンス
+   * Create an unauthenticated client
+   * @param options - Client options (excluding credentials)
+   * @returns Client instance
    */
   static createAnonymous(options: Omit<ClientOptions, 'username' | 'password'> = {}): Client {
     const { domain = 'wikidot.com', amcConfig = {} } = options;
@@ -161,17 +161,17 @@ export class Client {
   }
 
   /**
-   * ログイン状態を確認する
-   * @returns ログイン済みならtrue
+   * Check login status
+   * @returns true if logged in
    */
   isLoggedIn(): boolean {
     return this._username !== null;
   }
 
   /**
-   * ログインを要求する
-   * ログイン済みでない場合はLoginRequiredErrorを返す
-   * @returns 成功時はvoid
+   * Require login
+   * Returns LoginRequiredError if not logged in
+   * @returns void on success
    */
   requireLogin(): WikidotResult<void> {
     if (!this.isLoggedIn()) {
@@ -181,8 +181,8 @@ export class Client {
   }
 
   /**
-   * クライアントをクローズする
-   * セッションがある場合はログアウトを試みる
+   * Close the client
+   * Attempts to logout if a session exists
    */
   close(): WikidotResultAsync<void> {
     if (this.isLoggedIn()) {

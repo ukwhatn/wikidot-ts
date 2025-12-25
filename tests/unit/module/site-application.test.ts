@@ -1,5 +1,5 @@
 /**
- * SiteApplicationモジュールのユニットテスト
+ * SiteApplication module unit tests
  */
 import { describe, expect, test } from 'bun:test';
 import { SiteApplication } from '../../../src/module/site/site-application';
@@ -9,7 +9,7 @@ import { MockAMCClient } from '../../mocks/amc-client.mock';
 import { TEST_SITE_DATA } from '../../setup';
 
 /**
- * モッククライアント作成
+ * Create mock client
  */
 function createMockClient(): ClientRef {
   return {
@@ -19,7 +19,7 @@ function createMockClient(): ClientRef {
 }
 
 /**
- * テスト用サイト作成
+ * Create test site
  */
 function createMockSite(): SiteRef {
   const _amcClient = new MockAMCClient();
@@ -39,7 +39,7 @@ function createMockSite(): SiteRef {
 }
 
 /**
- * テスト用ユーザー作成
+ * Create test user
  */
 function createMockUser(name: string): User {
   const client = createMockClient();
@@ -51,7 +51,7 @@ function createMockUser(name: string): User {
 }
 
 /**
- * テスト用申請作成
+ * Create test application
  */
 function createTestApplication(options: { user?: User; text?: string } = {}): SiteApplication {
   const site = createMockSite();
@@ -63,9 +63,9 @@ function createTestApplication(options: { user?: User; text?: string } = {}): Si
   });
 }
 
-describe('SiteApplicationデータクラス', () => {
-  describe('基本プロパティ', () => {
-    test('toString()が正しい文字列を返す', () => {
+describe('SiteApplication data class', () => {
+  describe('Basic properties', () => {
+    test('toString() returns correct string', () => {
       const application = createTestApplication();
 
       const result = application.toString();
@@ -74,20 +74,20 @@ describe('SiteApplicationデータクラス', () => {
       expect(result).toContain('user=Applicant');
     });
 
-    test('userが正しく設定される', () => {
+    test('user is correctly set', () => {
       const user = createMockUser('CustomApplicant');
       const application = createTestApplication({ user });
 
       expect(application.user.name).toBe('CustomApplicant');
     });
 
-    test('textが正しく設定される', () => {
+    test('text is correctly set', () => {
       const application = createTestApplication({ text: 'Custom application text' });
 
       expect(application.text).toBe('Custom application text');
     });
 
-    test('siteが正しく設定される', () => {
+    test('site is correctly set', () => {
       const application = createTestApplication();
 
       expect(application.site.unixName).toBe(TEST_SITE_DATA.unixName);
