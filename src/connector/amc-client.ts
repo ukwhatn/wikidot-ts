@@ -277,12 +277,25 @@ export class AMCClient {
 
         // Parse as JSON
         let responseData: unknown;
+        const responseText = await response.text();
         try {
-          responseData = await response.json();
+          responseData = JSON.parse(responseText);
         } catch {
-          return wdErrAsync(
-            new ResponseDataError(`AMC responded with non-JSON data: ${await response.text()}`)
+          // Retry on JSON parse error (e.g., empty response)
+          retryCount++;
+          if (retryCount >= this.config.retryLimit) {
+            return wdErrAsync(
+              new ResponseDataError(`AMC responded with non-JSON data: ${responseText}`)
+            );
+          }
+          const backoff = calculateBackoff(
+            retryCount,
+            this.config.retryInterval,
+            this.config.backoffFactor,
+            this.config.maxBackoff
           );
+          await sleep(backoff);
+          continue;
         }
 
         // Validate with zod
