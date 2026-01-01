@@ -122,3 +122,11 @@ describe('maskSensitiveData', () => {
     expect(result.moduleName).toBe('test');
   });
 });
+
+/**
+ * Note: HTTP-level retry tests require integration tests with actual server mocking.
+ * The retry logic for JSON parse errors has been implemented in amc-client.ts.
+ * Testing approach:
+ * - Unit tests: Test calculateBackoff function logic (covered in test_ajax.py parity)
+ * - Integration tests: Test actual retry behavior with real HTTP responses
+ */

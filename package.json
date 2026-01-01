@@ -1,6 +1,6 @@
 {
   "name": "@ukwhatn/wikidot",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "TypeScript library for interacting with Wikidot sites",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -29,6 +29,17 @@ export interface MockRequestMatcher {
 interface MockEntry {
   matcher: MockRequestMatcher;
   response: MockResponse;
+  once?: boolean;
+  used?: boolean;
+}
+
+/**
+ * Sequential mock entry (for retry testing)
+ */
+interface SequentialMockEntry {
+  matcher: MockRequestMatcher;
+  responses: MockResponse[];
+  currentIndex: number;
 }
 
 /**
@@ -36,6 +47,7 @@ interface MockEntry {
  */
 export class HttpMock {
   private mocks: MockEntry[] = [];
+  private sequentialMocks: SequentialMockEntry[] = [];
   private requestHistory: { url: string; options?: RequestInit }[] = [];
   private originalFetch: typeof fetch;
 
@@ -51,10 +63,18 @@ export class HttpMock {
   }
 
   /**
+   * Add sequential mock (returns responses in order for retry testing)
+   */
+  addSequentialMock(matcher: MockRequestMatcher, responses: MockResponse[]): void {
+    this.sequentialMocks.push({ matcher, responses, currentIndex: 0 });
+  }
+
+  /**
    * Clear mocks
    */
   clearMocks(): void {
     this.mocks = [];
+    this.sequentialMocks = [];
   }
 
   /**
@@ -84,6 +104,24 @@ export class HttpMock {
       const method = init?.method ?? 'GET';
 
       self.requestHistory.push({ url, options: init });
+
+      // Check sequential mocks first (for retry testing)
+      for (const seqMock of self.sequentialMocks) {
+        const urlMatch =
+          !seqMock.matcher.url ||
+          (typeof seqMock.matcher.url === 'string'
+            ? url === seqMock.matcher.url || url.includes(seqMock.matcher.url)
+            : seqMock.matcher.url.test(url));
+
+        const methodMatch =
+          !seqMock.matcher.method || seqMock.matcher.method.toUpperCase() === method.toUpperCase();
+
+        if (urlMatch && methodMatch && seqMock.currentIndex < seqMock.responses.length) {
+          const response = seqMock.responses[seqMock.currentIndex];
+          seqMock.currentIndex++;
+          return self.createResponse(response);
+        }
+      }
 
       // Search for matching mock
       for (const mock of self.mocks) {
