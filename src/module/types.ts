@@ -135,6 +135,27 @@ export interface ForumThreadRef {
 }
 
 /**
+ * Forum post reference interface
+ * Used to avoid direct dependency on ForumPost type
+ */
+export interface ForumPostRef {
+  /**
+   * Post ID
+   */
+  readonly id: number;
+
+  /**
+   * Post title
+   */
+  readonly title: string;
+
+  /**
+   * Thread reference
+   */
+  readonly thread: ForumThreadRef;
+}
+
+/**
  * Page reference interface
  * Used to avoid direct dependency on Page type
  */
