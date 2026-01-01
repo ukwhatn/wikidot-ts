@@ -8,6 +8,7 @@ import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { ForumThreadRef } from '../types';
 import type { AbstractUser } from '../user';
+import { ForumPostRevisionCollection } from './forum-post-revision';
 
 /**
  * Forum post data
@@ -40,6 +41,7 @@ export class ForumPost {
   public readonly editedAt: Date | null;
   private _parentId: number | null;
   private _source: string | null = null;
+  private _revisions: ForumPostRevisionCollection | null = null;
 
   constructor(data: ForumPostData) {
     this.thread = data.thread;
@@ -170,6 +172,38 @@ export class ForumPost {
           return error;
         }
         return new UnexpectedError(`Failed to edit post: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
+   * Whether the post has been edited (has revisions)
+   */
+  get hasRevisions(): boolean {
+    return this.editedBy !== null;
+  }
+
+  /**
+   * Get post revisions (edit history)
+   * @returns Revision collection
+   */
+  getRevisions(): WikidotResultAsync<ForumPostRevisionCollection> {
+    if (this._revisions !== null) {
+      return fromPromise(Promise.resolve(this._revisions), (e) => new UnexpectedError(String(e)));
+    }
+
+    return fromPromise(
+      (async () => {
+        const result = await ForumPostRevisionCollection.acquireAll(this);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        this._revisions = result.value;
+        return this._revisions;
+      })(),
+      (error) => {
+        if (error instanceof NoElementError) return error;
+        return new UnexpectedError(`Failed to get revisions: ${String(error)}`);
       }
     );
   }

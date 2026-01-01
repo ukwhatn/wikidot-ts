@@ -87,6 +87,9 @@ export const amcFixtures = {
     postsNested: () => loadJsonFixture('forum', 'posts_nested.json'),
     editpostForm: () => loadJsonFixture('forum', 'editpost_form.json'),
     savepostSuccess: () => loadJsonFixture('forum', 'savepost_success.json'),
+    postRevisions: () => loadJsonFixture('forum', 'post_revisions.json'),
+    postRevisionsSingle: () => loadJsonFixture('forum', 'post_revisions_single.json'),
+    postRevisionContent: () => loadJsonFixture('forum', 'post_revision_content.json'),
   },
 
   // QuickModule
