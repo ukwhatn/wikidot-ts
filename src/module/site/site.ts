@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AMCRequestBody, AMCResponse } from '../../connector';
+import { fetchWithRetry } from '../../util/http';
 import type { Client } from '../client/client';
 import { ForumAccessor } from './accessors/forum-accessor';
 import { MemberAccessor } from './accessors/member-accessor';
@@ -154,10 +155,11 @@ export class Site {
   static fromUnixName(client: Client, unixName: string): WikidotResultAsync<Site> {
     return fromPromise(
       (async () => {
-        // Fetch site page (HTTP request, following redirects)
+        // Fetch site page (HTTP request, following redirects, with retry)
         const url = `http://${unixName}.wikidot.com`;
-        const response = await fetch(url, {
+        const response = await fetchWithRetry(url, client.amcClient.config, {
           headers: client.amcClient.header.getHeaders(),
+          checkOk: false, // Handle HTTP errors manually for better error messages
         });
 
         if (!response.ok) {
