@@ -1,8 +1,13 @@
 import { SessionCreateError } from '../common/errors';
 import { fromPromise, type WikidotResultAsync, wdOkAsync } from '../common/types';
 import type { AuthClientContext } from '../module/types';
+import { fetchWithRetry } from '../util/http';
+import { DEFAULT_AMC_CONFIG } from './amc-config';
 
 const LOGIN_URL = 'https://www.wikidot.com/default--flow/login__LoginPopupScreen';
+
+/** Login retry limit (reduced to prevent account lockout) */
+const LOGIN_RETRY_LIMIT = 3;
 
 /**
  * Login to Wikidot with username and password
@@ -25,10 +30,16 @@ export function login(
         event: 'login',
       });
 
-      const response = await fetch(LOGIN_URL, {
+      // Use reduced retry limit for login to prevent account lockout
+      const loginConfig = {
+        ...DEFAULT_AMC_CONFIG,
+        retryLimit: LOGIN_RETRY_LIMIT,
+      };
+      const response = await fetchWithRetry(LOGIN_URL, loginConfig, {
         method: 'POST',
         headers: client.amcClient.header.getHeaders(),
         body: formData.toString(),
+        checkOk: false, // Handle HTTP errors manually for better error messages
       });
 
       // Check status code

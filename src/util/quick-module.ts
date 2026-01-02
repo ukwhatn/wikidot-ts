@@ -7,6 +7,8 @@
 import { z } from 'zod';
 import { NotFoundException, UnexpectedError } from '../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../common/types';
+import { DEFAULT_AMC_CONFIG } from '../connector/amc-config';
+import { fetchWithRetry } from './http';
 
 /**
  * QuickModule module name
@@ -66,11 +68,12 @@ async function requestQuickModule(
 ): Promise<unknown> {
   const url = `https://www.wikidot.com/quickmodule.php?module=${moduleName}&s=${siteId}&q=${encodeURIComponent(query)}`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, DEFAULT_AMC_CONFIG, {
     method: 'GET',
     headers: {
       Accept: 'application/json',
     },
+    checkOk: false, // Handle HTTP errors manually
   });
 
   if (response.status === 500) {

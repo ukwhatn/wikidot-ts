@@ -10,6 +10,7 @@ import {
   WikidotStatusError,
 } from '../common/errors';
 import { fromPromise, type WikidotResultAsync, wdErrAsync, wdOkAsync } from '../common/types';
+import { fetchWithRetry } from '../util/http';
 import {
   type AMCConfig,
   DEFAULT_AMC_CONFIG,
@@ -135,9 +136,10 @@ export class AMCClient {
 
     return fromPromise(
       (async () => {
-        const response = await fetch(`http://${siteName}.${this.domain}`, {
+        const response = await fetchWithRetry(`http://${siteName}.${this.domain}`, this.config, {
           method: 'GET',
           redirect: 'manual',
+          checkOk: false, // Don't retry on HTTP errors (301 is expected)
         });
 
         // 404 means site does not exist

@@ -3,6 +3,7 @@ import pLimit from 'p-limit';
 import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { DEFAULT_AMC_CONFIG } from '../../connector/amc-config';
+import { fetchWithRetry } from '../../util/http';
 import { toUnix } from '../../util/string-util';
 import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
@@ -67,7 +68,9 @@ export class User implements AbstractUser {
         const unixName = toUnix(name);
         const url = `https://www.wikidot.com/user:info/${unixName}`;
 
-        const response = await fetch(url);
+        const response = await fetchWithRetry(url, DEFAULT_AMC_CONFIG, {
+          checkOk: false, // Handle HTTP errors manually
+        });
         if (!response.ok) {
           throw new UnexpectedError(`Failed to fetch user info: ${response.status}`);
         }

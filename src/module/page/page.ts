@@ -14,6 +14,7 @@ import {
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AMCRequestBody } from '../../connector';
+import { fetchWithRetry } from '../../util/http';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
@@ -784,13 +785,14 @@ export class PageCollection extends Array<Page> {
 
         // Limit concurrent connections (using same semaphoreLimit as AMCClient)
         const limit = pLimit(site.client.amcClient.config.semaphoreLimit);
+        const config = site.client.amcClient.config;
 
-        // Access with norender, noredirect
+        // Access with norender, noredirect (with retry)
         const responses = await Promise.all(
           targetPages.map((page) =>
             limit(async () => {
               const url = `${page.getUrl()}/norender/true/noredirect/true`;
-              const response = await fetch(url, {
+              const response = await fetchWithRetry(url, config, {
                 headers: site.client.amcClient.header.getHeaders(),
               });
               return { page, response };
