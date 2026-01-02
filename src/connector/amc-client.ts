@@ -350,7 +350,8 @@ export class AMCClient {
 
         return wdOkAsync(amcResponse);
       } catch (error) {
-        // Retry on HTTP error
+        // Retry on all errors (HTTP errors, network errors, timeouts, etc.)
+        // Wikidot server has a relatively high error rate, so retry is essential
         retryCount++;
         if (retryCount >= this.config.retryLimit) {
           const statusCode =
@@ -358,9 +359,7 @@ export class AMCClient {
               ? ((error as { response?: { status?: number } }).response?.status ??
                 DEFAULT_HTTP_STATUS_CODE)
               : DEFAULT_HTTP_STATUS_CODE;
-          return wdErrAsync(
-            new AMCHttpError(`AMC HTTP request failed: ${String(error)}`, statusCode)
-          );
+          return wdErrAsync(new AMCHttpError(`AMC request failed: ${String(error)}`, statusCode));
         }
 
         const backoff = calculateBackoff(
