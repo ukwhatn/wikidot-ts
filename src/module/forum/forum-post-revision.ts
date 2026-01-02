@@ -271,4 +271,87 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
       }
     );
   }
+
+  /**
+   * Get revisions for multiple posts
+   * @param posts - Array of forum post references
+   * @param withHtml - Whether to also fetch HTML content for each revision
+   * @returns Map of post ID to revision collection
+   */
+  static acquireAllForPosts(
+    posts: ForumPostRef[],
+    withHtml = false
+  ): WikidotResultAsync<Map<number, ForumPostRevisionCollection>> {
+    return fromPromise(
+      (async () => {
+        if (posts.length === 0) {
+          return new Map<number, ForumPostRevisionCollection>();
+        }
+
+        const result = new Map<number, ForumPostRevisionCollection>();
+        const site = posts[0]!.thread.site;
+
+        // Step 1: Get revision lists for all posts
+        const revisionsResult = await site.amcRequest(
+          posts.map((post) => ({
+            moduleName: 'forum/sub/ForumPostRevisionsModule',
+            postId: post.id,
+          }))
+        );
+
+        if (revisionsResult.isErr()) {
+          throw revisionsResult.error;
+        }
+
+        // Step 2: Parse revisions
+        for (let i = 0; i < posts.length; i++) {
+          const post = posts[i]!;
+          const response = revisionsResult.value[i];
+          if (!response) continue;
+
+          const body = String(response.body ?? '');
+          const $ = cheerio.load(body);
+          const revisions = ForumPostRevisionCollection._parse(post, $);
+          result.set(post.id, new ForumPostRevisionCollection(post, revisions));
+        }
+
+        // Step 3: Get HTML content if requested
+        if (withHtml) {
+          const allRevisions: { revision: ForumPostRevision; postId: number }[] = [];
+          for (const [postId, collection] of result) {
+            for (const revision of collection) {
+              allRevisions.push({ revision, postId });
+            }
+          }
+
+          if (allRevisions.length > 0) {
+            const htmlResult = await site.amcRequest(
+              allRevisions.map(({ revision }) => ({
+                moduleName: 'forum/sub/ForumPostRevisionModule',
+                revisionId: revision.id,
+              }))
+            );
+
+            if (htmlResult.isErr()) {
+              throw htmlResult.error;
+            }
+
+            for (let i = 0; i < allRevisions.length; i++) {
+              const { revision } = allRevisions[i]!;
+              const response = htmlResult.value[i];
+              if (response) {
+                revision.html = String(response.content ?? '');
+              }
+            }
+          }
+        }
+
+        return result;
+      })(),
+      (error) => {
+        if (error instanceof NoElementError) return error;
+        return new UnexpectedError(`Failed to acquire revisions for posts: ${String(error)}`);
+      }
+    );
+  }
 }
