@@ -39,12 +39,19 @@ export interface FetchWithRetryOptions extends Omit<RequestInit, 'signal'> {
 }
 
 /**
- * Fetch with automatic retry on timeout/network errors
+ * Check if HTTP status code is retryable (5xx server errors)
+ */
+function isRetryableStatus(status: number): boolean {
+  return status >= 500 && status < 600;
+}
+
+/**
+ * Fetch with automatic retry on timeout/network errors and 5xx errors
  * @param url - URL to fetch
  * @param config - AMC configuration (uses timeout, retryLimit, retryInterval, maxBackoff, backoffFactor)
  * @param options - Fetch options (RequestInit without signal)
  * @returns Response
- * @throws Error on all retries exhausted
+ * @throws Error on all retries exhausted or non-retryable errors (4xx)
  */
 export async function fetchWithRetry(
   url: string,
@@ -59,11 +66,21 @@ export async function fetchWithRetry(
         ...fetchOptions,
         signal: AbortSignal.timeout(config.timeout),
       });
+
+      // Don't retry 4xx errors - they are client errors that won't change on retry
       if (checkOk && !response.ok) {
+        if (!isRetryableStatus(response.status)) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        // 5xx errors are retryable, continue to retry logic below
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       return response;
     } catch (error) {
+      // Don't retry if it's a non-retryable HTTP error (4xx)
+      if (error instanceof Error && error.message.startsWith('HTTP 4')) {
+        throw error;
+      }
       if (attempt >= config.retryLimit - 1) {
         throw error;
       }
