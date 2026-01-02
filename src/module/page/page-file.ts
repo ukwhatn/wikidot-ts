@@ -69,9 +69,9 @@ export class PageFileCollection extends Array<PageFile> {
   }
 
   /**
-   * Convert size string to bytes
+   * Convert size string to bytes (public for batch operations)
    */
-  private static parseSize(sizeText: string): number {
+  static parseSize(sizeText: string): number {
     const text = sizeText.trim();
     if (text.includes('Bytes')) {
       return Math.floor(Number.parseFloat(text.replace('Bytes', '').trim()));
@@ -86,6 +86,54 @@ export class PageFileCollection extends Array<PageFile> {
       return Math.floor(Number.parseFloat(text.replace('GB', '').trim()) * 1000000000);
     }
     return 0;
+  }
+
+  /**
+   * Parse file information from HTML response
+   * Internal helper for acquire() and PageCollection.acquirePageFiles()
+   */
+  static _parseFromHtml(page: Page, $: cheerio.CheerioAPI): PageFile[] {
+    const filesTable = $('table.page-files');
+    if (filesTable.length === 0) {
+      return [];
+    }
+
+    const files: PageFile[] = [];
+
+    filesTable.find("tbody tr[id^='file-row-']").each((_i, row) => {
+      const rowId = $(row).attr('id');
+      if (!rowId) return;
+
+      const fileId = Number.parseInt(rowId.replace('file-row-', ''), 10);
+      const tds = $(row).find('td');
+      if (tds.length < 3) return;
+
+      const linkElem = $(tds[0]).find('a');
+      if (linkElem.length === 0) return;
+
+      const name = linkElem.text().trim();
+      const href = linkElem.attr('href') ?? '';
+      const url = `${page.site.getBaseUrl()}${href}`;
+
+      const mimeElem = $(tds[1]).find('span');
+      const mimeType = mimeElem.attr('title') ?? '';
+
+      const sizeText = $(tds[2]).text().trim();
+      const size = PageFileCollection.parseSize(sizeText);
+
+      files.push(
+        new PageFile({
+          page,
+          id: fileId,
+          name,
+          url,
+          mimeType,
+          size,
+        })
+      );
+    });
+
+    return files;
   }
 
   /**
@@ -121,46 +169,7 @@ export class PageFileCollection extends Array<PageFile> {
 
         const html = String(response.body ?? '');
         const $ = cheerio.load(html);
-
-        const filesTable = $('table.page-files');
-        if (filesTable.length === 0) {
-          return new PageFileCollection(page, []);
-        }
-
-        const files: PageFile[] = [];
-
-        filesTable.find("tbody tr[id^='file-row-']").each((_i, row) => {
-          const rowId = $(row).attr('id');
-          if (!rowId) return;
-
-          const fileId = Number.parseInt(rowId.replace('file-row-', ''), 10);
-          const tds = $(row).find('td');
-          if (tds.length < 3) return;
-
-          const linkElem = $(tds[0]).find('a');
-          if (linkElem.length === 0) return;
-
-          const name = linkElem.text().trim();
-          const href = linkElem.attr('href') ?? '';
-          const url = `${page.site.getBaseUrl()}${href}`;
-
-          const mimeElem = $(tds[1]).find('span');
-          const mimeType = mimeElem.attr('title') ?? '';
-
-          const sizeText = $(tds[2]).text().trim();
-          const size = PageFileCollection.parseSize(sizeText);
-
-          files.push(
-            new PageFile({
-              page,
-              id: fileId,
-              name,
-              url,
-              mimeType,
-              size,
-            })
-          );
-        });
+        const files = PageFileCollection._parseFromHtml(page, $);
 
         return new PageFileCollection(page, files);
       })(),
