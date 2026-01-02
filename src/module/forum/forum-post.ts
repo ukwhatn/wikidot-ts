@@ -194,11 +194,11 @@ export class ForumPost {
 
     return fromPromise(
       (async () => {
-        const result = await ForumPostRevisionCollection.acquireAll(this);
+        const result = await ForumPostRevisionCollection.acquireAllForPosts([this]);
         if (result.isErr()) {
           throw result.error;
         }
-        this._revisions = result.value;
+        this._revisions = result.value.get(this.id) ?? new ForumPostRevisionCollection(this, []);
         return this._revisions;
       })(),
       (error) => {
@@ -401,6 +401,106 @@ export class ForumPostCollection extends Array<ForumPost> {
         }
 
         return new ForumPostCollection(thread, posts);
+      })(),
+      (error) => {
+        if (error instanceof NoElementError) return error;
+        return new UnexpectedError(`Failed to acquire posts: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
+   * Get all posts from multiple threads
+   */
+  static acquireAllInThreads(
+    threads: ForumThreadRef[]
+  ): WikidotResultAsync<Map<number, ForumPostCollection>> {
+    return fromPromise(
+      (async () => {
+        if (threads.length === 0) {
+          return new Map<number, ForumPostCollection>();
+        }
+
+        const result = new Map<number, ForumPostCollection>();
+        const site = threads[0]!.site;
+
+        // Step 1: Get first page of all threads
+        const firstPageResult = await site.amcRequest(
+          threads.map((thread) => ({
+            moduleName: 'forum/ForumViewThreadPostsModule',
+            pageNo: '1',
+            t: String(thread.id),
+          }))
+        );
+
+        if (firstPageResult.isErr()) {
+          throw firstPageResult.error;
+        }
+
+        // Step 2: Parse first pages and determine pagination
+        const additionalRequests: { thread: ForumThreadRef; page: number }[] = [];
+
+        for (let i = 0; i < threads.length; i++) {
+          const thread = threads[i]!;
+          const response = firstPageResult.value[i];
+          if (!response) continue;
+
+          const body = String(response.body ?? '');
+          const $ = cheerio.load(body);
+
+          const posts = ForumPostCollection._parse(thread, $);
+          result.set(thread.id, new ForumPostCollection(thread, posts));
+
+          // Check pagination
+          const $pager = $('div.pager');
+          if ($pager.length === 0) continue;
+
+          const $pagerTargets = $pager.find('span.target');
+          if ($pagerTargets.length < 2) continue;
+
+          const lastPageText = $pagerTargets
+            .eq($pagerTargets.length - 2)
+            .text()
+            .trim();
+          const lastPage = Number.parseInt(lastPageText, 10);
+          if (Number.isNaN(lastPage) || lastPage <= 1) continue;
+
+          for (let page = 2; page <= lastPage; page++) {
+            additionalRequests.push({ thread, page });
+          }
+        }
+
+        // Step 3: Fetch additional pages
+        if (additionalRequests.length > 0) {
+          const additionalResult = await site.amcRequest(
+            additionalRequests.map(({ thread, page }) => ({
+              moduleName: 'forum/ForumViewThreadPostsModule',
+              pageNo: String(page),
+              t: String(thread.id),
+            }))
+          );
+
+          if (additionalResult.isErr()) {
+            throw additionalResult.error;
+          }
+
+          for (let i = 0; i < additionalRequests.length; i++) {
+            const { thread } = additionalRequests[i]!;
+            const response = additionalResult.value[i];
+            if (!response) continue;
+
+            const body = String(response.body ?? '');
+            const $ = cheerio.load(body);
+            const posts = ForumPostCollection._parse(thread, $);
+
+            const existing = result.get(thread.id);
+            if (existing) {
+              existing.push(...posts);
+            }
+          }
+        }
+
+        return result;
       })(),
       (error) => {
         if (error instanceof NoElementError) return error;

@@ -64,7 +64,17 @@ export class ForumThread {
       return fromPromise(Promise.resolve(this._posts), (e) => new UnexpectedError(String(e)));
     }
 
-    return ForumPostCollection.acquireAllInThread(this);
+    return fromPromise(
+      (async () => {
+        const result = await ForumPostCollection.acquireAllInThreads([this]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        this._posts = result.value.get(this.id) ?? new ForumPostCollection(this, []);
+        return this._posts;
+      })(),
+      (error) => new UnexpectedError(`Failed to get posts: ${String(error)}`)
+    );
   }
 
   /**
