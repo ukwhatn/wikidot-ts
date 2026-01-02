@@ -105,6 +105,7 @@ export class Page {
   private _source: PageSource | null = null;
   private _revisions: PageRevisionCollection | null = null;
   private _votes: PageVoteCollection | null = null;
+  _files: PageFileCollection | null = null;
 
   constructor(data: PageData) {
     this.site = data.site;
@@ -458,7 +459,23 @@ export class Page {
    * Get list of files attached to the page
    */
   getFiles(): WikidotResultAsync<PageFileCollection> {
-    return PageFileCollection.acquire(this);
+    if (this._files !== null) {
+      return fromPromise(Promise.resolve(this._files), (e) => new UnexpectedError(String(e)));
+    }
+    return fromPromise(
+      (async () => {
+        const result = await new PageCollection(this.site, [this]).getPageFiles();
+        if (result.isErr()) {
+          throw result.error;
+        }
+        // _files should be set by getPageFiles()
+        if (this._files === null) {
+          this._files = new PageFileCollection(this, []);
+        }
+        return this._files;
+      })(),
+      (error) => new UnexpectedError(`Failed to get files: ${String(error)}`)
+    );
   }
 
   /**
@@ -704,6 +721,53 @@ export class PageCollection extends Array<Page> {
    */
   getPageVotes(): WikidotResultAsync<PageCollection> {
     return PageCollection.acquirePageVotes(this.site, this);
+  }
+
+  /**
+   * Acquire page files in bulk
+   */
+  getPageFiles(): WikidotResultAsync<PageCollection> {
+    return PageCollection.acquirePageFiles(this.site, this);
+  }
+
+  /**
+   * Internal method to acquire page files in bulk
+   */
+  static acquirePageFiles(site: Site, pages: Page[]): WikidotResultAsync<PageCollection> {
+    return fromPromise(
+      (async () => {
+        const targetPages = pages.filter((page) => page.id !== null);
+
+        if (targetPages.length === 0) {
+          return new PageCollection(site, pages);
+        }
+
+        const result = await site.amcRequest(
+          targetPages.map((page) => ({
+            moduleName: 'files/PageFilesModule',
+            page_id: page.id,
+          }))
+        );
+
+        if (result.isErr()) {
+          throw result.error;
+        }
+
+        for (let i = 0; i < targetPages.length; i++) {
+          const page = targetPages[i];
+          const response = result.value[i];
+          if (!page || !response) continue;
+
+          const html = String(response.body ?? '');
+          const $ = cheerio.load(html);
+          const files = PageFileCollection._parseFromHtml(page, $);
+          page._files = new PageFileCollection(page, files);
+        }
+
+        return new PageCollection(site, pages);
+      })(),
+      (error) => new UnexpectedError(`Failed to acquire page files: ${String(error)}`)
+    );
   }
 
   /**
