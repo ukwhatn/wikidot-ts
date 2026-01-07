@@ -8,6 +8,7 @@ import { ForumPost, ForumPostCollection } from '../../../src/module/forum/forum-
 import { ForumThread } from '../../../src/module/forum/forum-thread';
 import type { ForumThreadRef, SiteRef } from '../../../src/module/types';
 import { User } from '../../../src/module/user/user';
+import postsWithPseudoPost from '../../fixtures/amc_responses/forum/posts_with_pseudo_post.json';
 import { MockAMCClient } from '../../mocks/amc-client.mock';
 import {
   TEST_FORUM_CATEGORY_DATA,
@@ -476,6 +477,53 @@ describe('ForumPostCollection', () => {
 
       expect(result.isOk()).toBe(true);
       expect(collection.length).toBe(0);
+    });
+  });
+
+  describe('acquireAllInThread', () => {
+    test('ignores pseudo posts nested inside content', async () => {
+      const site = createMockSite();
+      const threadRef = createMockThreadRef(site);
+
+      // Mock amcRequest to return HTML with pseudo posts
+      site.amcRequest = async () => ({
+        isErr: () => false,
+        isOk: () => true,
+        value: [postsWithPseudoPost],
+      });
+
+      const result = await ForumPostCollection.acquireAllInThread(threadRef);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const collection = result.value;
+        // Should only have 2 top-level posts, not the pseudo post inside content
+        expect(collection.length).toBe(2);
+        expect(collection[0]?.id).toBe(5001);
+        expect(collection[1]?.id).toBe(5002);
+      }
+    });
+
+    test('parses posts correctly from HTML with pseudo posts', async () => {
+      const site = createMockSite();
+      const threadRef = createMockThreadRef(site);
+
+      site.amcRequest = async () => ({
+        isErr: () => false,
+        isOk: () => true,
+        value: [postsWithPseudoPost],
+      });
+
+      const result = await ForumPostCollection.acquireAllInThread(threadRef);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const collection = result.value;
+        // First post should be from test_user_1
+        expect(collection[0]?.createdBy.name).toBe('test_user_1');
+        // Second post should be from test_user_2
+        expect(collection[1]?.createdBy.name).toBe('test_user_2');
+      }
     });
   });
 });

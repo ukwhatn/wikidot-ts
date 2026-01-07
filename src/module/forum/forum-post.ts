@@ -240,7 +240,7 @@ export class ForumPostCollection extends Array<ForumPost> {
   private static _parse(thread: ForumThreadRef, $: CheerioAPI): ForumPost[] {
     const posts: ForumPost[] = [];
 
-    $('div.post').each((_i, postElem) => {
+    $('div.post[id^="post-"]').each((_i, postElem) => {
       const $post = $(postElem);
       const postIdAttr = $post.attr('id');
       if (!postIdAttr) return;
@@ -268,20 +268,21 @@ export class ForumPostCollection extends Array<ForumPost> {
       }
 
       // Get title and content
-      const $wrapper = $post.find('div.long');
+      // Use child combinator (>) to avoid matching nested pseudo-posts in content
+      const $wrapper = $post.find('> div.long');
       if ($wrapper.length === 0) return;
 
-      const $head = $wrapper.find('div.head');
+      const $head = $wrapper.find('> div.head');
       if ($head.length === 0) return;
 
-      const $title = $head.find('div.title');
+      const $title = $head.find('> div.title');
       const title = $title.text().trim();
 
-      const $content = $wrapper.find('div.content');
+      const $content = $wrapper.find('> div.content');
       const text = $content.html() ?? '';
 
       // Author and timestamp
-      const $info = $head.find('div.info');
+      const $info = $head.find('> div.info');
       if ($info.length === 0) return;
 
       const $userElem = $info.find('span.printuser');
