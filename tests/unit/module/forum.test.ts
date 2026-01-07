@@ -8,6 +8,7 @@ import { ForumPost, ForumPostCollection } from '../../../src/module/forum/forum-
 import { ForumThread } from '../../../src/module/forum/forum-thread';
 import type { ForumThreadRef, SiteRef } from '../../../src/module/types';
 import { User } from '../../../src/module/user/user';
+import postsWithPseudoPost from '../../fixtures/amc_responses/forum/posts_with_pseudo_post.json';
 import { MockAMCClient } from '../../mocks/amc-client.mock';
 import {
   TEST_FORUM_CATEGORY_DATA,
@@ -15,7 +16,6 @@ import {
   TEST_FORUM_THREAD_DATA,
   TEST_SITE_DATA,
 } from '../../setup';
-import postsWithPseudoPost from '../../fixtures/amc_responses/forum/posts_with_pseudo_post.json';
 
 /**
  * Create test site
