@@ -64,11 +64,25 @@ export class ForumPost {
   }
 
   /**
+   * Get source code (cached)
+   */
+  get source(): string | null {
+    return this._source;
+  }
+
+  /**
+   * Set source code
+   */
+  set source(value: string | null) {
+    this._source = value;
+  }
+
+  /**
    * Get source code (Wikidot syntax)
    */
   getSource(): WikidotResultAsync<string> {
-    if (this._source !== null) {
-      return fromPromise(Promise.resolve(this._source), (e) => new UnexpectedError(String(e)));
+    if (this.source !== null) {
+      return fromPromise(Promise.resolve(this.source), (e) => new UnexpectedError(String(e)));
     }
 
     return fromPromise(
@@ -77,10 +91,10 @@ export class ForumPost {
         if (result.isErr()) {
           throw result.error;
         }
-        if (this._source === null) {
+        if (this.source === null) {
           throw new NoElementError('Source textarea not found');
         }
-        return this._source;
+        return this.source;
       })(),
       (error) => {
         if (error instanceof NoElementError) return error;
@@ -149,7 +163,7 @@ export class ForumPost {
         if (title !== undefined) {
           this.title = title;
         }
-        this._source = source;
+        this.source = source;
       })(),
       (error) => {
         if (error instanceof NoElementError || error instanceof LoginRequiredError) {
@@ -502,7 +516,7 @@ export class ForumPostCollection extends Array<ForumPost> {
   ): WikidotResultAsync<ForumPostCollection> {
     return fromPromise(
       (async () => {
-        const targetPosts = posts.filter((post) => post._source === null);
+        const targetPosts = posts.filter((post) => post.source === null);
 
         if (targetPosts.length === 0) {
           return new ForumPostCollection(thread, posts);
@@ -529,7 +543,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           if (sourceElem.length === 0) {
             throw new NoElementError(`Source textarea not found for post: ${post.id}`);
           }
-          post._source = sourceElem.text();
+          post.source = sourceElem.text();
         }
 
         return new ForumPostCollection(thread, posts);
