@@ -40,7 +40,7 @@ export class ForumPost {
   public readonly editedBy: AbstractUser | null;
   public readonly editedAt: Date | null;
   private _parentId: number | null;
-  private _source: string | null = null;
+  protected _source: string | null = null;
   private _revisions: ForumPostRevisionCollection | null = null;
 
   constructor(data: ForumPostData) {
