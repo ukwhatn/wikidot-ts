@@ -73,29 +73,13 @@ export class ForumPost {
 
     return fromPromise(
       (async () => {
-        const result = await this.thread.site.amcRequest([
-          {
-            moduleName: 'forum/sub/ForumEditPostFormModule',
-            threadId: this.thread.id,
-            postId: this.id,
-          },
-        ]);
-
+        const result = await ForumPostCollection.acquirePostSources(this.thread, [this]);
         if (result.isErr()) {
           throw result.error;
         }
-
-        const response = result.value[0];
-        if (!response) {
-          throw new NoElementError('Empty response');
-        }
-
-        const $ = cheerio.load(String(response.body ?? ''));
-        const sourceElem = $("textarea[name='source']");
-        if (sourceElem.length === 0) {
+        if (this._source === null) {
           throw new NoElementError('Source textarea not found');
         }
-        this._source = sourceElem.text();
         return this._source;
       })(),
       (error) => {
@@ -507,5 +491,61 @@ export class ForumPostCollection extends Array<ForumPost> {
         return new UnexpectedError(`Failed to acquire posts: ${String(error)}`);
       }
     );
+  }
+
+  /**
+   * Internal method to acquire post sources in bulk
+   */
+  static acquirePostSources(
+    thread: ForumThreadRef,
+    posts: ForumPost[]
+  ): WikidotResultAsync<ForumPostCollection> {
+    return fromPromise(
+      (async () => {
+        const targetPosts = posts.filter((post) => post._source === null);
+
+        if (targetPosts.length === 0) {
+          return new ForumPostCollection(thread, posts);
+        }
+
+        const result = await thread.site.amcRequest(
+          targetPosts.map((post) => ({
+            moduleName: 'forum/sub/ForumEditPostFormModule',
+            threadId: thread.id,
+            postId: post.id,
+          }))
+        );
+
+        if (result.isErr()) {
+          throw result.error;
+        }
+
+        for (let i = 0; i < targetPosts.length; i++) {
+          const post = targetPosts[i];
+          const response = result.value[i];
+          if (!post || !response) continue;
+          const $ = cheerio.load(String(response.body ?? ''));
+          const sourceElem = $("textarea[name='source']");
+          if (sourceElem.length === 0) {
+            throw new NoElementError(`Source textarea not found for post: ${post.id}`);
+          }
+          post._source = sourceElem.text();
+        }
+
+        return new ForumPostCollection(thread, posts);
+      })(),
+      (error) => {
+        if (error instanceof NoElementError) return error;
+        return new UnexpectedError(`Failed to acquire post sources: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
+   * Get sources for all posts in the collection
+   * @returns Result containing the collection (for method chaining)
+   */
+  getPostSources(): WikidotResultAsync<ForumPostCollection> {
+    return ForumPostCollection.acquirePostSources(this.thread, Array.from(this));
   }
 }

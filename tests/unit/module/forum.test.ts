@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Element } from 'domhandler';
 import { ForumCategory } from '../../../src/module/forum/forum-category';
-import { ForumPost } from '../../../src/module/forum/forum-post';
+import { ForumPost, ForumPostCollection } from '../../../src/module/forum/forum-post';
 import { ForumThread } from '../../../src/module/forum/forum-thread';
 import type { ForumThreadRef, SiteRef } from '../../../src/module/types';
 import { User } from '../../../src/module/user/user';
@@ -348,6 +348,134 @@ describe('ForumPost data class', () => {
       });
 
       expect(post.parentId).toBeNull();
+    });
+  });
+});
+
+describe('ForumPostCollection', () => {
+  describe('getPostSources', () => {
+    test('can get sources for posts', async () => {
+      const site = createMockSite();
+      const threadRef = createMockThreadRef(site);
+      const createdBy = createMockUser('TestUser');
+      const mockElement = { type: 'tag', name: 'div' } as Element;
+
+      const post1 = new ForumPost({
+        thread: threadRef,
+        id: 5001,
+        title: 'Post 1',
+        text: '<p>Content 1</p>',
+        element: mockElement,
+        createdBy,
+        createdAt: new Date(),
+        editedBy: null,
+        editedAt: null,
+        parentId: null,
+      });
+
+      const post2 = new ForumPost({
+        thread: threadRef,
+        id: 5002,
+        title: 'Post 2',
+        text: '<p>Content 2</p>',
+        element: mockElement,
+        createdBy,
+        createdAt: new Date(),
+        editedBy: null,
+        editedAt: null,
+        parentId: null,
+      });
+
+      const collection = new ForumPostCollection(threadRef, [post1, post2]);
+
+      const mockResponse1 = {
+        body: '<textarea name="source">Test source 1</textarea>',
+      };
+      const mockResponse2 = {
+        body: '<textarea name="source">Test source 2</textarea>',
+      };
+
+      site.amcRequest = async () => ({
+        isErr: () => false,
+        value: [mockResponse1, mockResponse2],
+      });
+
+      const result = await collection.getPostSources();
+
+      expect(result.isOk()).toBe(true);
+      expect(post1._source).toBe('Test source 1');
+      expect(post2._source).toBe('Test source 2');
+    });
+
+    test('skips already acquired sources', async () => {
+      const site = createMockSite();
+      const threadRef = createMockThreadRef(site);
+      const createdBy = createMockUser('TestUser');
+      const mockElement = { type: 'tag', name: 'div' } as Element;
+
+      const post1 = new ForumPost({
+        thread: threadRef,
+        id: 5001,
+        title: 'Post 1',
+        text: '<p>Content 1</p>',
+        element: mockElement,
+        createdBy,
+        createdAt: new Date(),
+        editedBy: null,
+        editedAt: null,
+        parentId: null,
+      });
+
+      post1._source = 'cached source';
+
+      const post2 = new ForumPost({
+        thread: threadRef,
+        id: 5002,
+        title: 'Post 2',
+        text: '<p>Content 2</p>',
+        element: mockElement,
+        createdBy,
+        createdAt: new Date(),
+        editedBy: null,
+        editedAt: null,
+        parentId: null,
+      });
+
+      const collection = new ForumPostCollection(threadRef, [post1, post2]);
+
+      const mockResponse = {
+        body: '<textarea name="source">Test source 2</textarea>',
+      };
+
+      let callCount = 0;
+      site.amcRequest = async (requests) => {
+        callCount++;
+        // Only post2 should be requested
+        expect(requests.length).toBe(1);
+        expect(requests[0]?.postId).toBe(5002);
+        return {
+          isErr: () => false,
+          value: [mockResponse],
+        };
+      };
+
+      const result = await collection.getPostSources();
+
+      expect(result.isOk()).toBe(true);
+      expect(callCount).toBe(1);
+      expect(post1._source).toBe('cached source');
+      expect(post2._source).toBe('Test source 2');
+    });
+
+    test('handles empty collection', async () => {
+      const site = createMockSite();
+      const threadRef = createMockThreadRef(site);
+      const collection = new ForumPostCollection(threadRef, []);
+
+      const result = await collection.getPostSources();
+
+      expect(result.isOk()).toBe(true);
+      expect(collection.length).toBe(0);
     });
   });
 });
