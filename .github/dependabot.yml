@@ -17,6 +17,9 @@ updates:
         patterns:
           - "@biomejs/*"
           - "typescript"
+    cooldown:
+      default-days: 3
+      semver-patch-days: 1
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
