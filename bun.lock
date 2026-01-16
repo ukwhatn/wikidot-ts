@@ -51,7 +51,7 @@
 
     "@bunup/dts": ["@bunup/dts@0.14.49", "", { "dependencies": { "@babel/parser": "^7.28.6", "coffi": "^0.1.37", "oxc-minify": "^0.93.0", "oxc-resolver": "^11.16.2", "oxc-transform": "^0.93.0", "picocolors": "^1.1.1", "std-env": "^3.10.0", "ts-import-resolver": "^0.1.23" }, "peerDependencies": { "typescript": ">=4.5.0" }, "optionalPeers": ["typescript"] }, "sha512-mAni3Zpf1MLxFDNCNStcxjbgNaSZpygc1qqF66WHMoUs3j+NSNKZPKwex9uLGXazJdE8g9MqQ//1QQcETdwY6Q=="],
 
-    "@bunup/shared": ["@bunup/shared@0.16.17", "", { "peerDependencies": { "typescript": "latest" }, "optionalPeers": ["typescript"] }, "sha512-CEdRNvyFB/cWSGFlfowfwpifTyrreikJ4lhJSUsd2f5JRwzcg4JMhoDI7lyQHxgysWC8Scep4km2C9AGsoRdJw=="],
+    "@bunup/shared": ["@bunup/shared@0.16.19", "", { "peerDependencies": { "typescript": "latest" }, "optionalPeers": ["typescript"] }, "sha512-gk0ALbDgEifVtZYRZ/ivvwF53pvOdpfqtLIIK67Q417nvtn/XPGE9NZLbdsowTKy2befmT8eiTxMXeoLyZPibA=="],
 
     "@emnapi/core": ["@emnapi/core@1.7.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg=="],
 
@@ -173,7 +173,7 @@
 
     "bun-types": ["bun-types@1.3.6", "", { "dependencies": { "@types/node": "*" } }, "sha512-OlFwHcnNV99r//9v5IIOgQ9Uk37gZqrNMCcqEaExdkVq3Avwqok1bJFmvGMCkCE0FqzdY8VMOZpfpR3lwI+CsQ=="],
 
-    "bunup": ["bunup@0.16.18", "", { "dependencies": { "@bunup/dts": "^0.14.47", "@bunup/shared": "0.16.17", "chokidar": "^5.0.0", "coffi": "^0.1.37", "lightningcss": "^1.30.2", "picocolors": "^1.1.1", "tinyexec": "^1.0.2", "tree-kill": "^1.2.2", "zlye": "^0.4.4" }, "peerDependencies": { "typescript": "latest" }, "optionalPeers": ["typescript"], "bin": { "bunup": "dist/cli/index.js" } }, "sha512-NWL9o7QNUavO1w2Lo+AB0XJXMgLDwoJ49EFDBTNGUUXe7lF335TmeAmt4CoiVMH6smH57np+wRNfnPz92CU1uA=="],
+    "bunup": ["bunup@0.16.20", "", { "dependencies": { "@bunup/dts": "^0.14.49", "@bunup/shared": "0.16.19", "chokidar": "^5.0.0", "coffi": "^0.1.37", "lightningcss": "^1.30.2", "picocolors": "^1.1.1", "tinyexec": "^1.0.2", "tree-kill": "^1.2.2", "zlye": "^0.4.4" }, "peerDependencies": { "typescript": "latest" }, "optionalPeers": ["typescript"], "bin": { "bunup": "dist/cli/index.js" } }, "sha512-a3Bu6ho8Bs7YEynHzUvwBVXXJIbSxlYMDYZrndyIIL1waUYQ4Eh9V62vS8TpVESOxcx8mQfuS5Hb1bXYE2bYkA=="],
 
     "cheerio": ["cheerio@1.1.2", "", { "dependencies": { "cheerio-select": "^2.1.0", "dom-serializer": "^2.0.0", "domhandler": "^5.0.3", "domutils": "^3.2.2", "encoding-sniffer": "^0.2.1", "htmlparser2": "^10.0.0", "parse5": "^7.3.0", "parse5-htmlparser2-tree-adapter": "^7.1.0", "parse5-parser-stream": "^7.1.2", "undici": "^7.12.0", "whatwg-mimetype": "^4.0.0" } }, "sha512-IkxPpb5rS/d1IiLbHMgfPuS0FgiWTtFIm/Nj+2woXDLTZ7fOT2eqzgYbdMlLweqlHbsZjxEChoVK+7iph7jyQg=="],
 
