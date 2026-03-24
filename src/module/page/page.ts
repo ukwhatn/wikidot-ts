@@ -876,7 +876,7 @@ export class PageCollection extends Array<Page> {
           return new PageCollection(site, pages);
         }
 
-        const result = await site.amcRequest(
+        const result = await site.amcRequestWithRetry(
           targetPages.map((page) => ({
             moduleName: 'history/PageRevisionListModule',
             page_id: page.id,
@@ -957,7 +957,7 @@ export class PageCollection extends Array<Page> {
           return new PageCollection(site, pages);
         }
 
-        const result = await site.amcRequest(
+        const result = await site.amcRequestWithRetry(
           targetPages.map((page) => ({
             moduleName: 'pagerate/WhoRatedPageModule',
             pageId: page.id,

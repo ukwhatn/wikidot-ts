@@ -424,7 +424,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         const site = threads[0]!.site;
 
         // Step 1: Get first page of all threads
-        const firstPageResult = await site.amcRequest(
+        const firstPageResult = await site.amcRequestWithRetry(
           threads.map((thread) => ({
             moduleName: 'forum/ForumViewThreadPostsModule',
             pageNo: '1',
@@ -471,7 +471,7 @@ export class ForumPostCollection extends Array<ForumPost> {
 
         // Step 3: Fetch additional pages
         if (additionalRequests.length > 0) {
-          const additionalResult = await site.amcRequest(
+          const additionalResult = await site.amcRequestWithRetry(
             additionalRequests.map(({ thread, page }) => ({
               moduleName: 'forum/ForumViewThreadPostsModule',
               pageNo: String(page),

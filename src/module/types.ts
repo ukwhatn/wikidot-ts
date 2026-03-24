@@ -2,6 +2,7 @@
  * Common interface definitions to avoid circular dependencies
  */
 
+import type { WikidotError } from '../common/errors';
 import type { WikidotResultAsync } from '../common/types';
 import type { AMCRequestBody, AMCResponse } from '../connector';
 
@@ -81,11 +82,20 @@ export interface SiteRef {
    * Execute AMC request
    */
   amcRequest(bodies: AMCRequestBody[]): WikidotResultAsync<AMCResponse[]>;
+  amcRequest(
+    bodies: AMCRequestBody[],
+    options: { returnExceptions: true }
+  ): WikidotResultAsync<(AMCResponse | WikidotError)[]>;
 
   /**
    * Execute single AMC request
    */
   amcRequestSingle(body: AMCRequestBody): WikidotResultAsync<AMCResponse>;
+
+  /**
+   * Execute AMC request with partial failure tolerance
+   */
+  amcRequestWithRetry(bodies: AMCRequestBody[]): WikidotResultAsync<(AMCResponse | null)[]>;
 }
 
 /**
