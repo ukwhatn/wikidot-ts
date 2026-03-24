@@ -1,5 +1,10 @@
 import * as cheerio from 'cheerio';
-import { NoElementError, NotFoundException, UnexpectedError, WikidotError } from '../../common/errors';
+import {
+  NoElementError,
+  NotFoundException,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { logger } from '../../common/logger';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AMCRequestBody, AMCResponse } from '../../connector';
@@ -170,7 +175,7 @@ export class Site {
                 results[failedIndices[j]!] = retryResp;
               } else {
                 logger.warn(
-                  `amcRequestWithRetry: retry failed, skipping: ${retryResp instanceof WikidotError ? retryResp.message : "unknown"}`
+                  `amcRequestWithRetry: retry failed, skipping: ${retryResp instanceof WikidotError ? retryResp.message : 'unknown'}`
                 );
               }
             }
