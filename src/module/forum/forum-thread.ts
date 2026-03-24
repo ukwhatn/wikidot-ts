@@ -259,12 +259,13 @@ export class ForumThreadCollection extends Array<ForumThread> {
           });
         }
 
-        const additionalResults = await category.site.amcRequest(bodies);
+        const additionalResults = await category.site.amcRequestWithRetry(bodies);
         if (additionalResults.isErr()) {
           throw additionalResults.error;
         }
 
         for (const response of additionalResults.value) {
+          if (!response) continue;
           const body = String(response?.body ?? '');
           const $ = cheerio.load(body);
 

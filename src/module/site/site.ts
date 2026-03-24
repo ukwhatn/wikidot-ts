@@ -1,5 +1,11 @@
 import * as cheerio from 'cheerio';
-import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
+import {
+  NoElementError,
+  NotFoundException,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
+import { logger } from '../../common/logger';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import type { AMCRequestBody, AMCResponse } from '../../connector';
 import { fetchWithRetry } from '../../util/http';
@@ -113,10 +119,76 @@ export class Site {
   /**
    * Execute AMC request to this site
    * @param bodies - Request body array
+   * @param options - Request options
    * @returns AMC response array
    */
-  amcRequest(bodies: AMCRequestBody[]): WikidotResultAsync<AMCResponse[]> {
-    return this.client.amcClient.request(bodies, this.unixName, this.sslSupported);
+  amcRequest(bodies: AMCRequestBody[]): WikidotResultAsync<AMCResponse[]>;
+  amcRequest(
+    bodies: AMCRequestBody[],
+    options: { returnExceptions: true }
+  ): WikidotResultAsync<(AMCResponse | WikidotError)[]>;
+  amcRequest(
+    bodies: AMCRequestBody[],
+    options?: { returnExceptions?: boolean }
+  ): WikidotResultAsync<AMCResponse[]> | WikidotResultAsync<(AMCResponse | WikidotError)[]> {
+    return this.client.amcClient.requestWithOptions(bodies, {
+      siteName: this.unixName,
+      sslSupported: this.sslSupported,
+      returnExceptions: options?.returnExceptions ?? false,
+    });
+  }
+
+  /**
+   * Execute AMC request with partial failure tolerance.
+   * Failed requests are retried once. Still-failed requests return null.
+   * @param bodies - Request body array
+   * @returns AMC response array (null for permanently failed requests)
+   */
+  amcRequestWithRetry(bodies: AMCRequestBody[]): WikidotResultAsync<(AMCResponse | null)[]> {
+    return fromPromise(
+      (async () => {
+        const initialResult = await this.amcRequest(bodies, { returnExceptions: true });
+        if (initialResult.isErr()) throw initialResult.error;
+
+        const results: (AMCResponse | null)[] = [];
+        const failedIndices: number[] = [];
+
+        for (const [i, respOrErr] of initialResult.value.entries()) {
+          if (respOrErr instanceof WikidotError) {
+            results.push(null);
+            failedIndices.push(i);
+          } else {
+            results.push(respOrErr);
+          }
+        }
+
+        if (failedIndices.length > 0) {
+          const retryBodies = failedIndices.map((i) => bodies[i]!);
+          logger.warn(
+            `amcRequestWithRetry: ${failedIndices.length}/${bodies.length} requests failed, retrying`
+          );
+          const retryResult = await this.amcRequest(retryBodies, { returnExceptions: true });
+          if (retryResult.isOk()) {
+            for (let j = 0; j < failedIndices.length; j++) {
+              const retryResp = retryResult.value[j];
+              if (retryResp && !(retryResp instanceof WikidotError)) {
+                results[failedIndices[j]!] = retryResp;
+              } else {
+                logger.warn(
+                  `amcRequestWithRetry: retry failed, skipping: ${retryResp instanceof WikidotError ? retryResp.message : 'unknown'}`
+                );
+              }
+            }
+          }
+        }
+
+        return results;
+      })(),
+      (error) => {
+        if (error instanceof WikidotError) return error;
+        return new UnexpectedError(`AMC request with retry failed: ${String(error)}`);
+      }
+    );
   }
 
   /**
