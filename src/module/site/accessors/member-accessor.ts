@@ -108,4 +108,4 @@ export class MemberAccessor {
   }
 }
 
-export { SiteMember, SiteApplication };
+export { SiteApplication, SiteMember };

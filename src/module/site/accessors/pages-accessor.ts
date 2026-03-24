@@ -69,6 +69,6 @@ export {
   Page,
   PageCollection,
   SearchPagesQuery,
-  SiteChangeCollection,
   type SearchPagesQueryParams,
+  SiteChangeCollection,
 };

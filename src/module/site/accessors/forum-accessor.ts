@@ -45,4 +45,4 @@ export class ForumAccessor {
   }
 }
 
-export { ForumCategory, ForumCategoryCollection, ForumThread, ForumThreadCollection, ForumPost };
+export { ForumCategory, ForumCategoryCollection, ForumPost, ForumThread, ForumThreadCollection };
