@@ -253,7 +253,7 @@ export class Site {
 
         for (const script of scripts) {
           const content = $(script).html();
-          if (!content || !content.includes('WIKIREQUEST')) {
+          if (!content?.includes('WIKIREQUEST')) {
             continue;
           }
 
