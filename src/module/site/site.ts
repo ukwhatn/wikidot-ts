@@ -140,49 +140,71 @@ export class Site {
 
   /**
    * Execute AMC request with partial failure tolerance.
-   * Failed requests are retried once. Still-failed requests return null.
+   * Requests are split into batches and failed requests are retried.
    * @param bodies - Request body array
+   * @param options - Optional batch size and max retries
    * @returns AMC response array (null for permanently failed requests)
    */
-  amcRequestWithRetry(bodies: AMCRequestBody[]): WikidotResultAsync<(AMCResponse | null)[]> {
+  amcRequestWithRetry(
+    bodies: AMCRequestBody[],
+    options?: { batchSize?: number; maxRetries?: number }
+  ): WikidotResultAsync<(AMCResponse | null)[]> {
+    const batchSize = options?.batchSize ?? 50;
+    const maxRetries = options?.maxRetries ?? 3;
+
     return fromPromise(
       (async () => {
-        const initialResult = await this.amcRequest(bodies, { returnExceptions: true });
-        if (initialResult.isErr()) throw initialResult.error;
+        const allResults: (AMCResponse | null)[] = [];
 
-        const results: (AMCResponse | null)[] = [];
-        const failedIndices: number[] = [];
+        for (let batchStart = 0; batchStart < bodies.length; batchStart += batchSize) {
+          const batch = bodies.slice(batchStart, batchStart + batchSize);
 
-        for (const [i, respOrErr] of initialResult.value.entries()) {
-          if (respOrErr instanceof WikidotError) {
-            results.push(null);
-            failedIndices.push(i);
-          } else {
-            results.push(respOrErr);
+          const initialResult = await this.amcRequest(batch, { returnExceptions: true });
+          if (initialResult.isErr()) throw initialResult.error;
+
+          const batchResults: (AMCResponse | null)[] = [];
+          let failedIndices: number[] = [];
+
+          for (const [i, respOrErr] of initialResult.value.entries()) {
+            if (respOrErr instanceof WikidotError) {
+              batchResults.push(null);
+              failedIndices.push(i);
+            } else {
+              batchResults.push(respOrErr);
+            }
           }
-        }
 
-        if (failedIndices.length > 0) {
-          const retryBodies = failedIndices.map((i) => bodies[i]!);
-          logger.warn(
-            `amcRequestWithRetry: ${failedIndices.length}/${bodies.length} requests failed, retrying`
-          );
-          const retryResult = await this.amcRequest(retryBodies, { returnExceptions: true });
-          if (retryResult.isOk()) {
+          for (let attempt = 0; attempt < maxRetries && failedIndices.length > 0; attempt++) {
+            const retryBodies = failedIndices.map((i) => batch[i]!);
+            logger.warn(
+              `amcRequestWithRetry: ${failedIndices.length}/${batch.length} requests failed, retrying (attempt ${attempt + 1}/${maxRetries})`
+            );
+            const retryResult = await this.amcRequest(retryBodies, { returnExceptions: true });
+            if (retryResult.isErr()) break;
+
+            const stillFailedIndices: number[] = [];
             for (let j = 0; j < failedIndices.length; j++) {
               const retryResp = retryResult.value[j];
               if (retryResp && !(retryResp instanceof WikidotError)) {
-                results[failedIndices[j]!] = retryResp;
+                batchResults[failedIndices[j]!] = retryResp;
               } else {
-                logger.warn(
-                  `amcRequestWithRetry: retry failed, skipping: ${retryResp instanceof WikidotError ? retryResp.message : 'unknown'}`
-                );
+                stillFailedIndices.push(failedIndices[j]!);
               }
             }
+            failedIndices = stillFailedIndices;
           }
+
+          allResults.push(...batchResults);
         }
 
-        return results;
+        const failedCount = allResults.filter((r) => r === null).length;
+        if (failedCount > 0) {
+          logger.warn(
+            `amcRequestWithRetry: ${allResults.length - failedCount}/${allResults.length} succeeded (${failedCount} failed)`
+          );
+        }
+
+        return allResults;
       })(),
       (error) => {
         if (error instanceof WikidotError) return error;
