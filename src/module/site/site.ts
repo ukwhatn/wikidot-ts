@@ -152,6 +152,13 @@ export class Site {
     const batchSize = options?.batchSize ?? this.client.amcClient.config.retryBatchSize;
     const maxRetries = options?.maxRetries ?? this.client.amcClient.config.retryMaxRetries;
 
+    if (!Number.isFinite(batchSize) || batchSize <= 0) {
+      throw new Error(`Invalid batchSize: ${batchSize}. Must be a positive integer.`);
+    }
+    if (!Number.isFinite(maxRetries) || maxRetries < 0) {
+      throw new Error(`Invalid maxRetries: ${maxRetries}. Must be a non-negative integer.`);
+    }
+
     return fromPromise(
       (async () => {
         const allResults: (AMCResponse | null)[] = [];
