@@ -149,8 +149,8 @@ export class Site {
     bodies: AMCRequestBody[],
     options?: { batchSize?: number; maxRetries?: number }
   ): WikidotResultAsync<(AMCResponse | null)[]> {
-    const batchSize = options?.batchSize ?? 50;
-    const maxRetries = options?.maxRetries ?? 3;
+    const batchSize = options?.batchSize ?? this.client.amcClient.config.retryBatchSize;
+    const maxRetries = options?.maxRetries ?? this.client.amcClient.config.retryMaxRetries;
 
     return fromPromise(
       (async () => {

@@ -19,6 +19,12 @@ export interface AMCConfig {
 
   /** Maximum concurrent requests */
   semaphoreLimit: number;
+
+  /** Batch size for amcRequestWithRetry */
+  retryBatchSize: number;
+
+  /** Maximum retry attempts for amcRequestWithRetry */
+  retryMaxRetries: number;
 }
 
 /** Default AMC configuration */
@@ -29,6 +35,8 @@ export const DEFAULT_AMC_CONFIG: AMCConfig = {
   maxBackoff: 60000,
   backoffFactor: 2.0,
   semaphoreLimit: 10,
+  retryBatchSize: 50,
+  retryMaxRetries: 3,
 };
 
 /**
