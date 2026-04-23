@@ -95,7 +95,10 @@ export interface SiteRef {
   /**
    * Execute AMC request with partial failure tolerance
    */
-  amcRequestWithRetry(bodies: AMCRequestBody[]): WikidotResultAsync<(AMCResponse | null)[]>;
+  amcRequestWithRetry(
+    bodies: AMCRequestBody[],
+    options?: { batchSize?: number; maxRetries?: number }
+  ): WikidotResultAsync<(AMCResponse | null)[]>;
 }
 
 /**
