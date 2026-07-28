@@ -161,19 +161,37 @@ describe('Task 2-2: removeMember / changeMaster / moderator permissions', () => 
 });
 
 describe('Task 2-4: invitations', () => {
-  test('searchUsers zips parallel id/name arrays', async () => {
+  test('searchUsers looks up names by id string (userNames is a map, not a parallel array)', async () => {
+    // Confirmed live 2026-07-29; see 40_admin-managesite.md
     const { site } = createMockSite({
       single: () =>
-        okAsync({ status: 'ok', userIds: [1, 2], userNames: ['a', 'b'] } as AMCResponse),
+        okAsync({
+          status: 'ok',
+          userIds: [3396310, 9625925],
+          userNames: { '3396310': 'ukwhatn', '9625925': 'ukwhatn Bot - test' },
+        } as unknown as AMCResponse),
     });
     const result = await new MemberAccessor(site).searchUsers('a');
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value).toEqual([
-        { id: 1, name: 'a' },
-        { id: 2, name: 'b' },
+        { id: 3396310, name: 'ukwhatn' },
+        { id: 9625925, name: 'ukwhatn Bot - test' },
       ]);
+    }
+  });
+
+  test('searchUsers falls back to an empty string for a missing name', async () => {
+    const { site } = createMockSite({
+      single: () =>
+        okAsync({ status: 'ok', userIds: [1], userNames: {} } as unknown as AMCResponse),
+    });
+    const result = await new MemberAccessor(site).searchUsers('a');
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual([{ id: 1, name: '' }]);
     }
   });
 

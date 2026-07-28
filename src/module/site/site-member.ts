@@ -39,10 +39,13 @@ export class SiteMember {
    * Parse member information from HTML.
    *
    * Not private: reused by MemberAccessor (member-accessor.ts) for the
-   * admin-panel member/moderator/admin listings, which reuse this same
-   * `table tr` / `.printuser` / `div.pager` shape (see that file's
-   * docstrings for why -- the admin panel's own HTML was not captured
-   * during research).
+   * admin-panel member/moderator/admin listings. Confirmed 2026-07-29: the
+   * admin panel's `ManageSiteMembersListModule` table has a 3rd
+   * options-dropdown `td` alongside name/join-date, and a leading `th`-only
+   * header row (`Name` / `Member since` / blank) -- `$(tds[0])` on an empty
+   * `tds` (the header row) yields an empty selection rather than throwing,
+   * so `userElem.length === 0` already skips it; the `tds.length >= 2` join
+   * -date check below already tolerates the extra 3rd column too.
    */
   static parse(site: Site, html: string): SiteMember[] {
     const $ = cheerio.load(html);
@@ -50,6 +53,12 @@ export class SiteMember {
 
     $('table tr').each((_i, row) => {
       const tds = $(row).find('td');
+      if (tds.length === 0) {
+        // Header row (th only, e.g. the admin panel's "Name" / "Member
+        // since" row) -- nothing to parse
+        return;
+      }
+
       const userElem = $(tds[0]).find('.printuser');
 
       if (userElem.length === 0) {
