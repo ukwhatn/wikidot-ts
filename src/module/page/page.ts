@@ -9,19 +9,20 @@ import {
   LoginRequiredError,
   NoElementError,
   NotFoundException,
+  TargetError,
   TargetExistsError,
   UnexpectedError,
 } from '../../common/errors';
-import { logger } from '../../common/logger';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
-import { type AMCRequestBody, requireBody } from '../../connector';
+import { type AMCRequestBody, flag, omitFalsy, requireBody } from '../../connector';
 import { fetchWithRetry } from '../../util/http';
-import { parseOdate, parseUser } from '../../util/parser';
+import { parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
+import { type EditMode, PageEditSession, withEditLock } from './page-edit-session';
 import { PageFileCollection } from './page-file';
 import { PageMetaCollection } from './page-meta';
-import { PageRevision, PageRevisionCollection } from './page-revision';
+import { type PageRevision, PageRevisionCollection, parseRevisionListHtml } from './page-revision';
 import { PageSource } from './page-source';
 import { PageVote, PageVoteCollection } from './page-vote';
 import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './search-query';
@@ -428,9 +429,15 @@ export class Page {
   /**
    * Rename the page
    * @param newFullname - New fullname
+   * @param options - fixdeps: backlink page IDs (see getRenameBacklinks())
+   * whose links should be updated along with the rename. force: force the
+   * rename despite an active edit lock held by someone else
    */
   @RequireLogin
-  rename(newFullname: string): WikidotResultAsync<void> {
+  rename(
+    newFullname: string,
+    options: { fixdeps?: number[]; force?: boolean } = {}
+  ): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
         const pageId = await this.ensureId('renaming');
@@ -441,10 +448,26 @@ export class Page {
             moduleName: 'Empty',
             page_id: pageId,
             new_name: newFullname,
+            ...omitFalsy({
+              fixdeps:
+                options.fixdeps && options.fixdeps.length > 0
+                  ? options.fixdeps.join(',')
+                  : undefined,
+              force: options.force ? 'yes' : undefined,
+            }),
           },
         ]);
         if (result.isErr()) {
           throw result.error;
+        }
+        const data = result.value[0];
+        if (data?.locks) {
+          throw new TargetError(`Cannot rename page ${this.fullname}: page is locked`);
+        }
+        if (data?.leftDeps) {
+          throw new TargetError(
+            `Cannot rename page ${this.fullname}: unresolved backlink dependencies remain (newName=${String(data.newName)})`
+          );
         }
         // Update properties (using Object.assign since readonly)
         Object.assign(this, {
@@ -453,7 +476,10 @@ export class Page {
           name: newFullname.includes(':') ? newFullname.split(':')[1] : newFullname,
         });
       })(),
-      (error) => new UnexpectedError(`Failed to rename page: ${String(error)}`)
+      (error) => {
+        if (error instanceof TargetError) return error;
+        return new UnexpectedError(`Failed to rename page: ${String(error)}`);
+      }
     );
   }
 
@@ -549,13 +575,18 @@ export class Page {
    * Set a meta tag
    * @param name - Meta tag name
    * @param content - Meta tag value
+   * @param options - allPages: apply to all pages sharing the template
    */
   @RequireLogin
-  setMeta(name: string, content: string): WikidotResultAsync<void> {
+  setMeta(
+    name: string,
+    content: string,
+    options: { allPages?: boolean } = {}
+  ): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
         await this.ensureId('setting meta');
-        const result = await PageMetaCollection.setMeta(this, name, content);
+        const result = await PageMetaCollection.setMeta(this, name, content, options);
         if (result.isErr()) {
           throw result.error;
         }
@@ -567,13 +598,14 @@ export class Page {
   /**
    * Delete a meta tag
    * @param name - Meta tag name
+   * @param options - allPages: apply to all pages sharing the template
    */
   @RequireLogin
-  deleteMeta(name: string): WikidotResultAsync<void> {
+  deleteMeta(name: string, options: { allPages?: boolean } = {}): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
         await this.ensureId('deleting meta');
-        const result = await PageMetaCollection.deleteMeta(this, name);
+        const result = await PageMetaCollection.deleteMeta(this, name, options);
         if (result.isErr()) {
           throw result.error;
         }
@@ -666,6 +698,234 @@ export class Page {
         if (error instanceof NotFoundException) return error;
         return new UnexpectedError(`Failed to get votes: ${String(error)}`);
       }
+    );
+  }
+
+  /**
+   * Open a manual edit session for this page
+   *
+   * Unlike `edit()`/`site.page.create()`, which perform a single
+   * create-or-edit round trip, this returns an unopened `PageEditSession`
+   * for callers that need access to intermediate operations while the
+   * lock is held (preview, diff, synchronize, section/append mode,
+   * andContinue, ...). Use `withEditLock()` so the lock is always
+   * released unless save() succeeds.
+   */
+  openEditor(
+    options: { mode?: EditMode; section?: number | null; forceLock?: boolean } = {}
+  ): PageEditSession {
+    return new PageEditSession({
+      site: this.site,
+      fullname: this.fullname,
+      pageId: this._id,
+      mode: options.mode,
+      section: options.section,
+      forceLock: options.forceLock,
+    });
+  }
+
+  /**
+   * Get this page's source for use as a page-creation template (edit/TemplateSourceModule)
+   *
+   * Distinct from getSource(): this is the wire endpoint Wikidot uses when
+   * populating a new page's editor from a template page selection, not
+   * general source retrieval.
+   */
+  getTemplateSource(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting template source');
+        const result = await this.site.amcRequest([
+          { moduleName: 'edit/TemplateSourceModule', page_id: pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'edit/TemplateSourceModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get template source: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get the rendered page-block form (pageblock/PageBlockModule)
+   */
+  getBlockForm(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting block form');
+        const result = await this.site.amcRequest([
+          { moduleName: 'pageblock/PageBlockModule', page_id: pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'pageblock/PageBlockModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get block form: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Set or clear this page's edit-block flag (WikiPageAction/saveBlock)
+   *
+   * A blocked page cannot be edited by non-moderator users.
+   * @param block - Whether to block editing (default true)
+   */
+  @RequireLogin
+  setBlock(block = true): WikidotResultAsync<void> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('setting block');
+        const result = await this.site.amcRequest([
+          {
+            action: 'WikiPageAction',
+            event: 'saveBlock',
+            moduleName: 'Empty',
+            pageId,
+            ...omitFalsy({ block: flag(block) }),
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      })(),
+      (error) => new UnexpectedError(`Failed to set block: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get pages linking to this page (backlinks/BacklinksModule)
+   *
+   * Returns the raw HTML rather than a parsed list; the exact markup was
+   * not captured during wire-format research (same caveat as
+   * getRenameBacklinks(), which uses a different, rename-specific module).
+   */
+  getBacklinks(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting backlinks');
+        const result = await this.site.amcRequest([
+          { moduleName: 'backlinks/BacklinksModule', page_id: pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'backlinks/BacklinksModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get backlinks: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Watch this page for changes (WatchAction/watchPage)
+   */
+  @RequireLogin
+  watch(): WikidotResultAsync<void> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('watching');
+        const result = await this.site.amcRequest([
+          { action: 'WatchAction', event: 'watchPage', moduleName: 'Empty', pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+      })(),
+      (error) => new UnexpectedError(`Failed to watch page: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get the list of users watching this page (watch/WhoWatchesModule)
+   */
+  getWatchers(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting watchers');
+        const result = await this.site.amcRequest([
+          { moduleName: 'watch/WhoWatchesModule', page_id: pageId, verbose: true },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'watch/WhoWatchesModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get watchers: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get the rendered tags editing form (pagetags/PageTagsModule)
+   */
+  getTagsForm(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting tags form');
+        const result = await this.site.amcRequest([
+          { moduleName: 'pagetags/PageTagsModule', pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'pagetags/PageTagsModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get tags form: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Update tags via the quick-tag button UI (WikiPageAction/updateTagsByButton)
+   *
+   * Distinct from commitTags(): that saves the current `tags` property in
+   * full via WikiPageAction/saveTags. This instead mirrors clicking one of
+   * Wikidot's own quick-tag buttons, which sends whatever tag string the
+   * button computed client-side rather than the page's current tag list.
+   * @param tags - Space-separated tag string to apply
+   */
+  @RequireLogin
+  updateTagsByButton(tags: string): WikidotResultAsync<void> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('updating tags by button');
+        const result = await this.site.amcRequest([
+          {
+            action: 'WikiPageAction',
+            event: 'updateTagsByButton',
+            moduleName: 'Empty',
+            pageId,
+            tags,
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      })(),
+      (error) => new UnexpectedError(`Failed to update tags by button: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get the rendered parent-page selection form (parent/ParentPageModule)
+   */
+  getParentForm(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting parent form');
+        const result = await this.site.amcRequest([
+          { moduleName: 'parent/ParentPageModule', page_id: pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'parent/ParentPageModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get parent form: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get pages linking to this page, for building rename()'s fixdeps (rename/RenameBacklinksModule)
+   *
+   * Returns the rendered HTML listing backlink pages with checkboxes; the
+   * IDs of the ones a caller wants fixed up are what rename()'s `fixdeps`
+   * expects. The exact list markup was not captured during wire-format
+   * research (only the request/response shape is documented), so this
+   * returns the raw body rather than a parsed ID list.
+   */
+  getRenameBacklinks(): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const pageId = await this.ensureId('getting rename backlinks');
+        const result = await this.site.amcRequest([
+          { moduleName: 'rename/RenameBacklinksModule', page_id: pageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'rename/RenameBacklinksModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to get rename backlinks: ${String(error)}`)
     );
   }
 
@@ -898,46 +1158,7 @@ export class PageCollection extends Array<Page> {
 
           const body = requireBody(response, 'history/PageRevisionListModule');
           const $ = cheerio.load(body);
-          const revisions: PageRevision[] = [];
-
-          $('table.page-history tr[id^="revision-row-"]').each((_j, revElement) => {
-            const $rev = $(revElement);
-            const revIdAttr = $rev.attr('id');
-            if (!revIdAttr) return;
-
-            const revId = Number.parseInt(revIdAttr.replace('revision-row-', ''), 10);
-            if (Number.isNaN(revId)) return;
-
-            const $tds = $rev.find('td');
-            if ($tds.length < 7) return;
-
-            const revNoText = $tds.eq(0).text().trim().replace(/\.$/, '');
-            const revNo = Number.parseInt(revNoText, 10);
-            if (Number.isNaN(revNo)) return;
-
-            const $createdByElem = $tds.eq(4).find('span.printuser');
-            if ($createdByElem.length === 0) return;
-            const createdBy = parseUser(site.client, $createdByElem as Cheerio<AnyNode>);
-
-            const $createdAtElem = $tds.eq(5).find('span.odate');
-            if ($createdAtElem.length === 0) return;
-            const createdAt = parseOdate($createdAtElem as Cheerio<AnyNode>) ?? new Date();
-
-            const comment = $tds.eq(6).text().trim();
-
-            revisions.push(
-              new PageRevision({
-                page,
-                id: revId,
-                revNo,
-                createdBy,
-                createdAt,
-                comment,
-              })
-            );
-          });
-
-          page.revisions = new PageRevisionCollection(page, revisions);
+          page.revisions = new PageRevisionCollection(page, parseRevisionListHtml($, page));
         }
 
         return new PageCollection(site, pages);
@@ -1243,106 +1464,42 @@ export class PageCollection extends Array<Page> {
       );
     }
 
-    return fromPromise(
-      (async () => {
-        const {
-          pageId = null,
-          title = '',
-          source = '',
-          comment = '',
-          forceEdit = false,
-          raiseOnExists = false,
-        } = options;
+    const {
+      pageId = null,
+      title = '',
+      source = '',
+      comment = '',
+      forceEdit = false,
+      raiseOnExists = false,
+    } = options;
 
-        // Acquire page lock
-        const lockRequestBody: AMCRequestBody = {
-          mode: 'page',
-          wiki_page: fullname,
-          moduleName: 'edit/PageEditModule',
-        };
-        if (forceEdit) {
-          lockRequestBody.force_lock = 'yes';
-        }
+    // PageEditSession/withEditLock guarantees the lock lifecycle
+    // (acquire via edit/PageEditModule, release via removePageEditLock
+    // unless save() succeeds) -- see page-edit-session.ts D5.
+    const session = new PageEditSession({ site, fullname, pageId, forceLock: forceEdit });
 
-        const lockResult = await site.amcRequest([lockRequestBody]);
-        if (lockResult.isErr()) {
-          throw lockResult.error;
-        }
-
-        const lockResponse = lockResult.value[0];
-        if (lockResponse?.locked || lockResponse?.other_locks) {
-          // We never acquired a lock here (someone else holds it), so there's nothing to release.
-          throw new UnexpectedError(`Page ${fullname} is locked or other locks exist`);
-        }
-
-        const isExist = 'page_revision_id' in (lockResponse ?? {});
-        const lockId = String(lockResponse?.lock_id ?? '');
-        const lockSecret = String(lockResponse?.lock_secret ?? '');
-        const pageRevisionId = String(lockResponse?.page_revision_id ?? '');
-
-        // From here on we hold the edit lock (Wikidot keeps it for up to 15 minutes).
-        // Every exit path below must release it explicitly unless the save succeeds -
-        // Wikidot does not auto-release on our own validation/save errors.
-        const releaseEditLock = async (): Promise<void> => {
-          const releaseResult = await site.amcRequest([
-            {
-              action: 'WikiPageAction',
-              event: 'removePageEditLock',
-              moduleName: 'Empty',
-              lock_id: lockId,
-              lock_secret: lockSecret,
-              page_id: pageId ?? '',
-              wiki_page: fullname,
-            },
-          ]);
-          if (releaseResult.isErr()) {
-            // Don't let a release failure mask the original error - just log it.
-            logger.warn(
-              `Failed to release page edit lock for ${fullname}: ${String(releaseResult.error)}`
-            );
-          }
-        };
-
-        try {
-          if (raiseOnExists && isExist) {
+    return withEditLock(session, (ed) =>
+      fromPromise(
+        (async () => {
+          if (raiseOnExists && ed.isExistingPage) {
             throw new TargetExistsError(`Page ${fullname} already exists`);
           }
-
-          if (isExist && pageId === null) {
+          if (ed.isExistingPage && pageId === null) {
             throw new UnexpectedError('page_id must be specified when editing existing page');
           }
 
-          // Save page
-          const editRequestBody: AMCRequestBody = {
-            action: 'WikiPageAction',
-            event: 'savePage',
-            moduleName: 'Empty',
-            mode: 'page',
-            lock_id: lockId,
-            lock_secret: lockSecret,
-            revision_id: pageRevisionId,
-            wiki_page: fullname,
-            page_id: pageId ?? '',
-            title,
-            source,
-            comments: comment,
-          };
-
-          const editResult = await site.amcRequest([editRequestBody]);
-          if (editResult.isErr()) {
-            throw editResult.error;
+          const saveResult = await ed.save({ title, source, comment });
+          if (saveResult.isErr()) {
+            throw saveResult.error;
           }
-        } catch (innerError) {
-          await releaseEditLock();
-          throw innerError;
+        })(),
+        (error) => {
+          if (error instanceof TargetExistsError) {
+            return error;
+          }
+          return new UnexpectedError(`Failed to create/edit page: ${String(error)}`);
         }
-      })(),
-      (error) => {
-        if (error instanceof TargetExistsError || error instanceof LoginRequiredError) {
-          return error;
-        }
-        return new UnexpectedError(`Failed to create/edit page: ${String(error)}`);
-      }
+      )
     );
   }
 }
