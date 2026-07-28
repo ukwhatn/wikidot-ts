@@ -36,9 +36,15 @@ export class SiteMember {
   }
 
   /**
-   * Parse member information from HTML
+   * Parse member information from HTML.
+   *
+   * Not private: reused by MemberAccessor (member-accessor.ts) for the
+   * admin-panel member/moderator/admin listings, which reuse this same
+   * `table tr` / `.printuser` / `div.pager` shape (see that file's
+   * docstrings for why -- the admin panel's own HTML was not captured
+   * during research).
    */
-  private static parse(site: Site, html: string): SiteMember[] {
+  static parse(site: Site, html: string): SiteMember[] {
     const $ = cheerio.load(html);
     const members: SiteMember[] = [];
 
