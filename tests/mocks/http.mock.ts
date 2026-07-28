@@ -101,9 +101,21 @@ export class HttpMock {
       init?: RequestInit
     ): Promise<Response> {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const method = init?.method ?? 'GET';
 
-      self.requestHistory.push({ url, options: init });
+      // ky calls fetch(request, nonRequestOptions) with the body already baked into the
+      // Request object rather than passed via `init.body`, so `init` alone can't tell us
+      // what was actually sent. Read it off the Request (cloned - Request bodies are
+      // one-shot streams) whenever `init.body` itself isn't already a plain string/etc.
+      let method = init?.method ?? 'GET';
+      let body = init?.body;
+      if (input instanceof Request) {
+        method = init?.method ?? input.method;
+        if (body === undefined || body === null) {
+          body = await input.clone().text();
+        }
+      }
+
+      self.requestHistory.push({ url, options: { ...init, method, body } });
 
       // Check sequential mocks first (for retry testing)
       for (const seqMock of self.sequentialMocks) {

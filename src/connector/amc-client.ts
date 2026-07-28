@@ -265,11 +265,20 @@ export class AMCClient {
         const requestBody = { ...body, wikidot_token7: WIKIDOT_TOKEN7 };
 
         // Create URL-encoded body
+        // Arrays are expanded to key[]=v1&key[]=v2, matching jQuery.param's bracket
+        // notation (the format the Wikidot frontend actually sends).
         const formData = new URLSearchParams();
         for (const [key, value] of Object.entries(requestBody)) {
-          if (value !== undefined) {
-            formData.append(key, String(value));
+          if (value === undefined) {
+            continue;
           }
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              formData.append(`${key}[]`, String(item));
+            }
+            continue;
+          }
+          formData.append(key, String(value));
         }
 
         const response = await this.ky.post(url, {
