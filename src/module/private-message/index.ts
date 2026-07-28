@@ -1,7 +1,16 @@
 export {
+  addContact,
+  addContactViaProfile,
+  getApplicationDetailHtml,
+  getApplicationsHtml,
+  getContactsHtml,
+  getContactsListHtml,
+  getInvitationDetailHtml,
+  getInvitationsHtml,
   PrivateMessage,
   PrivateMessageCollection,
   type PrivateMessageData,
   PrivateMessageInbox,
   PrivateMessageSentBox,
+  removeContact,
 } from './private-message';

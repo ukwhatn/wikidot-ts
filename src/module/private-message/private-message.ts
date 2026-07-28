@@ -4,6 +4,7 @@ import {
   LoginRequiredError,
   NoElementError,
   UnexpectedError,
+  WikidotError,
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
@@ -11,6 +12,30 @@ import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { AbstractUser } from '../user';
 import type { User } from '../user/user';
+
+/**
+ * Run an action requiring login, wrapping the result/error into a WikidotResultAsync
+ * @param client - Client instance
+ * @param action - Async action to run once login is confirmed
+ * @param wrapError - Maps a caught error to a WikidotError (WikidotError instances pass through unchanged)
+ * @returns Result of the action
+ */
+function withLogin<T>(
+  client: Client,
+  action: () => Promise<T>,
+  wrapError: (error: unknown) => WikidotError
+): WikidotResultAsync<T> {
+  const loginResult = client.requireLogin();
+  if (loginResult.isErr()) {
+    return fromPromise(
+      Promise.reject(loginResult.error),
+      () => new LoginRequiredError('Login required')
+    );
+  }
+  return fromPromise(action(), (error) =>
+    error instanceof WikidotError ? error : wrapError(error)
+  );
+}
 
 /**
  * Private message data
@@ -114,6 +139,147 @@ export class PrivateMessage {
       })(),
       (error) => new UnexpectedError(`Failed to send message: ${String(error)}`)
     );
+  }
+
+  /**
+   * Save a private message draft
+   * @param client - Client instance
+   * @param subject - Draft subject
+   * @param body - Draft body
+   * @param recipient - Intended recipient. May be omitted (the real form allows a draft with no recipient selected yet)
+   */
+  static saveDraft(
+    client: Client,
+    subject: string,
+    body: string,
+    recipient?: User
+  ): WikidotResultAsync<void> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            action: 'DashboardMessageAction',
+            event: 'saveDraft',
+            source: body,
+            subject,
+            moduleName: 'Empty',
+            ...(recipient ? { to_user_id: recipient.id } : {}),
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      },
+      (error) => new UnexpectedError(`Failed to save draft: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Check whether the account is allowed to send a private message to a user.
+   *
+   * Wraps DashboardMessageAction/checkCan. Does not return a boolean: only the
+   * generic no_permission rejection path was confirmed during the investigation,
+   * so other rejection reasons (e.g. the recipient's receive-messages setting) may
+   * surface as a plain WikidotStatusError instead of ForbiddenError. Treat a
+   * successful (isOk) result as "allowed".
+   * @param client - Client instance
+   * @param user - Prospective recipient
+   */
+  static checkCanSend(client: Client, user: AbstractUser): WikidotResultAsync<void> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            action: 'DashboardMessageAction',
+            event: 'checkCan',
+            userId: user.id,
+            moduleName: 'Empty',
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      },
+      (error) => new UnexpectedError(`Failed to check send permission: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Render a preview of a private message without sending it. Wraps the
+   * dashboard/messages/DMPreviewModule module.
+   * @param client - Client instance
+   * @param subject - Message subject
+   * @param body - Message body
+   * @param recipient - Intended recipient
+   * @returns Rendered HTML preview
+   */
+  static preview(
+    client: Client,
+    subject: string,
+    body: string,
+    recipient?: User
+  ): WikidotResultAsync<string> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            moduleName: 'dashboard/messages/DMPreviewModule',
+            source: body,
+            subject,
+            ...(recipient ? { to_user_id: recipient.id } : {}),
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'dashboard/messages/DMPreviewModule');
+      },
+      (error) => new UnexpectedError(`Failed to render preview: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Fetch the pre-filled "new message" form HTML for replying to a message.
+   *
+   * Wraps the dashboard/messages/DMNewMessageModule module with replyMessageId
+   * set, which renders the form with the original sender pre-filled as recipient
+   * (toUserId/toUserName in the rendered HTML). Returns the raw body since the
+   * investigation captured the request/response shape but not the specific
+   * markup used to extract those pre-filled values.
+   * @param client - Client instance
+   * @param replyMessageId - ID of the message being replied to
+   * @returns Raw rendered HTML body
+   */
+  static fetchReplyFormHtml(client: Client, replyMessageId: number): WikidotResultAsync<string> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          { moduleName: 'dashboard/messages/DMNewMessageModule', replyMessageId },
+        ]);
+        if (result.isErr()) throw result.error;
+        return requireBody(result.value[0], 'dashboard/messages/DMNewMessageModule');
+      },
+      (error) => new UnexpectedError(`Failed to fetch reply form: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Mark this message as read
+   */
+  markAsRead(): WikidotResultAsync<void> {
+    return PrivateMessageCollection.markAsRead(this.client, [this.id]);
+  }
+
+  /**
+   * Mark this message as unread
+   */
+  markAsUnread(): WikidotResultAsync<void> {
+    return PrivateMessageCollection.markAsUnread(this.client, [this.id]);
+  }
+
+  /**
+   * Delete this message
+   */
+  delete(): WikidotResultAsync<void> {
+    return PrivateMessageCollection.removeMessages(this.client, [this.id]);
   }
 
   toString(): string {
@@ -323,6 +489,79 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
       }
     );
   }
+
+  /**
+   * Mark messages as read.
+   *
+   * Wraps DashboardMessageAction/setAsReaded (the misspelling is Wikidot's own
+   * event name on the wire and is intentionally kept as-is here; only this method
+   * name uses correct spelling).
+   * @param client - Client instance
+   * @param messageIds - IDs of the messages to mark as read
+   */
+  static markAsRead(client: Client, messageIds: number[]): WikidotResultAsync<void> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            action: 'DashboardMessageAction',
+            event: 'setAsReaded',
+            selected: messageIds,
+            moduleName: 'Empty',
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      },
+      (error) => new UnexpectedError(`Failed to mark messages as read: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Mark messages as unread. Wraps DashboardMessageAction/setAsUnreaded.
+   * @param client - Client instance
+   * @param messageIds - IDs of the messages to mark as unread
+   */
+  static markAsUnread(client: Client, messageIds: number[]): WikidotResultAsync<void> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            action: 'DashboardMessageAction',
+            event: 'setAsUnreaded',
+            selected: messageIds,
+            moduleName: 'Empty',
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      },
+      (error) => new UnexpectedError(`Failed to mark messages as unread: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Delete messages. Wraps DashboardMessageAction/removeMessages.
+   * @param client - Client instance
+   * @param messageIds - IDs of the messages to delete
+   */
+  static removeMessages(client: Client, messageIds: number[]): WikidotResultAsync<void> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          {
+            action: 'DashboardMessageAction',
+            event: 'removeMessages',
+            messages: messageIds,
+            moduleName: 'Empty',
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+      },
+      (error) => new UnexpectedError(`Failed to delete messages: ${String(error)}`)
+    );
+  }
 }
 
 /**
@@ -385,4 +624,204 @@ export class PrivateMessageSentBox extends PrivateMessageCollection {
       }
     );
   }
+}
+
+// ----------------------------------------------------------------------
+// Site invitations / applications / contacts (/account/messages tabs)
+//
+// These represent the account's own outgoing/incoming relationships to sites and
+// other users, rendered by dashboard/messages/DM*Module. Row markup for these list
+// modules was not captured during the investigation (unlike the inbox/sent
+// tr.message structure above), so listing functions return the raw rendered HTML
+// rather than a parsed collection.
+// ----------------------------------------------------------------------
+
+/**
+ * Fetch a page of the account's pending site invitations (raw HTML).
+ * Wraps dashboard/messages/DMInvitationsModule.
+ * @param client - Client instance
+ * @param page - Page number
+ * @returns Raw rendered HTML body
+ */
+export function getInvitationsHtml(client: Client, page = 1): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMInvitationsModule', page },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMInvitationsModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch invitations: ${String(error)}`)
+  );
+}
+
+/**
+ * Fetch the detail HTML of a single site invitation.
+ * Wraps dashboard/messages/DMViewInvitationModule.
+ * @param client - Client instance
+ * @param item - Invitation ID
+ * @returns Raw rendered HTML body
+ */
+export function getInvitationDetailHtml(client: Client, item: number): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMViewInvitationModule', item },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMViewInvitationModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch invitation detail: ${String(error)}`)
+  );
+}
+
+/**
+ * Fetch a page of the account's pending site join applications (raw HTML).
+ *
+ * Wraps dashboard/messages/DMApplicationsModule. This is the account's own
+ * outgoing applications to other sites; do not confuse it with SiteApplication
+ * (site-application.ts), which is a site admin's view of incoming applications to
+ * their own site.
+ * @param client - Client instance
+ * @param page - Page number
+ * @returns Raw rendered HTML body
+ */
+export function getApplicationsHtml(client: Client, page = 1): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMApplicationsModule', page },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMApplicationsModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch applications: ${String(error)}`)
+  );
+}
+
+/**
+ * Fetch the detail HTML of a single site join application.
+ * Wraps dashboard/messages/DMViewApplicationModule.
+ * @param client - Client instance
+ * @param item - Application ID
+ * @returns Raw rendered HTML body
+ */
+export function getApplicationDetailHtml(client: Client, item: number): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMViewApplicationModule', item },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMViewApplicationModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch application detail: ${String(error)}`)
+  );
+}
+
+/**
+ * Fetch the account's contact list (raw HTML). Wraps dashboard/messages/DMContactsModule.
+ * @param client - Client instance
+ * @returns Raw rendered HTML body
+ */
+export function getContactsHtml(client: Client): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMContactsModule' },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMContactsModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch contacts: ${String(error)}`)
+  );
+}
+
+/**
+ * Fetch the contact picker used when composing a new message (raw HTML).
+ * Wraps dashboard/messages/DMContactsListModule.
+ * @param client - Client instance
+ * @returns Raw rendered HTML body
+ */
+export function getContactsListHtml(client: Client): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'dashboard/messages/DMContactsListModule' },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'dashboard/messages/DMContactsListModule');
+    },
+    (error) => new UnexpectedError(`Failed to fetch contacts list: ${String(error)}`)
+  );
+}
+
+/**
+ * Add a user to the account's contact list. Wraps ContactsAction/addContact.
+ * @param client - Client instance
+ * @param user - User to add
+ */
+export function addContact(client: Client, user: AbstractUser): WikidotResultAsync<void> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { action: 'ContactsAction', event: 'addContact', userId: user.id, moduleName: 'Empty' },
+      ]);
+      if (result.isErr()) throw result.error;
+    },
+    (error) => new UnexpectedError(`Failed to add contact: ${String(error)}`)
+  );
+}
+
+/**
+ * Remove a user from the account's contact list. Wraps ContactsAction/removeContact.
+ * @param client - Client instance
+ * @param user - User to remove
+ */
+export function removeContact(client: Client, user: AbstractUser): WikidotResultAsync<void> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { action: 'ContactsAction', event: 'removeContact', userId: user.id, moduleName: 'Empty' },
+      ]);
+      if (result.isErr()) throw result.error;
+    },
+    (error) => new UnexpectedError(`Failed to remove contact: ${String(error)}`)
+  );
+}
+
+/**
+ * Add a user to the account's contact list from their profile page.
+ *
+ * Wraps userinfo/UserAddToContactsModule, a second (module-render-as-action) path
+ * to add a contact distinct from ContactsAction/addContact, used from a user's
+ * profile ("user:info") page rather than the messages dashboard.
+ * @param client - Client instance
+ * @param user - User to add
+ * @returns Raw rendered HTML body
+ */
+export function addContactViaProfile(
+  client: Client,
+  user: AbstractUser
+): WikidotResultAsync<string> {
+  return withLogin(
+    client,
+    async () => {
+      const result = await client.amcClient.request([
+        { moduleName: 'userinfo/UserAddToContactsModule', userId: user.id },
+      ]);
+      if (result.isErr()) throw result.error;
+      return requireBody(result.value[0], 'userinfo/UserAddToContactsModule');
+    },
+    (error) => new UnexpectedError(`Failed to add contact via profile: ${String(error)}`)
+  );
 }
