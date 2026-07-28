@@ -70,7 +70,12 @@ function extractFormErrors(response: AMCResponse | undefined): Record<string, st
   }
 
   if (typeof response.message === 'string' && response.message.length > 0) {
-    return { message: response.message };
+    // Sentinel key, not a field name: some modules (saveTags, the singular
+    // form_error status) return only a plain message with no field. "_message"
+    // rather than "message" because Wikidot has real form fields named
+    // "message" (ManageSiteMembershipAction/sendEmailInvitations), which would
+    // otherwise be indistinguishable. Matches wikidot.py's FormErrorsException.
+    return { _message: response.message };
   }
 
   return {};

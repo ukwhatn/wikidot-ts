@@ -59,8 +59,14 @@ export function flag(value: boolean | null | undefined): 'true' | undefined {
  * JSON-encode a value for params that Wikidot expects as a JSON string
  * (e.g. `categories`, `options`, `addresses`).
  * @param value - Value to encode
- * @returns JSON string
+ * @returns JSON string, or `undefined` for null/undefined so omitFalsy drops the key
  */
-export function jsonParam(value: unknown): string {
+export function jsonParam(value: unknown): string | undefined {
+  // null/undefined must drop the key rather than send the literal "null",
+  // matching wikidot.py's json_param(). Without this, jsonParam(maybeNull)
+  // behaves differently between the two ports.
+  if (value === null || value === undefined) {
+    return undefined;
+  }
   return JSON.stringify(value);
 }

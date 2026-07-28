@@ -150,7 +150,7 @@ describe('FormErrorsError', () => {
     };
     const error = new FormErrorsError('form error', 'form_error', response);
 
-    expect(error.errors).toEqual({ message: 'Tags could not be saved' });
+    expect(error.errors).toEqual({ _message: 'Tags could not be saved' });
   });
 
   test('errors is an empty record when response is missing', () => {

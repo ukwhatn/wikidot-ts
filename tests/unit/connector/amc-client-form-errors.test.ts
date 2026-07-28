@@ -94,7 +94,7 @@ describe('form_errors payload (T0-1, end-to-end)', () => {
 
     expect(result.isErr()).toBe(true);
     if (result.isErr() && result.error instanceof FormErrorsError) {
-      expect(result.error.errors).toEqual({ message: 'Tags could not be saved' });
+      expect(result.error.errors).toEqual({ _message: 'Tags could not be saved' });
     }
   });
 });
