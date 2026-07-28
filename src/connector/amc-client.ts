@@ -65,6 +65,33 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Resolve the backoff duration for a `try_again` response.
+ * Honors the server-supplied `time_to_wait` (seconds) when present, falling back to
+ * exponential backoff otherwise. The server value is still capped by `maxBackoff` so a
+ * misbehaving/hostile response can't force an unbounded wait.
+ * @param response - AMC response with status `try_again`
+ * @param retryCount - Current retry count (starts from 1)
+ * @param config - AMC configuration
+ * @returns Backoff duration in milliseconds
+ */
+function resolveTryAgainBackoff(
+  response: AMCResponse,
+  retryCount: number,
+  config: AMCConfig
+): number {
+  const timeToWait = response.time_to_wait;
+  if (typeof timeToWait === 'number' && Number.isFinite(timeToWait) && timeToWait >= 0) {
+    return Math.min(timeToWait * 1000, config.maxBackoff);
+  }
+  return calculateBackoff(
+    retryCount,
+    config.retryInterval,
+    config.backoffFactor,
+    config.maxBackoff
+  );
+}
+
+/**
  * AMC request options
  */
 export interface AMCRequestOptions {
@@ -324,14 +351,11 @@ export class AMCClient {
         if (amcResponse.status === 'try_again') {
           retryCount++;
           if (retryCount >= this.config.retryLimit) {
-            return wdErrAsync(new WikidotStatusError('AMC responded with try_again', 'try_again'));
+            return wdErrAsync(
+              new WikidotStatusError('AMC responded with try_again', 'try_again', amcResponse)
+            );
           }
-          const backoff = calculateBackoff(
-            retryCount,
-            this.config.retryInterval,
-            this.config.backoffFactor,
-            this.config.maxBackoff
-          );
+          const backoff = resolveTryAgainBackoff(amcResponse, retryCount, this.config);
           await sleep(backoff);
           continue;
         }
