@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import ky, { isHTTPError, type KyInstance } from 'ky';
 import pLimit, { type LimitFunction } from 'p-limit';
 import {
@@ -83,6 +84,30 @@ export function requireBody(response: AMCResponse | undefined, moduleName: strin
     );
   }
   return response.body;
+}
+
+/**
+ * Parse the HTML fragment returned by /default--flow/files__UploadTarget
+ *
+ * UNVERIFIED AGAINST A LIVE WIKIDOT INSTANCE. This endpoint does not
+ * respond with the usual AMC JSON envelope; per 10_transport.md (wire
+ * format research based on reading Wikidot's client-side JS, not an
+ * observed live upload) it returns an HTML fragment of the shape
+ * `<div id="status">ok</div><div id="message">..</div><div id="filename">..</div>`.
+ * @param html - Raw response body
+ * @returns Values keyed by "status" / "message" / "filename", for
+ * whichever of those elements were present in the response
+ */
+export function parseUploadTargetResponse(html: string): Record<string, string> {
+  const $ = cheerio.load(html);
+  const result: Record<string, string> = {};
+  for (const key of ['status', 'message', 'filename']) {
+    const elem = $(`#${key}`);
+    if (elem.length > 0) {
+      result[key] = elem.text().trim();
+    }
+  }
+  return result;
 }
 
 /**
@@ -459,5 +484,74 @@ export class AMCClient {
         await sleep(backoff);
       }
     }
+  }
+
+  /**
+   * Upload a file to a page via the multipart upload endpoint
+   *
+   * UNVERIFIED AGAINST A LIVE WIKIDOT INSTANCE. This is a separate wire
+   * path from `request()`: it posts multipart/form-data to
+   * `/default--flow/files__UploadTarget` (not ajax-module-connector.php)
+   * and gets back an HTML fragment, not the usual AMC JSON envelope, so it
+   * cannot go through `request()`'s JSON parsing. The endpoint, parameters
+   * (`action=FileAction`, `event=uploadFile`, `page_id`,
+   * `source=multiflash`, `multikey?`, file under the `userfile` field),
+   * and response shape were all determined by reading Wikidot's
+   * client-side JS, not by observing a real upload -- see 30_plan.md D8
+   * and 32_tasks.md Task 3-5b in the sibling wikidot.py repo's memory
+   * directory. Confirm against a real site before relying on this for
+   * anything important.
+   * @param options - pageId: target page. filename: file name as it will
+   * appear on the page. content: file content. siteName: target site
+   * (default: this client's configured site). siteSslSupported: whether
+   * the site supports SSL. multikey: multi-file upload session key,
+   * required by FileAction/multiUploadComplete when uploading more than
+   * one file in the same batch
+   * @returns Parsed response fields among "status" / "message" / "filename"
+   */
+  uploadFile(options: {
+    pageId: number;
+    filename: string;
+    content: Uint8Array | Blob;
+    siteName?: string;
+    siteSslSupported?: boolean;
+    multikey?: string;
+  }): WikidotResultAsync<Record<string, string>> {
+    return fromPromise(
+      (async () => {
+        const siteSslSupported = options.siteSslSupported ?? true;
+        const protocol = siteSslSupported ? 'https' : 'http';
+        const siteName = options.siteName ?? 'www';
+        const url = `${protocol}://${siteName}.${this.domain}/default--flow/files__UploadTarget`;
+
+        const formData = new FormData();
+        formData.append('action', 'FileAction');
+        formData.append('event', 'uploadFile');
+        formData.append('page_id', String(options.pageId));
+        formData.append('source', 'multiflash');
+        formData.append('wikidot_token7', WIKIDOT_TOKEN7);
+        if (options.multikey !== undefined) {
+          formData.append('multikey', options.multikey);
+        }
+        const blob =
+          options.content instanceof Blob ? options.content : new Blob([options.content]);
+        formData.append('userfile', blob, options.filename);
+
+        // Content-Type must come from FormData's own multipart boundary,
+        // not the AMC header's form-urlencoded default.
+        const { 'Content-Type': _omitted, ...headers } = this.header.getHeaders();
+
+        const response = await this.ky.post(url, {
+          headers,
+          body: formData,
+        });
+        const text = await response.text();
+        return parseUploadTargetResponse(text);
+      })(),
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Upload failed: ${String(error)}`)
+    );
   }
 }
