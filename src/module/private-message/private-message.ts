@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import type { AnyNode } from 'domhandler';
 import {
   ForbiddenError,
   LoginRequiredError,
@@ -678,26 +679,137 @@ export function getInvitationDetailHtml(client: Client, item: number): WikidotRe
   );
 }
 
+/** Data backing a {@link SiteJoinApplication} */
+export interface SiteJoinApplicationData {
+  client: Client;
+  fromSite: string;
+  subject: string;
+  preview: string;
+  submittedAt: Date;
+}
+
 /**
- * Fetch a page of the account's pending site join applications (raw HTML).
+ * A row of the account's own outgoing site-join applications
+ * (dashboard/messages/DMApplicationsModule)
  *
- * Wraps dashboard/messages/DMApplicationsModule. This is the account's own
- * outgoing applications to other sites; do not confuse it with SiteApplication
- * (site-application.ts), which is a site admin's view of incoming applications to
- * their own site.
- * @param client - Client instance
- * @param page - Page number
- * @returns Raw rendered HTML body
+ * Distinct from SiteApplication (site-application.ts), which is a site admin's
+ * view of incoming applications to their own site.
+ *
+ * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
+ * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
+ * 行マークアップ"): each row is a `tr` with `span.from` / `span.subject` /
+ * `span.preview` / `span.date > span.odate`. The measurement did not find a
+ * site-id/application-id-bearing attribute on the row, so this object cannot
+ * drive DMViewApplicationModule or DashboardSitesAction/removeApplication
+ * directly; use `SiteAccessor.removeApplication(siteId)` with a siteId obtained
+ * elsewhere if you need to withdraw an application.
  */
-export function getApplicationsHtml(client: Client, page = 1): WikidotResultAsync<string> {
+export class SiteJoinApplication {
+  public readonly client: Client;
+  /** Text of span.from (the site the application was submitted to) */
+  public readonly fromSite: string;
+  /** Text of span.subject */
+  public readonly subject: string;
+  /** Text of span.preview */
+  public readonly preview: string;
+  /** Submission date and time (span.date > span.odate) */
+  public readonly submittedAt: Date;
+
+  constructor(data: SiteJoinApplicationData) {
+    this.client = data.client;
+    this.fromSite = data.fromSite;
+    this.subject = data.subject;
+    this.preview = data.preview;
+    this.submittedAt = data.submittedAt;
+  }
+
+  toString(): string {
+    return `SiteJoinApplication(fromSite=${this.fromSite}, subject=${this.subject})`;
+  }
+}
+
+/**
+ * Internal helper to parse a single DMApplicationsModule row
+ * @param client - Client instance
+ * @param $ - Loaded cheerio document
+ * @param elem - `tr` element to parse
+ * @returns Parsed row, or null if a required element is missing
+ */
+function parseApplicationRow(
+  client: Client,
+  $: cheerio.CheerioAPI,
+  elem: AnyNode
+): SiteJoinApplication | null {
+  const $row = $(elem);
+  const fromElem = $row.find('span.from').first();
+  if (fromElem.length === 0) {
+    return null;
+  }
+
+  const subjectElem = $row.find('span.subject').first();
+  const previewElem = $row.find('span.preview').first();
+  const odateElem = $row.find('span.date span.odate').first();
+
+  return new SiteJoinApplication({
+    client,
+    fromSite: fromElem.text().trim(),
+    subject: subjectElem.text().trim(),
+    preview: previewElem.text().trim(),
+    submittedAt: odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0),
+  });
+}
+
+/**
+ * Get all of the account's pending outgoing site join applications.
+ *
+ * Wraps dashboard/messages/DMApplicationsModule, fetching all pages.
+ * @param client - Client instance
+ * @returns All pending applications
+ */
+export function getApplications(client: Client): WikidotResultAsync<SiteJoinApplication[]> {
   return withLogin(
     client,
     async () => {
-      const result = await client.amcClient.request([
-        { moduleName: 'dashboard/messages/DMApplicationsModule', page },
-      ]);
-      if (result.isErr()) throw result.error;
-      return requireBody(result.value[0], 'dashboard/messages/DMApplicationsModule');
+      const moduleName = 'dashboard/messages/DMApplicationsModule';
+
+      const firstResult = await client.amcClient.request([{ moduleName }]);
+      if (firstResult.isErr()) throw firstResult.error;
+      const firstHtml = requireBody(firstResult.value[0], moduleName);
+      const $first = cheerio.load(firstHtml);
+
+      const pagerTargets = $first('div.pager span.target');
+      let maxPage = 1;
+      if (pagerTargets.length > 2) {
+        const lastPageText = $first(pagerTargets[pagerTargets.length - 2])
+          .text()
+          .trim();
+        maxPage = Number.parseInt(lastPageText, 10) || 1;
+      }
+
+      const applications: SiteJoinApplication[] = [];
+      $first('tr').each((_i, elem) => {
+        const application = parseApplicationRow(client, $first, elem);
+        if (application) applications.push(application);
+      });
+
+      if (maxPage > 1) {
+        const bodies = [];
+        for (let page = 2; page <= maxPage; page++) {
+          bodies.push({ page, moduleName });
+        }
+        const results = await client.amcClient.request(bodies);
+        if (results.isErr()) throw results.error;
+        for (const response of results.value) {
+          const html = requireBody(response, moduleName);
+          const $ = cheerio.load(html);
+          $('tr').each((_i, elem) => {
+            const application = parseApplicationRow(client, $, elem);
+            if (application) applications.push(application);
+          });
+        }
+      }
+
+      return applications;
     },
     (error) => new UnexpectedError(`Failed to fetch applications: ${String(error)}`)
   );
@@ -724,20 +836,71 @@ export function getApplicationDetailHtml(client: Client, item: number): WikidotR
   );
 }
 
+/** Data backing a {@link Contact} */
+export interface ContactData {
+  client: Client;
+  user: AbstractUser;
+}
+
 /**
- * Fetch the account's contact list (raw HTML). Wraps dashboard/messages/DMContactsModule.
- * @param client - Client instance
- * @returns Raw rendered HTML body
+ * A row of the account's contact list (dashboard/messages/DMContactsModule)
+ *
+ * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
+ * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
+ * 行マークアップ"): each row is a `tr` with
+ * `td > span.printuser.avatarhover > a > img.small` and a delete button
+ * (`td > a.awesome.red.small`). The user is parsed via the existing printuser
+ * parser rather than the delete button, since removal only needs the user ID
+ * (ContactsAction/removeContact), which the printuser element already carries.
  */
-export function getContactsHtml(client: Client): WikidotResultAsync<string> {
+export class Contact {
+  public readonly client: Client;
+  /** The contact */
+  public readonly user: AbstractUser;
+
+  constructor(data: ContactData) {
+    this.client = data.client;
+    this.user = data.user;
+  }
+
+  toString(): string {
+    return `Contact(user=${this.user})`;
+  }
+
+  /**
+   * Remove this user from the account's contact list
+   */
+  remove(): WikidotResultAsync<void> {
+    return removeContact(this.client, this.user);
+  }
+}
+
+/**
+ * Get the account's contact list.
+ *
+ * Wraps dashboard/messages/DMContactsModule (single request; this module is not
+ * paginated).
+ * @param client - Client instance
+ * @returns All contacts
+ */
+export function getContacts(client: Client): WikidotResultAsync<Contact[]> {
   return withLogin(
     client,
     async () => {
-      const result = await client.amcClient.request([
-        { moduleName: 'dashboard/messages/DMContactsModule' },
-      ]);
+      const moduleName = 'dashboard/messages/DMContactsModule';
+      const result = await client.amcClient.request([{ moduleName }]);
       if (result.isErr()) throw result.error;
-      return requireBody(result.value[0], 'dashboard/messages/DMContactsModule');
+      const html = requireBody(result.value[0], moduleName);
+      const $ = cheerio.load(html);
+
+      const contacts: Contact[] = [];
+      $('tr').each((_i, elem) => {
+        const printuserElem = $(elem).find('span.printuser').first();
+        if (printuserElem.length === 0) return;
+        contacts.push(new Contact({ client, user: parseUser(client, printuserElem) }));
+      });
+
+      return contacts;
     },
     (error) => new UnexpectedError(`Failed to fetch contacts: ${String(error)}`)
   );

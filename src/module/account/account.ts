@@ -13,10 +13,17 @@
  * (`.local/memory/260728_wikidot-ajax-modules/70_account.md`).
  */
 
-import { LoginRequiredError, UnexpectedError, WikidotError } from '../../common/errors';
+import * as cheerio from 'cheerio';
+import {
+  LoginRequiredError,
+  NoElementError,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { checkbox, flag, jsonParam, omitFalsy, requireBody } from '../../connector';
 import type { AMCRequestBody, AMCResponse } from '../../connector/amc-types';
+import { parseOdate } from '../../util/parser';
 import type { Client } from '../client';
 import type { AbstractUser } from '../user';
 
@@ -476,6 +483,97 @@ export class AccountProfile {
   }
 }
 
+/** Data backing a {@link UserChange} */
+export interface UserChangeData {
+  client: Client;
+  siteTitle: string;
+  siteUrl: string;
+  pageFullname: string;
+  pageTitle: string;
+  revisionNo: number;
+  changedAt: Date;
+  flags: string[];
+}
+
+/**
+ * A row of the account's own recent page edits (userinfo/UserChangesListModule)
+ *
+ * Nearly identical in structure to SiteChange (page/site-change.ts's
+ * changes/SiteChangesListModule row), with a site column added since this view
+ * spans every site the account belongs to (measured 2026-07-29, see the sibling
+ * wikidot.py repo's `.local/memory/260728_wikidot-ajax-modules/70_account.md`,
+ * "一覧モジュールの行マークアップ").
+ */
+export class UserChange {
+  public readonly client: Client;
+  /** Title of the site the change occurred on (td.site > a) */
+  public readonly siteTitle: string;
+  /** URL of the site the change occurred on (td.site > a href) */
+  public readonly siteUrl: string;
+  public readonly pageFullname: string;
+  public readonly pageTitle: string;
+  public readonly revisionNo: number;
+  public readonly changedAt: Date;
+  /** "N"=new, "S"=source change, "T"=title change, "R"=rename, "M"=move, "F"=file, "A"=delete */
+  public readonly flags: string[];
+
+  constructor(data: UserChangeData) {
+    this.client = data.client;
+    this.siteTitle = data.siteTitle;
+    this.siteUrl = data.siteUrl;
+    this.pageFullname = data.pageFullname;
+    this.pageTitle = data.pageTitle;
+    this.revisionNo = data.revisionNo;
+    this.changedAt = data.changedAt;
+    this.flags = data.flags;
+  }
+
+  toString(): string {
+    return `UserChange(siteTitle=${this.siteTitle}, pageFullname=${this.pageFullname}, revisionNo=${this.revisionNo})`;
+  }
+}
+
+/** Data backing a {@link RecentPost} */
+export interface RecentPostData {
+  client: Client;
+  title: string;
+  url: string;
+  createdAt: Date;
+  content: string;
+}
+
+/**
+ * A row of the account's own recent forum posts (userinfo/UserRecentPostsListModule)
+ *
+ * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
+ * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
+ * 行マークアップ"): each row is `div.post`, with
+ * `div.long > div.head > div.title > a` (title/link), `div.info > span.odate`
+ * (date), and `div.content` (post text).
+ */
+export class RecentPost {
+  public readonly client: Client;
+  /** Post/thread title (div.title > a) */
+  public readonly title: string;
+  /** Link to the post (div.title > a href) */
+  public readonly url: string;
+  public readonly createdAt: Date;
+  /** Post text (div.content) */
+  public readonly content: string;
+
+  constructor(data: RecentPostData) {
+    this.client = data.client;
+    this.title = data.title;
+    this.url = data.url;
+    this.createdAt = data.createdAt;
+    this.content = data.content;
+  }
+
+  toString(): string {
+    return `RecentPost(title=${this.title}, createdAt=${this.createdAt.toISOString()})`;
+  }
+}
+
 /**
  * Operations on the `/account/recent` dashboard tab
  *
@@ -483,32 +581,74 @@ export class AccountProfile {
  * sites it belongs to. Access through `client.account.recent`.
  */
 export class AccountRecentActivity {
+  private changesUserIdCache: number | null = null;
+  private postsUserIdCache: number | null = null;
+
   constructor(private readonly client: Client) {}
 
-  private ownUserId(): number {
-    const me = this.client.me;
-    if (me === null || me.id === null) {
-      throw new UnexpectedError('Client.me is not set despite being logged in');
+  /**
+   * Internal helper to fetch a hidden `userId` field from a shell module.
+   *
+   * `www.wikidot.com` pages do not expose `WIKIREQUEST.info.userId` (unlike a
+   * site's own pages), and userinfo/UserChangesListModule /
+   * userinfo/UserRecentPostsListModule respond with status "not_ok" and an empty
+   * body if `userId` is omitted. The real UI reads it from a hidden input on the
+   * shell module that renders the tab (userinfo/UserChangesModule /
+   * userinfo/UserRecentPostsModule) before requesting the list module.
+   * @param moduleName - Shell module to fetch
+   * @param elementId - id of the hidden input holding the user ID
+   * @returns The account's own user ID
+   */
+  private async fetchHiddenUserId(moduleName: string, elementId: string): Promise<number> {
+    const result = await this.client.amcClient.request([{ moduleName }]);
+    if (result.isErr()) throw result.error;
+    const html = requireBody(result.value[0], moduleName);
+    const $ = cheerio.load(html);
+    const hidden = $(`#${elementId}`).first();
+    if (hidden.length === 0) {
+      throw new UnexpectedError(`Cannot find #${elementId} in ${moduleName}`);
     }
-    return me.id;
+    const value = hidden.attr('value');
+    if (value === undefined || !/^\d+$/.test(value)) {
+      throw new UnexpectedError(`#${elementId} in ${moduleName} is not numeric: ${String(value)}`);
+    }
+    return Number.parseInt(value, 10);
+  }
+
+  private async changesUserId(): Promise<number> {
+    if (this.changesUserIdCache === null) {
+      this.changesUserIdCache = await this.fetchHiddenUserId(
+        'userinfo/UserChangesModule',
+        'changes-user-id'
+      );
+    }
+    return this.changesUserIdCache;
+  }
+
+  private async postsUserId(): Promise<number> {
+    if (this.postsUserIdCache === null) {
+      this.postsUserIdCache = await this.fetchHiddenUserId(
+        'userinfo/UserRecentPostsModule',
+        'recent-posts-user-id'
+      );
+    }
+    return this.postsUserIdCache;
   }
 
   /**
-   * Fetch a page of the account's own recent page edits (raw HTML).
+   * Get the account's own recent page edits, across all sites.
    *
-   * Row markup was not captured during the investigation, so this is not parsed
-   * into a structured list.
-   * @param page - Page number
-   * @param perpage - Entries per page
+   * Wraps userinfo/UserChangesListModule, fetching pages until exhausted or
+   * `limit` is reached.
    * @param options - Filter flags. Keys must be a subset of RECENT_CHANGES_OPTION_KEYS; unlike
    * history/PageHistoryModule's options, there is no "tags" key here
-   * @returns Raw rendered HTML body
+   * @param limit - Maximum number of entries to retrieve. If omitted, retrieves all
+   * @returns List of change history (in descending order by date)
    */
-  getChangesHtml(
-    page = 1,
-    perpage = 20,
-    options?: Partial<Record<RecentChangesOptionKey, boolean>>
-  ): WikidotResultAsync<string> {
+  getChanges(
+    options?: Partial<Record<RecentChangesOptionKey, boolean>>,
+    limit?: number
+  ): WikidotResultAsync<UserChange[]> {
     if (options) {
       const allowed = new Set<string>(RECENT_CHANGES_OPTION_KEYS);
       const unknown = Object.keys(options).filter((key) => !allowed.has(key));
@@ -527,38 +667,176 @@ export class AccountRecentActivity {
     return withLogin(
       this.client,
       async () => {
-        const userId = this.ownUserId();
-        const result = await this.client.amcClient.request([
-          {
-            moduleName: 'userinfo/UserChangesListModule',
-            page,
-            perpage,
-            userId,
-            ...omitFalsy({ options: options ? jsonParam(options) : undefined }),
-          },
-        ]);
-        if (result.isErr()) throw result.error;
-        return requireBody(result.value[0], 'userinfo/UserChangesListModule');
+        const userId = await this.changesUserId();
+        const perPage = limit !== undefined ? Math.min(limit, 1000) : 1000;
+
+        const changes: UserChange[] = [];
+        let pageNo = 1;
+
+        while (true) {
+          const result = await this.client.amcClient.request([
+            {
+              moduleName: 'userinfo/UserChangesListModule',
+              page: pageNo,
+              perpage: perPage,
+              userId,
+              ...omitFalsy({ options: options ? jsonParam(options) : undefined }),
+            },
+          ]);
+          if (result.isErr()) throw result.error;
+          const html = requireBody(result.value[0], 'userinfo/UserChangesListModule');
+          const $ = cheerio.load(html);
+          const items = $('div.changes-list-item');
+          if (items.length === 0) break;
+
+          let reachedLimit = false;
+          items.each((_i, elem) => {
+            if (reachedLimit) return;
+            const $item = $(elem);
+
+            const titleElem = $item.find('td.title a').first();
+            if (titleElem.length === 0) {
+              throw new NoElementError('Title element is not found.');
+            }
+            const pageTitle = titleElem.text().trim();
+            const pageFullname = (titleElem.attr('href') ?? '').replace(/^\/|\/$/g, '');
+
+            const odateElem = $item.find('td.mod-date span.odate').first();
+            if (odateElem.length === 0) {
+              throw new NoElementError('Odate element is not found.');
+            }
+            const changedAt = parseOdate(odateElem) ?? new Date(0);
+
+            const revElem = $item.find('td.revision-no').first();
+            if (revElem.length === 0) {
+              throw new NoElementError('Revision number element is not found.');
+            }
+            const revMatch = revElem.text().match(/(\d+)/);
+            if (!revMatch?.[1]) {
+              throw new NoElementError('Revision number is not found.');
+            }
+            const revisionNo = Number.parseInt(revMatch[1], 10);
+
+            const flags = $item
+              .find('td.flags span.spantip')
+              .toArray()
+              .map((flagElem) => $(flagElem).text().trim());
+
+            const siteElem = $item.find('td.site a').first();
+
+            changes.push(
+              new UserChange({
+                client: this.client,
+                siteTitle: siteElem.length > 0 ? siteElem.text().trim() : '',
+                siteUrl: siteElem.length > 0 ? (siteElem.attr('href') ?? '') : '',
+                pageFullname,
+                pageTitle,
+                revisionNo,
+                changedAt,
+                flags,
+              })
+            );
+
+            if (limit !== undefined && changes.length >= limit) {
+              reachedLimit = true;
+            }
+          });
+
+          if (reachedLimit) break;
+
+          const pager = $('div.pager').first();
+          if (pager.length === 0) break;
+          const pagerLinks = pager.find('a');
+          if (pagerLinks.length < 2) break;
+          const lastPage = Number.parseInt(
+            $(pagerLinks[pagerLinks.length - 2])
+              .text()
+              .trim(),
+            10
+          );
+          if (pageNo >= lastPage) break;
+          pageNo += 1;
+        }
+
+        return changes;
       },
       (error) => new UnexpectedError(`Failed to fetch recent changes: ${String(error)}`)
     );
   }
 
   /**
-   * Fetch a page of the account's own recent forum posts (raw HTML)
-   * @param page - Page number
-   * @returns Raw rendered HTML body
+   * Get the account's own recent forum posts, across all sites.
+   *
+   * Wraps userinfo/UserRecentPostsListModule, fetching pages until exhausted or
+   * `limit` is reached.
+   * @param limit - Maximum number of entries to retrieve. If omitted, retrieves all
+   * @returns List of recent posts (in descending order by date)
    */
-  getPostsHtml(page = 1): WikidotResultAsync<string> {
+  getPosts(limit?: number): WikidotResultAsync<RecentPost[]> {
     return withLogin(
       this.client,
       async () => {
-        const userId = this.ownUserId();
-        const result = await this.client.amcClient.request([
-          { moduleName: 'userinfo/UserRecentPostsListModule', page, userId },
-        ]);
-        if (result.isErr()) throw result.error;
-        return requireBody(result.value[0], 'userinfo/UserRecentPostsListModule');
+        const userId = await this.postsUserId();
+
+        const posts: RecentPost[] = [];
+        let pageNo = 1;
+
+        while (true) {
+          const result = await this.client.amcClient.request([
+            { moduleName: 'userinfo/UserRecentPostsListModule', page: pageNo, userId },
+          ]);
+          if (result.isErr()) throw result.error;
+          const html = requireBody(result.value[0], 'userinfo/UserRecentPostsListModule');
+          const $ = cheerio.load(html);
+          const items = $('div.post');
+          if (items.length === 0) break;
+
+          let reachedLimit = false;
+          items.each((_i, elem) => {
+            if (reachedLimit) return;
+            const $item = $(elem);
+
+            const titleElem = $item.find('div.long div.head div.title a').first();
+            if (titleElem.length === 0) {
+              throw new NoElementError('Title element is not found.');
+            }
+
+            const odateElem = $item.find('div.info span.odate').first();
+            const contentElem = $item.find('div.content').first();
+
+            posts.push(
+              new RecentPost({
+                client: this.client,
+                title: titleElem.text().trim(),
+                url: titleElem.attr('href') ?? '',
+                createdAt:
+                  odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0),
+                content: contentElem.length > 0 ? contentElem.text().trim() : '',
+              })
+            );
+
+            if (limit !== undefined && posts.length >= limit) {
+              reachedLimit = true;
+            }
+          });
+
+          if (reachedLimit) break;
+
+          const pager = $('div.pager').first();
+          if (pager.length === 0) break;
+          const pagerLinks = pager.find('a');
+          if (pagerLinks.length < 2) break;
+          const lastPage = Number.parseInt(
+            $(pagerLinks[pagerLinks.length - 2])
+              .text()
+              .trim(),
+            10
+          );
+          if (pageNo >= lastPage) break;
+          pageNo += 1;
+        }
+
+        return posts;
       },
       (error) => new UnexpectedError(`Failed to fetch recent posts: ${String(error)}`)
     );

@@ -234,48 +234,157 @@ describe('AccountProfile', () => {
   });
 });
 
+/**
+ * userinfo/UserChangesListModule row fixture, based on the 2026-07-29 markup
+ * measurement recorded in the sibling wikidot.py repo's 70_account.md
+ * ("一覧モジュールの行マークアップ")
+ */
+const USER_CHANGES_LIST_BODY = `
+<div class="changes-list-item">
+  <table><tbody><tr>
+    <td class="site"><a href="http://foo.wikidot.com">Foo Site</a></td>
+    <td class="title"><a href="/component:scp-173">SCP-173</a></td>
+    <td class="flags"><span class="spantip">S</span></td>
+    <td class="mod-date"><span class="odate time_1700000000">01 Jan 2024</span></td>
+    <td class="revision-no">Rev. 5</td>
+  </tr></tbody></table>
+</div>
+`;
+
+/** userinfo/UserRecentPostsListModule row fixture, based on the 2026-07-29 markup measurement */
+const USER_RECENT_POSTS_LIST_BODY = `
+<div class="post">
+  <div class="long">
+    <div class="head">
+      <div class="title"><a href="http://foo.wikidot.com/forum/t-123#post-456">Re: Something</a></div>
+    </div>
+  </div>
+  <div class="info">
+    <span class="printuser">
+        <a href="http://www.wikidot.com/user:info/me" onclick="WIKIDOT.page.listeners.userInfo(99999); return false;">me</a>
+    </span>
+    <span class="odate time_1700000000">01 Jan 2024</span>
+  </div>
+  <div class="content">Post content here</div>
+</div>
+`;
+
 describe('AccountRecentActivity', () => {
-  test('getChangesHtml uses own user id', async () => {
+  test('getChanges fetches the hidden user id first (userinfo/UserChangesModule)', async () => {
     const mockAmc = new MockAMCClient();
     mockAmc.addResponseHandler((body) =>
-      body.moduleName === 'userinfo/UserChangesListModule'
-        ? createOkResponse('<div>changes</div>')
-        : createOkResponse()
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : body.moduleName === 'userinfo/UserChangesListModule'
+          ? createOkResponse(USER_CHANGES_LIST_BODY)
+          : createOkResponse()
     );
-    const client = createMockClient(mockAmc, { id: 99999 });
+    const client = createMockClient(mockAmc);
     const recent = new AccountRecentActivity(client);
 
-    const result = await recent.getChangesHtml();
+    const result = await recent.getChanges();
 
-    const [body] = mockAmc.getRequestHistory();
-    expect(body?.userId).toBe(99999);
-    expect(result.isOk() && result.value).toBe('<div>changes</div>');
+    const history = mockAmc.getRequestHistory();
+    expect(history[0]?.moduleName).toBe('userinfo/UserChangesModule');
+    expect(history[1]?.moduleName).toBe('userinfo/UserChangesListModule');
+    expect(history[1]?.userId).toBe(42);
+    expect(result.isOk() && result.value.length).toBe(1);
   });
 
-  test('getChangesHtml rejects a "tags" option key', async () => {
+  test('getChanges parses row fields', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : body.moduleName === 'userinfo/UserChangesListModule'
+          ? createOkResponse(USER_CHANGES_LIST_BODY)
+          : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getChanges();
+    if (!result.isOk()) throw new Error('expected ok');
+    const change = result.value[0];
+
+    expect(change?.siteTitle).toBe('Foo Site');
+    expect(change?.siteUrl).toBe('http://foo.wikidot.com');
+    expect(change?.pageFullname).toBe('component:scp-173');
+    expect(change?.pageTitle).toBe('SCP-173');
+    expect(change?.revisionNo).toBe(5);
+    expect(change?.flags).toEqual(['S']);
+  });
+
+  test('getChanges caches the user id across calls', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : body.moduleName === 'userinfo/UserChangesListModule'
+          ? createOkResponse(USER_CHANGES_LIST_BODY)
+          : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    await recent.getChanges();
+    await recent.getChanges();
+
+    const shellCalls = mockAmc
+      .getRequestHistory()
+      .filter((body) => body.moduleName === 'userinfo/UserChangesModule');
+    expect(shellCalls.length).toBe(1);
+  });
+
+  test('getChanges rejects a "tags" option key', async () => {
     const mockAmc = new MockAMCClient();
     const client = createMockClient(mockAmc);
     const recent = new AccountRecentActivity(client);
 
-    const result = await recent.getChangesHtml(1, 20, { tags: true } as never);
+    const result = await recent.getChanges({ tags: true } as never);
 
     expect(result.isErr()).toBe(true);
   });
 
-  test('getPostsHtml uses own user id', async () => {
+  test('getPosts fetches the hidden user id first (userinfo/UserRecentPostsModule)', async () => {
     const mockAmc = new MockAMCClient();
     mockAmc.addResponseHandler((body) =>
-      body.moduleName === 'userinfo/UserRecentPostsListModule'
-        ? createOkResponse('<div>posts</div>')
-        : createOkResponse()
+      body.moduleName === 'userinfo/UserRecentPostsModule'
+        ? createOkResponse('<input type="hidden" id="recent-posts-user-id" value="42">')
+        : body.moduleName === 'userinfo/UserRecentPostsListModule'
+          ? createOkResponse(USER_RECENT_POSTS_LIST_BODY)
+          : createOkResponse()
     );
-    const client = createMockClient(mockAmc, { id: 99999 });
+    const client = createMockClient(mockAmc);
     const recent = new AccountRecentActivity(client);
 
-    const result = await recent.getPostsHtml();
+    const result = await recent.getPosts();
 
-    const [body] = mockAmc.getRequestHistory();
-    expect(body?.userId).toBe(99999);
-    expect(result.isOk() && result.value).toBe('<div>posts</div>');
+    const history = mockAmc.getRequestHistory();
+    expect(history[0]?.moduleName).toBe('userinfo/UserRecentPostsModule');
+    expect(history[1]?.moduleName).toBe('userinfo/UserRecentPostsListModule');
+    expect(history[1]?.userId).toBe(42);
+    expect(result.isOk() && result.value.length).toBe(1);
+  });
+
+  test('getPosts parses row fields', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserRecentPostsModule'
+        ? createOkResponse('<input type="hidden" id="recent-posts-user-id" value="42">')
+        : body.moduleName === 'userinfo/UserRecentPostsListModule'
+          ? createOkResponse(USER_RECENT_POSTS_LIST_BODY)
+          : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getPosts();
+    if (!result.isOk()) throw new Error('expected ok');
+    const post = result.value[0];
+
+    expect(post?.title).toBe('Re: Something');
+    expect(post?.url).toBe('http://foo.wikidot.com/forum/t-123#post-456');
+    expect(post?.content).toBe('Post content here');
   });
 });

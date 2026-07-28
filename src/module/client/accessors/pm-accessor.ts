@@ -2,9 +2,10 @@ import type { WikidotResultAsync } from '../../../common/types';
 import {
   addContact,
   addContactViaProfile,
+  type Contact,
   getApplicationDetailHtml,
-  getApplicationsHtml,
-  getContactsHtml,
+  getApplications,
+  getContacts,
   getContactsListHtml,
   getInvitationDetailHtml,
   getInvitationsHtml,
@@ -13,6 +14,7 @@ import {
   PrivateMessageInbox,
   PrivateMessageSentBox,
   removeContact,
+  type SiteJoinApplication,
 } from '../../private-message';
 import type { AbstractUser } from '../../user';
 import type { User } from '../../user/user';
@@ -162,11 +164,10 @@ export class PrivateMessageAccessor {
   }
 
   /**
-   * Fetch a page of the account's pending site join applications (raw HTML)
-   * @param page - Page number
+   * Get all of the account's pending outgoing site join applications
    */
-  getApplicationsHtml(page = 1): WikidotResultAsync<string> {
-    return getApplicationsHtml(this.client, page);
+  getApplications(): WikidotResultAsync<SiteJoinApplication[]> {
+    return getApplications(this.client);
   }
 
   /**
@@ -178,10 +179,10 @@ export class PrivateMessageAccessor {
   }
 
   /**
-   * Fetch the account's contact list (raw HTML)
+   * Get the account's contact list
    */
-  getContactsHtml(): WikidotResultAsync<string> {
-    return getContactsHtml(this.client);
+  getContacts(): WikidotResultAsync<Contact[]> {
+    return getContacts(this.client);
   }
 
   /**

@@ -2,6 +2,7 @@ import type { WikidotResultAsync } from '../../../common/types';
 import type { AMCRequestBody } from '../../../connector/amc-types';
 import {
   type CreateSiteOptions,
+  DashboardSite,
   DashboardSites,
   type NewSitePrivacy,
   type NewSiteTemplate,
@@ -48,11 +49,11 @@ export class SiteAccessor {
   }
 
   /**
-   * Fetch the raw HTML of the account's site dashboard (all roles + deleted)
-   * @returns Raw rendered HTML body
+   * Retrieve every site the account belongs to (all roles) plus deleted sites
+   * @returns All rows of the account's site dashboard
    */
-  listHtml(): WikidotResultAsync<string> {
-    return DashboardSites.listHtml(this.client);
+  listSites(): WikidotResultAsync<DashboardSite[]> {
+    return DashboardSites.listSites(this.client);
   }
 
   /**
@@ -130,4 +131,4 @@ export class SiteAccessor {
 }
 
 export type { CreateSiteOptions, NewSitePrivacy, NewSiteTemplate };
-export { DashboardSites, Site };
+export { DashboardSite, DashboardSites, Site };

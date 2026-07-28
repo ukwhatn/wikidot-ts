@@ -3,7 +3,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import type { Client } from '../../../src/module/client';
-import { DashboardSites } from '../../../src/module/dashboard-site/dashboard-site';
+import { DashboardSite, DashboardSites } from '../../../src/module/dashboard-site/dashboard-site';
 import { createOkResponse, MockAMCClient } from '../../mocks/amc-client.mock';
 
 function createMockClient(mockAmc: MockAMCClient): Client {
@@ -140,18 +140,115 @@ describe('DashboardSites resign/restore', () => {
   });
 });
 
-describe('DashboardSites.listHtml', () => {
-  test('returns raw body', async () => {
+/**
+ * DSListModule row fixture, based on the 2026-07-29 markup measurement recorded
+ * in the sibling wikidot.py repo's 70_account.md ("一覧モジュールの行マークアップ")
+ */
+const DS_LIST_MODULE_BODY = `
+<div class="site">
+  <a class="thumbnail-site" href="http://foo.wikidot.com">
+    <img class="thumbnail-site" src="http://foo.wikidot.com/local--files/favicon/foo.png" />
+  </a>
+  <div class="name"><a href="http://foo.wikidot.com">Foo Site</a></div>
+  <div class="url">http://foo.wikidot.com</div>
+  <a class="btn" href="/account/sites#/manage/123456">Manage</a>
+  <div class="data">
+    <span class="activity">12</span>
+    <span class="site-id">123456</span>
+    <span class="unix-name">foo</span>
+    <span class="tagline">A test site</span>
+    <span class="occupation">admin</span>
+  </div>
+</div>
+<div class="site">
+  <div class="name"><a href="http://bar.wikidot.com">Bar Site</a></div>
+  <div class="url">http://bar.wikidot.com</div>
+  <div class="data">
+    <span class="activity">0</span>
+    <span class="site-id">654321</span>
+    <span class="unix-name">bar</span>
+    <span class="tagline"></span>
+    <span class="occupation">member</span>
+    <span class="deleted"></span>
+  </div>
+</div>
+`;
+
+describe('DashboardSite.acquireAll / DashboardSites.listSites', () => {
+  test('parses all rows', async () => {
     const mockAmc = new MockAMCClient();
     mockAmc.addResponseHandler((body) =>
       body.moduleName === 'dashboard/sites/DSListModule'
-        ? createOkResponse("<div class='data'>...</div>")
+        ? createOkResponse(DS_LIST_MODULE_BODY)
         : createOkResponse()
     );
     const client = createMockClient(mockAmc);
 
-    const result = await DashboardSites.listHtml(client);
+    const result = await DashboardSites.listSites(client);
 
-    expect(result.isOk() && result.value).toBe("<div class='data'>...</div>");
+    expect(result.isOk()).toBe(true);
+    expect(result.isOk() && result.value.length).toBe(2);
+  });
+
+  test('parses active site fields', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/sites/DSListModule'
+        ? createOkResponse(DS_LIST_MODULE_BODY)
+        : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+
+    const result = await DashboardSites.listSites(client);
+    if (!result.isOk()) throw new Error('expected ok');
+    const site = result.value[0];
+
+    expect(site).toBeInstanceOf(DashboardSite);
+    expect(site?.siteId).toBe(123456);
+    expect(site?.title).toBe('Foo Site');
+    expect(site?.url).toBe('http://foo.wikidot.com');
+    expect(site?.unixName).toBe('foo');
+    expect(site?.tagline).toBe('A test site');
+    expect(site?.role).toBe('admin');
+    expect(site?.deleted).toBe(false);
+  });
+
+  test('parses deleted site fields', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/sites/DSListModule'
+        ? createOkResponse(DS_LIST_MODULE_BODY)
+        : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+
+    const result = await DashboardSites.listSites(client);
+    if (!result.isOk()) throw new Error('expected ok');
+    const site = result.value[1];
+
+    expect(site?.siteId).toBe(654321);
+    expect(site?.role).toBe('member');
+    expect(site?.deleted).toBe(true);
+  });
+
+  test('row actions delegate to DashboardSites', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/sites/DSListModule'
+        ? createOkResponse(DS_LIST_MODULE_BODY)
+        : createOkResponse()
+    );
+    const client = createMockClient(mockAmc);
+
+    const result = await DashboardSites.listSites(client);
+    if (!result.isOk()) throw new Error('expected ok');
+    const site = result.value[0];
+    mockAmc.clearRequestHistory();
+
+    await site?.resignAsAdmin();
+
+    const [body] = mockAmc.getRequestHistory();
+    expect(body?.event).toBe('adminResign');
+    expect(body?.site_id).toBe(123456);
   });
 });

@@ -15,6 +15,7 @@
  * Ported from wikidot.py's `module/dashboard_site.py`.
  */
 
+import * as cheerio from 'cheerio';
 import { LoginRequiredError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { checkbox, omitFalsy, requireBody } from '../../connector';
@@ -92,6 +93,165 @@ function fireAction(
   );
 }
 
+/** Data backing a {@link DashboardSite} */
+export interface DashboardSiteData {
+  client: Client;
+  siteId: number;
+  title: string;
+  url: string;
+  unixName: string;
+  tagline: string;
+  activity: string;
+  role: string;
+  deleted: boolean;
+}
+
+/**
+ * A row of the account's site dashboard listing (dashboard/sites/DSListModule)
+ *
+ * Represents the current account's relationship to one site (any role, or a site
+ * it once belonged to but is now deleted). Distinct from `Site`, which represents
+ * a site's own state independent of any particular account.
+ *
+ * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
+ * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
+ * 行マークアップ"): each row is `div.site`, with `div.name > a` (title),
+ * `div.url` (site URL), and a `div.data` block holding `span.activity`,
+ * `span.site-id`, `span.unix-name`, `span.tagline`, `span.deleted`,
+ * `span.occupation`. The measurement captured the DOM skeleton but not the exact
+ * value encoding of every field, so `activity` and `role` are kept as the raw
+ * observed text rather than a guessed enum/unit.
+ */
+export class DashboardSite {
+  public readonly client: Client;
+  /** Site ID (span.site-id) */
+  public readonly siteId: number;
+  /** Site title (text of div.name > a) */
+  public readonly title: string;
+  /** Site URL (text of div.url) */
+  public readonly url: string;
+  /** Site UNIX name (span.unix-name) */
+  public readonly unixName: string;
+  /** Site tagline/subtitle (span.tagline) */
+  public readonly tagline: string;
+  /** Raw text of span.activity; exact meaning/unit was not confirmed */
+  public readonly activity: string;
+  /**
+   * Raw text of span.occupation. Observed values are expected to align with the
+   * hash-tab identifiers used elsewhere on this page ("master_admin" / "admin" /
+   * "moderator" / "member"), but this correspondence was not independently
+   * confirmed
+   */
+  public readonly role: string;
+  /** Whether span.deleted is present in this row's div.data block */
+  public readonly deleted: boolean;
+
+  constructor(data: DashboardSiteData) {
+    this.client = data.client;
+    this.siteId = data.siteId;
+    this.title = data.title;
+    this.url = data.url;
+    this.unixName = data.unixName;
+    this.tagline = data.tagline;
+    this.activity = data.activity;
+    this.role = data.role;
+    this.deleted = data.deleted;
+  }
+
+  /**
+   * Restore this site (must currently be deleted)
+   * @param confirmSiteName - Site name, required as a typed confirmation
+   */
+  restore(confirmSiteName: string): WikidotResultAsync<void> {
+    return DashboardSites.restoreSite(this.client, this.siteId, confirmSiteName);
+  }
+
+  /**
+   * Resign the account's admin role on this site
+   */
+  resignAsAdmin(): WikidotResultAsync<void> {
+    return DashboardSites.resignAsAdmin(this.client, this.siteId);
+  }
+
+  /**
+   * Resign the account's moderator role on this site
+   */
+  resignAsModerator(): WikidotResultAsync<void> {
+    return DashboardSites.resignAsModerator(this.client, this.siteId);
+  }
+
+  /**
+   * Leave this site (account must be a plain member)
+   */
+  signOffAsMember(): WikidotResultAsync<void> {
+    return DashboardSites.signOffAsMember(this.client, this.siteId);
+  }
+
+  /**
+   * Set this site's file storage limit. Unmeasured: see
+   * DashboardSites.setStorageLimit for details
+   * @param rawFields - Raw form fields to send as-is
+   */
+  setStorageLimit(rawFields: Record<string, AMCRequestBody[string]>): WikidotResultAsync<void> {
+    return DashboardSites.setStorageLimit(this.client, this.siteId, rawFields);
+  }
+
+  toString(): string {
+    return `DashboardSite(siteId=${this.siteId}, title=${this.title}, role=${this.role}, deleted=${this.deleted})`;
+  }
+
+  /**
+   * Retrieve every site the account belongs to (all roles) plus deleted sites
+   *
+   * Wraps dashboard/sites/DSListModule, which renders the full list in one
+   * response (the real UI filters by role/deleted client-side via DOM attributes
+   * rather than separate requests).
+   * @param client - Client instance
+   * @returns All rows of the account's site dashboard
+   */
+  static acquireAll(client: Client): WikidotResultAsync<DashboardSite[]> {
+    return withLogin(
+      client,
+      async () => {
+        const result = await client.amcClient.request([
+          { moduleName: 'dashboard/sites/DSListModule' },
+        ]);
+        if (result.isErr()) throw result.error;
+        const html = requireBody(result.value[0], 'dashboard/sites/DSListModule');
+        const $ = cheerio.load(html);
+
+        const sites: DashboardSite[] = [];
+        $('div.site').each((_i, elem) => {
+          const $row = $(elem);
+          const nameLink = $row.find('div.name > a').first();
+          const siteIdText = $row.find('span.site-id').first().text().trim();
+
+          if (nameLink.length === 0 || !/^\d+$/.test(siteIdText)) {
+            return;
+          }
+
+          sites.push(
+            new DashboardSite({
+              client,
+              siteId: Number.parseInt(siteIdText, 10),
+              title: nameLink.text().trim(),
+              url: $row.find('div.url').first().text().trim(),
+              unixName: $row.find('span.unix-name').first().text().trim(),
+              tagline: $row.find('span.tagline').first().text().trim(),
+              activity: $row.find('span.activity').first().text().trim(),
+              role: $row.find('span.occupation').first().text().trim(),
+              deleted: $row.find('span.deleted').length > 0,
+            })
+          );
+        });
+
+        return sites;
+      },
+      (error) => new UnexpectedError(`Failed to fetch site list: ${String(error)}`)
+    );
+  }
+}
+
 /**
  * Static namespace grouping the account's site-dashboard operations
  * (DashboardSitesAction / NewSiteAction / dashboard/sites/*).
@@ -144,28 +304,12 @@ export const DashboardSites = {
   },
 
   /**
-   * Fetch the raw HTML of dashboard/sites/DSListModule.
-   *
-   * Renders every site the account belongs to (all roles) plus deleted sites in one
-   * response; the real UI filters by role/deleted client-side via DOM attributes
-   * rather than separate requests. Row markup detail (site id/unix name/role
-   * attributes) was not captured during the investigation, so this returns the raw
-   * body rather than a parsed list.
+   * Retrieve every site the account belongs to (all roles) plus deleted sites
    * @param client - Client instance
-   * @returns Raw rendered HTML body
+   * @returns All rows of the account's site dashboard
    */
-  listHtml(client: Client): WikidotResultAsync<string> {
-    return withLogin(
-      client,
-      async () => {
-        const result = await client.amcClient.request([
-          { moduleName: 'dashboard/sites/DSListModule' },
-        ]);
-        if (result.isErr()) throw result.error;
-        return requireBody(result.value[0], 'dashboard/sites/DSListModule');
-      },
-      (error) => new UnexpectedError(`Failed to fetch site list: ${String(error)}`)
-    );
+  listSites(client: Client): WikidotResultAsync<DashboardSite[]> {
+    return DashboardSite.acquireAll(client);
   },
 
   /**

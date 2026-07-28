@@ -6,9 +6,10 @@ import type { Client } from '../../../src/module/client';
 import {
   addContact,
   addContactViaProfile,
+  Contact,
   getApplicationDetailHtml,
-  getApplicationsHtml,
-  getContactsHtml,
+  getApplications,
+  getContacts,
   getContactsListHtml,
   getInvitationDetailHtml,
   getInvitationsHtml,
@@ -17,6 +18,7 @@ import {
   PrivateMessageInbox,
   PrivateMessageSentBox,
   removeContact,
+  SiteJoinApplication,
 } from '../../../src/module/private-message/private-message';
 import type { ClientRef } from '../../../src/module/types';
 import { User } from '../../../src/module/user/user';
@@ -350,14 +352,53 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
     expect(body?.item).toBe(9);
   });
 
-  test('getApplicationsHtml fetches DMApplicationsModule', async () => {
+  test('getApplications parses DMApplicationsModule rows (2026-07-29 measured markup)', async () => {
     const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/messages/DMApplicationsModule'
+        ? createOkResponse(`
+          <table>
+          <tr>
+              <td>
+                  <span class="from">Foo Site</span>
+                  <span class="subject">Membership application</span>
+                  <span class="preview">Please let me join!</span>
+                  <span class="date"><span class="odate time_1700000000">01 Jan 2024</span></span>
+              </td>
+          </tr>
+          </table>
+        `)
+        : createOkResponse()
+    );
     const client = createFullMockClient(mockAmc);
 
-    await getApplicationsHtml(client);
+    const result = await getApplications(client);
 
     const [body] = mockAmc.getRequestHistory();
     expect(body?.moduleName).toBe('dashboard/messages/DMApplicationsModule');
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) throw new Error('expected ok');
+    expect(result.value.length).toBe(1);
+    const application = result.value[0];
+    expect(application).toBeInstanceOf(SiteJoinApplication);
+    expect(application?.fromSite).toBe('Foo Site');
+    expect(application?.subject).toBe('Membership application');
+    expect(application?.preview).toBe('Please let me join!');
+    expect(application?.submittedAt.getTime()).toBe(new Date(1700000000 * 1000).getTime());
+  });
+
+  test('getApplications skips rows without a from span', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/messages/DMApplicationsModule'
+        ? createOkResponse('<table><tr><td>no from span here</td></tr></table>')
+        : createOkResponse()
+    );
+    const client = createFullMockClient(mockAmc);
+
+    const result = await getApplications(client);
+
+    expect(result.isOk() && result.value).toEqual([]);
   });
 
   test('getApplicationDetailHtml sends item', async () => {
@@ -371,14 +412,51 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
     expect(body?.item).toBe(3);
   });
 
-  test('getContactsHtml fetches DMContactsModule', async () => {
+  test('getContacts parses DMContactsModule rows (2026-07-29 measured markup)', async () => {
     const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/messages/DMContactsModule'
+        ? createOkResponse(`
+          <table>
+          <tr>
+              <td>
+                  <span class="printuser avatarhover">
+                      <a href="http://www.wikidot.com/user:info/contact-user"
+                         onclick="WIKIDOT.page.listeners.userInfo(54321); return false;">contact-user</a>
+                  </span>
+              </td>
+              <td><a class="awesome red small" href="#">x</a></td>
+          </tr>
+          </table>
+        `)
+        : createOkResponse()
+    );
     const client = createFullMockClient(mockAmc);
 
-    await getContactsHtml(client);
+    const result = await getContacts(client);
 
     const [body] = mockAmc.getRequestHistory();
     expect(body?.moduleName).toBe('dashboard/messages/DMContactsModule');
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) throw new Error('expected ok');
+    expect(result.value.length).toBe(1);
+    const contact = result.value[0];
+    expect(contact).toBeInstanceOf(Contact);
+    expect(contact?.user.id).toBe(54321);
+    expect(contact?.user.name).toBe('contact-user');
+  });
+
+  test('Contact.remove delegates to removeContact', async () => {
+    const mockAmc = new MockAMCClient();
+    const client = createFullMockClient(mockAmc);
+    const contact = new Contact({ client, user: { id: 54321 } as never });
+
+    await contact.remove();
+
+    const [body] = mockAmc.getRequestHistory();
+    expect(body?.action).toBe('ContactsAction');
+    expect(body?.event).toBe('removeContact');
+    expect(body?.userId).toBe(54321);
   });
 
   test('getContactsListHtml fetches DMContactsListModule', async () => {
