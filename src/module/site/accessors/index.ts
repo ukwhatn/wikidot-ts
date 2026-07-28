@@ -13,3 +13,9 @@ export {
   SearchPagesQuery,
   type SearchPagesQueryParams,
 } from './pages-accessor';
+export {
+  SettingsAccessor,
+  SiteCategory,
+  SiteCategoryCollection,
+  SiteLicense,
+} from './settings-accessor';

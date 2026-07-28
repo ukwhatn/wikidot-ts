@@ -111,6 +111,7 @@ export const amcFixtures = {
     siteChangesEmpty: () => loadJsonFixture('site', 'site_changes_empty.json'),
     applications: () => loadJsonFixture('site', 'applications.json'),
     applicationsEmpty: () => loadJsonFixture('site', 'applications_empty.json'),
+    categoriesSingle: () => loadJsonFixture('site', 'categories_single.json'),
   },
 };
 
