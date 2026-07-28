@@ -3,6 +3,7 @@ import pLimit, { type LimitFunction } from 'p-limit';
 import {
   AMCHttpError,
   ForbiddenError,
+  FormErrorsError,
   NotFoundException,
   ResponseDataError,
   UnexpectedError,
@@ -351,10 +352,22 @@ export class AMCClient {
 
         // Error if status is not ok
         if (amcResponse.status !== 'ok') {
+          // form_errors / form_error carry validation payloads (formErrors / errors / message)
+          // that callers need to inspect, so surface them via a dedicated subclass.
+          if (amcResponse.status === 'form_errors' || amcResponse.status === 'form_error') {
+            return wdErrAsync(
+              new FormErrorsError(
+                `AMC responded with error status: "${amcResponse.status}"`,
+                amcResponse.status,
+                amcResponse
+              )
+            );
+          }
           return wdErrAsync(
             new WikidotStatusError(
               `AMC responded with error status: "${amcResponse.status}"`,
-              amcResponse.status
+              amcResponse.status,
+              amcResponse
             )
           );
         }
