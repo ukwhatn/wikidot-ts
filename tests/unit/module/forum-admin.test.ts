@@ -7,12 +7,14 @@ import { ResponseDataError, UnexpectedError } from '../../../src/common/errors';
 import type { AMCRequestBody, AMCResponse } from '../../../src/connector';
 import {
   activateForum,
-  ForumCategoryPermissionOverride,
+  ForumCategoryPermissions,
+  ForumCategoryPermissionsCollection,
   ForumLayout,
   ForumLayoutCategory,
   ForumLayoutGroup,
-  saveForumPermissions,
+  type RawForumCategoryPermissions,
   setForumDefaultNesting,
+  updateForumPermissions,
 } from '../../../src/module/site/forum-admin';
 import type { Site } from '../../../src/module/site/site';
 import { ForumPermissions } from '../../../src/module/site/site-permissions';
@@ -232,42 +234,160 @@ describe('ForumLayout mutation', () => {
   });
 });
 
-describe('ForumCategoryPermissionOverride', () => {
-  test('encodes explicit permissions', () => {
-    const perms = ForumPermissions.decode('t:m;p:arm;e:m');
-    const override = new ForumCategoryPermissionOverride(7001, perms);
-    const raw = override.toRaw();
-    expect(raw.category_id).toBe(7001);
-    expect(raw.permissions).toBe(perms.encode());
+/** 13-field category object as returned by ManageSiteForumPermissionsModule (実測 2026-07-29) */
+function rawPermissionsCategory(
+  overrides: Partial<RawForumCategoryPermissions> = {}
+): RawForumCategoryPermissions {
+  return {
+    category_id: 7001,
+    group_id: 1,
+    name: 'Cat A1',
+    description: 'desc',
+    number_posts: 42,
+    number_threads: 5,
+    last_post_id: 99999,
+    permissions_default: true,
+    permissions: null,
+    max_nest_level: null,
+    sort_index: 0,
+    site_id: 3632981,
+    per_page_discussion: null,
+    ...overrides,
+  };
+}
+
+describe('ForumCategoryPermissions round trip', () => {
+  test('fromRaw/toRaw preserves all 13 fields', () => {
+    const raw = rawPermissionsCategory({
+      permissions: 't:m;p:arm;e:m',
+      permissions_default: false,
+    });
+    const category = ForumCategoryPermissions.fromRaw(raw);
+
+    expect(category.categoryId).toBe(7001);
+    expect(category.groupId).toBe(1);
+    expect(category.numberPosts).toBe(42);
+    expect(category.numberThreads).toBe(5);
+    expect(category.lastPostId).toBe(99999);
+    expect(category.permissionsDefault).toBe(false);
+    expect(category.permissions).not.toBeNull();
+    expect(category.sortIndex).toBe(0);
+    expect(category.siteId).toBe(3632981);
+
+    const result = category.toRaw();
+    // 元の13フィールドが全て往復すること({category_id, permissions}だけの部分オブジェクトにならない)
+    for (const key of Object.keys(raw) as (keyof RawForumCategoryPermissions)[]) {
+      if (key === 'permissions') continue;
+      expect(result[key]).toEqual(raw[key]);
+    }
+    expect(result.permissions).toBe('t:m;p:arm;e:m');
   });
 
-  test('null permissions means inherit default', () => {
-    const override = new ForumCategoryPermissionOverride(7001, null);
-    expect(override.toRaw()).toEqual({ category_id: 7001, permissions: null });
+  test('preserves unknown fields via raw', () => {
+    const raw = rawPermissionsCategory({ some_future_field: 'x' });
+    const category = ForumCategoryPermissions.fromRaw(raw);
+    expect(category.toRaw().some_future_field).toBe('x');
+  });
+
+  test('setPermissions updates the default flag', () => {
+    const category = ForumCategoryPermissions.fromRaw(rawPermissionsCategory());
+    const perms = ForumPermissions.decode('t:m;p:arm;e:m');
+
+    category.setPermissions(perms);
+    expect(category.permissions).toBe(perms);
+    expect(category.permissionsDefault).toBe(false);
+
+    category.setPermissions(null);
+    expect(category.permissions).toBeNull();
+    expect(category.permissionsDefault).toBe(true);
   });
 });
 
-describe('saveForumPermissions', () => {
-  test('sends default and category overrides', async () => {
-    const { site, calls } = createMockSite(queued([okResponse]));
-    const defaultPermissions = ForumPermissions.decode('t:m;p:arm;e:m');
-    const overrides = [new ForumCategoryPermissionOverride(7001, null)];
+describe('ForumCategoryPermissionsCollection.fetch', () => {
+  test('parses categories from the permissions module', async () => {
+    const { site, calls } = createMockSite(
+      queued([{ status: 'ok', categories: [rawPermissionsCategory()] } as unknown as AMCResponse])
+    );
 
-    const result = await saveForumPermissions(site, defaultPermissions, overrides);
+    const result = await ForumCategoryPermissionsCollection.fetch(site);
 
     expect(result.isOk()).toBe(true);
-    expect(calls[0]?.action).toBe('ManageSiteForumAction');
-    expect(calls[0]?.event).toBe('saveForumPermissions');
-    expect(calls[0]?.default_permissions).toBe(defaultPermissions.encode());
-    expect(calls[0]?.categories).toBe('[{"category_id":7001,"permissions":null}]');
+    if (!result.isOk()) return;
+    expect(result.value.length).toBe(1);
+    expect(result.value.get(7001).categoryId).toBe(7001);
+    expect(calls[0]).toEqual({ moduleName: 'managesite/ManageSiteForumPermissionsModule' });
   });
 
-  test('defaults to an empty override array', async () => {
+  test('errors when categories field is missing', async () => {
+    const { site } = createMockSite(queued([{ status: 'ok' }]));
+    const result = await ForumCategoryPermissionsCollection.fetch(site);
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBeInstanceOf(ResponseDataError);
+  });
+
+  test('get() on a missing id throws', () => {
+    const collection = new ForumCategoryPermissionsCollection({} as unknown as Site, [
+      ForumCategoryPermissions.fromRaw(rawPermissionsCategory()),
+    ]);
+    expect(() => collection.get(999999)).toThrow();
+  });
+});
+
+describe('ForumCategoryPermissionsCollection.save', () => {
+  test('sends full category objects, not a partial shape', async () => {
     const { site, calls } = createMockSite(queued([okResponse]));
+    const collection = new ForumCategoryPermissionsCollection(site, [
+      ForumCategoryPermissions.fromRaw(rawPermissionsCategory()),
+    ]);
+
+    await collection.save();
+
+    const sentCategories = JSON.parse(calls[0]?.categories as string) as Record<string, unknown>[];
+    expect(calls[0]?.action).toBe('ManageSiteForumAction');
+    expect(calls[0]?.event).toBe('saveForumPermissions');
+    expect(Object.keys(sentCategories[0] ?? {}).length).toBe(13); // 2フィールドの部分オブジェクトに戻っていないこと
+    expect(sentCategories[0]).toHaveProperty('number_posts');
+    expect(sentCategories[0]).toHaveProperty('sort_index');
+  });
+
+  test('omits default_permissions when not provided', async () => {
+    const { site, calls } = createMockSite(queued([okResponse]));
+    const collection = new ForumCategoryPermissionsCollection(site, []);
+
+    await collection.save();
+
+    expect(calls[0]).not.toHaveProperty('default_permissions');
+  });
+
+  test('sends default_permissions when explicitly provided', async () => {
+    const { site, calls } = createMockSite(queued([okResponse]));
+    const collection = new ForumCategoryPermissionsCollection(site, []);
     const defaultPermissions = ForumPermissions.decode('t:m;p:arm;e:m');
 
-    await saveForumPermissions(site, defaultPermissions);
+    await collection.save(defaultPermissions);
 
-    expect(calls[0]?.categories).toBe('[]');
+    expect(calls[0]?.default_permissions).toBe(defaultPermissions.encode());
+  });
+});
+
+describe('updateForumPermissions', () => {
+  test('fetches, mutates, then saves', async () => {
+    const { site, calls } = createMockSite(
+      queued([
+        { status: 'ok', categories: [rawPermissionsCategory()] } as unknown as AMCResponse,
+        okResponse,
+      ])
+    );
+    const newPerms = ForumPermissions.decode('t:m;p:arm;e:m');
+
+    const result = await updateForumPermissions(site, (cats) =>
+      cats.get(7001).setPermissions(newPerms)
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(calls.length).toBe(2);
+    expect(calls[0]).toEqual({ moduleName: 'managesite/ManageSiteForumPermissionsModule' });
+    expect(calls[1]?.event).toBe('saveForumPermissions');
+    expect(calls[1]?.categories as string).toContain(newPerms.encode());
   });
 });

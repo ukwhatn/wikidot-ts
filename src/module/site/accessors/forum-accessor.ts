@@ -8,10 +8,10 @@ import {
 } from '../../forum';
 import {
   activateForum,
-  ForumCategoryPermissionOverride,
+  ForumCategoryPermissionsCollection,
   ForumLayout,
-  saveForumPermissions,
   setForumDefaultNesting,
+  updateForumPermissions,
 } from '../forum-admin';
 import type { Site } from '../site';
 import type { ForumPermissions } from '../site-permissions';
@@ -73,17 +73,25 @@ export class ForumAccessor {
   }
 
   /**
-   * Save forum-wide default permissions and any per-category overrides.
+   * Fetch the current forum category permissions, mutate them, and save
+   * them back.
    *
-   * See `forum-admin.ts`'s `saveForumPermissions` for the full caveat about
-   * this sending the complete override set (no partial-update support
-   * confirmed).
+   * See `forum-admin.ts`'s `updateForumPermissions` for why this must be a
+   * fetch-mutate-save cycle rather than accepting a hand-built override
+   * list (`ManageSiteForumAction/saveForumPermissions` sends the module's
+   * entire fetched `categories` array).
+   * @param mutator - Called with the freshly fetched collection; mutate
+   * categories in place (e.g. `collection.get(categoryId).setPermissions(...)`)
+   * @param defaultPermissions - Site-wide default forum permissions to
+   * also set. Only sent when explicitly provided -- see
+   * `ForumCategoryPermissionsCollection.save`'s docs for why this can't
+   * be fetched and preserved automatically
    */
-  savePermissions(
-    defaultPermissions: ForumPermissions,
-    categoryPermissions: ForumCategoryPermissionOverride[] = []
+  updatePermissions(
+    mutator: (categories: ForumCategoryPermissionsCollection) => void,
+    defaultPermissions?: ForumPermissions
   ): WikidotResultAsync<void> {
-    return saveForumPermissions(this.site, defaultPermissions, categoryPermissions);
+    return updateForumPermissions(this.site, mutator, defaultPermissions);
   }
 
   /**
@@ -99,7 +107,7 @@ export class ForumAccessor {
 export {
   ForumCategory,
   ForumCategoryCollection,
-  ForumCategoryPermissionOverride,
+  ForumCategoryPermissionsCollection,
   ForumLayout,
   ForumPost,
   ForumThread,

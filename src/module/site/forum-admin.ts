@@ -18,9 +18,10 @@ import { ResponseDataError, type WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { jsonParam } from '../../connector/amc-body';
 import type { Site } from './site';
-import type { ForumPermissions } from './site-permissions';
+import { ForumPermissions } from './site-permissions';
 
 const MODULE_GET_FORUM_LAYOUT = 'managesite/ManageSiteGetForumLayoutModule';
+const MODULE_FORUM_PERMISSIONS = 'managesite/ManageSiteForumPermissionsModule';
 
 /**
  * Enable the forum for a site that does not have one yet.
@@ -383,76 +384,274 @@ export class ForumLayout {
 }
 
 /**
- * A single element of `saveForumPermissions`'s `categories` array: one forum
- * category's permission override.
+ * Raw forum category object shape as returned by
+ * `managesite/ManageSiteForumPermissionsModule` (13 fields; confirmed by a
+ * live read-only fetch, 2026-07-29). A *different* shape from
+ * {@link RawForumLayoutCategory} (`managesite/ManageSiteGetForumLayoutModule`):
+ * the two modules describe the same underlying forum categories but return
+ * different field sets (this module has `number_posts` / `permissions_default`
+ * / `sort_index` / `site_id` / `per_page_discussion`; the layout module has
+ * `posts` instead of `number_posts` and lacks the other four). Always fetch
+ * from the module matching the event being saved, exactly like the page
+ * `categories` (30_plan.md D3) -- do not mix fields from the two shapes.
  */
-export class ForumCategoryPermissionOverride {
+export type RawForumCategoryPermissions = Record<string, unknown> & {
+  category_id: number;
+  group_id?: number;
+  name?: string;
+  description?: string;
+  number_posts?: number;
+  number_threads?: number;
+  last_post_id?: number | null;
+  permissions_default?: boolean;
+  permissions?: string | null;
+  max_nest_level?: number | null;
+  sort_index?: number | null;
+  site_id?: number;
+  per_page_discussion?: boolean | null;
+};
+
+/**
+ * A single forum category object from `managesite/ManageSiteForumPermissionsModule`'s
+ * `categories` array. Compares by reference, like ForumLayoutGroup/ForumLayoutCategory.
+ */
+export class ForumCategoryPermissions {
   readonly categoryId: number;
+  groupId: number | undefined;
+  name: string;
+  description: string;
+  numberPosts: number;
+  numberThreads: number;
+  lastPostId: number | null;
+  /** Whether this category inherits the site-wide default permissions */
+  permissionsDefault: boolean;
   /**
    * null means "inherit the site-wide default permissions"
    * (40_admin-managesite.md: フォーラムカテゴリの permissions が null の場合は
-   * 「サイト既定を使う」)
+   * 「サイト既定を使う」); also see `permissionsDefault`
    */
-  readonly permissions: ForumPermissions | null;
+  permissions: ForumPermissions | null;
+  /** 0-10, or null to inherit the forum's site-wide default */
+  maxNestLevel: number | null;
+  sortIndex: number | null;
+  siteId: number | undefined;
+  perPageDiscussion: boolean | null;
+  /**
+   * Original response object, kept so `toRaw()` round-trips fields this
+   * library does not (yet) know about instead of dropping them (same
+   * rationale as `SiteCategory`'s `raw`, D3)
+   */
+  private readonly raw: RawForumCategoryPermissions;
 
-  constructor(categoryId: number, permissions: ForumPermissions | null) {
-    this.categoryId = categoryId;
-    this.permissions = permissions;
+  constructor(data: {
+    categoryId: number;
+    groupId?: number;
+    name?: string;
+    description?: string;
+    numberPosts?: number;
+    numberThreads?: number;
+    lastPostId?: number | null;
+    permissionsDefault?: boolean;
+    permissions?: ForumPermissions | null;
+    maxNestLevel?: number | null;
+    sortIndex?: number | null;
+    siteId?: number;
+    perPageDiscussion?: boolean | null;
+    raw?: RawForumCategoryPermissions;
+  }) {
+    this.categoryId = data.categoryId;
+    this.groupId = data.groupId;
+    this.name = data.name ?? '';
+    this.description = data.description ?? '';
+    this.numberPosts = data.numberPosts ?? 0;
+    this.numberThreads = data.numberThreads ?? 0;
+    this.lastPostId = data.lastPostId ?? null;
+    this.permissionsDefault = data.permissionsDefault ?? true;
+    this.permissions = data.permissions ?? null;
+    this.maxNestLevel = data.maxNestLevel ?? null;
+    this.sortIndex = data.sortIndex ?? null;
+    this.siteId = data.siteId;
+    this.perPageDiscussion = data.perPageDiscussion ?? null;
+    this.raw = data.raw ?? { category_id: data.categoryId };
+  }
+
+  /** Parse a single `categories` array element */
+  static fromRaw(data: RawForumCategoryPermissions): ForumCategoryPermissions {
+    return new ForumCategoryPermissions({
+      categoryId: data.category_id,
+      groupId: data.group_id,
+      name: data.name,
+      description: data.description,
+      numberPosts: data.number_posts,
+      numberThreads: data.number_threads,
+      lastPostId: data.last_post_id,
+      permissionsDefault: data.permissions_default,
+      permissions:
+        typeof data.permissions === 'string' && data.permissions
+          ? ForumPermissions.decode(data.permissions)
+          : null,
+      maxNestLevel: data.max_nest_level,
+      sortIndex: data.sort_index,
+      siteId: data.site_id,
+      perPageDiscussion: data.per_page_discussion,
+      raw: data,
+    });
+  }
+
+  /** Rebuild a `categories` array element for sending back to Wikidot */
+  toRaw(): RawForumCategoryPermissions {
+    return {
+      ...this.raw,
+      category_id: this.categoryId,
+      group_id: this.groupId,
+      name: this.name,
+      description: this.description,
+      number_posts: this.numberPosts,
+      number_threads: this.numberThreads,
+      last_post_id: this.lastPostId,
+      permissions_default: this.permissionsDefault,
+      permissions: this.permissions ? this.permissions.encode() : null,
+      max_nest_level: this.maxNestLevel,
+      sort_index: this.sortIndex,
+      site_id: this.siteId,
+      per_page_discussion: this.perPageDiscussion,
+    };
   }
 
   /**
-   * Encode as the `{category_id, permissions}` shape `saveForumPermissions` expects.
-   *
-   * This field shape (`category_id` + `permissions`) was not directly
-   * observed for this specific event -- no corresponding "get forum
-   * permissions" module response was captured during the survey, unlike
-   * `ManageSiteGetForumLayoutModule` for the layout side. It is inferred
-   * from the same two field names Wikidot uses consistently elsewhere for a
-   * forum category object (`ForumLayoutCategory.categoryId`,
-   * `SiteCategory.permissions`), not invented from scratch. Treat
-   * `saveForumPermissions` as unverified against a live site until confirmed
+   * Set this category's forum permissions
+   * @param permissions - New permissions, or null to inherit the site-wide
+   * default (also sets `permissionsDefault` accordingly)
    */
-  toRaw(): { category_id: number; permissions: string | null } {
-    return {
-      category_id: this.categoryId,
-      permissions: this.permissions ? this.permissions.encode() : null,
-    };
+  setPermissions(permissions: ForumPermissions | null): void {
+    this.permissions = permissions;
+    this.permissionsDefault = permissions === null;
   }
 }
 
 /**
- * Save forum-wide default permissions and any per-category overrides.
+ * The full `categories` array from `managesite/ManageSiteForumPermissionsModule`.
  *
- * `ManageSiteForumAction/saveForumPermissions` sends the *entire* `categories`
- * array like every other categories-backed save in this library (30_plan.md
- * D3) -- there is no read endpoint confirmed for this specific event (see
- * `ForumCategoryPermissionOverride.toRaw`), so unlike `SettingsAccessor`'s
- * categories helpers this cannot offer a fetch-mutate-save cycle. Callers
- * must pass the complete desired set of overrides; categories left out of
- * `categoryPermissions` are not guaranteed to keep their current override
- * (server behavior for omitted categories is unconfirmed).
- *
- * Does not check login state before sending, matching the convention already
- * established by `settings-accessor.ts`'s Manage Site save methods (none of
- * them gate locally either -- a `no_permission` response surfaces as a
- * ForbiddenError from the transport layer instead).
+ * Never cached (30_plan.md D3): fetch again before each edit so a stale
+ * snapshot doesn't clobber another admin's concurrent change when saved.
  */
-export function saveForumPermissions(
+export class ForumCategoryPermissionsCollection {
+  readonly site: Site;
+  readonly categories: ForumCategoryPermissions[];
+
+  constructor(site: Site, categories: ForumCategoryPermissions[]) {
+    this.site = site;
+    this.categories = categories;
+  }
+
+  /**
+   * Look up a category by ID
+   * @throws {Error} If no category with that ID exists
+   */
+  get(categoryId: number): ForumCategoryPermissions {
+    const category = this.categories.find((c) => c.categoryId === categoryId);
+    if (!category) {
+      throw new Error(`Forum category not found: ${categoryId}`);
+    }
+    return category;
+  }
+
+  get length(): number {
+    return this.categories.length;
+  }
+
+  /** Fetch the current forum category permissions */
+  static fetch(site: Site): WikidotResultAsync<ForumCategoryPermissionsCollection> {
+    return fromPromise(
+      (async () => {
+        const result = await site.amcRequestSingle({ moduleName: MODULE_FORUM_PERMISSIONS });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const rawCategories = result.value.categories;
+        if (!Array.isArray(rawCategories)) {
+          throw new ResponseDataError(
+            `Response has no 'categories' field: ${MODULE_FORUM_PERMISSIONS}`
+          );
+        }
+        return new ForumCategoryPermissionsCollection(
+          site,
+          (rawCategories as RawForumCategoryPermissions[]).map((item) =>
+            ForumCategoryPermissions.fromRaw(item)
+          )
+        );
+      })(),
+      (error) => {
+        if (error instanceof ResponseDataError) return error as unknown as WikidotError;
+        return error as WikidotError;
+      }
+    );
+  }
+
+  /**
+   * Send the full `categories` array back to Wikidot
+   * (`ManageSiteForumAction/saveForumPermissions`)
+   * @param defaultPermissions - Site-wide default forum permissions to also
+   * set. Wikidot's own client reads this from a variable populated at
+   * page-render time, not from any confirmed AMC response field (see
+   * 40_admin-managesite.md "実測（2026-07-29）"), so this library cannot
+   * fetch-and-preserve the current value the way it does for `categories`
+   * -- the key is only sent when the caller explicitly provides a value
+   * here, leaving the site default untouched otherwise
+   */
+  save(defaultPermissions?: ForumPermissions): WikidotResultAsync<void> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({
+          action: 'ManageSiteForumAction',
+          event: 'saveForumPermissions',
+          moduleName: 'Empty',
+          categories: jsonParam(this.categories.map((c) => c.toRaw())),
+          ...(defaultPermissions ? { default_permissions: defaultPermissions.encode() } : {}),
+        });
+        if (result.isErr()) {
+          throw result.error;
+        }
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+}
+
+/**
+ * Fetch the current forum category permissions, mutate them, and save them back.
+ *
+ * The read-modify-write primitive for forum category permissions, mirroring
+ * `SettingsAccessor.updateCategories` (30_plan.md D3) --
+ * `ManageSiteForumAction/saveForumPermissions` sends the *entire* `categories`
+ * array (confirmed from `js/managesite_ManageSiteForumPermissionsModule.js`'s
+ * `save`: `b.categories = JSON.stringify(WIKIDOT.modules.ManagerSiteModule.vars.categories)`,
+ * the module's own fetched array with one category's `permissions` field
+ * patched in place), so sending a hand-built partial array would silently
+ * drop the other 12 fields on Wikidot's side (the exact D3 hazard
+ * `SiteCategory`'s `raw` field exists to prevent).
+ * @param mutator - Called with the freshly fetched collection; mutate
+ * categories in place (e.g. via `ForumCategoryPermissions.setPermissions`)
+ * @param defaultPermissions - Passed through to
+ * `ForumCategoryPermissionsCollection.save`; see its docs for why this
+ * can't be fetched and round-tripped like `categories` can
+ */
+export function updateForumPermissions(
   site: Site,
-  defaultPermissions: ForumPermissions,
-  categoryPermissions: ForumCategoryPermissionOverride[] = []
+  mutator: (categories: ForumCategoryPermissionsCollection) => void,
+  defaultPermissions?: ForumPermissions
 ): WikidotResultAsync<void> {
   return fromPromise(
     (async () => {
-      const result = await site.amcRequestSingle({
-        action: 'ManageSiteForumAction',
-        event: 'saveForumPermissions',
-        moduleName: 'Empty',
-        default_permissions: defaultPermissions.encode(),
-        categories: jsonParam(categoryPermissions.map((o) => o.toRaw())),
-      });
-      if (result.isErr()) {
-        throw result.error;
+      const fetchResult = await ForumCategoryPermissionsCollection.fetch(site);
+      if (fetchResult.isErr()) {
+        throw fetchResult.error;
+      }
+      const collection = fetchResult.value;
+      mutator(collection);
+      const saveResult = await collection.save(defaultPermissions);
+      if (saveResult.isErr()) {
+        throw saveResult.error;
       }
     })(),
     (error) => error as WikidotError
