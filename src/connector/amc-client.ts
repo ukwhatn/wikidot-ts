@@ -1,4 +1,4 @@
-import ky, { type KyInstance } from 'ky';
+import ky, { isHTTPError, type KyInstance } from 'ky';
 import pLimit, { type LimitFunction } from 'p-limit';
 import {
   AMCHttpError,
@@ -361,6 +361,25 @@ export class AMCClient {
 
         return wdOkAsync(amcResponse);
       } catch (error) {
+        // Fail fast on an unknown action/event: Wikidot returns HTTP 500 with an empty
+        // (0-byte, not even JSON) body when `action` is set but the event doesn't exist
+        // server-side. This isn't a transient failure, so retrying just wastes cycles.
+        // ky consumes the body while populating `error.data`, so Content-Length is the
+        // only reliable way left to check "empty" here.
+        if (isHTTPError(error) && error.response.status === 500 && body.action) {
+          const contentLength = error.response.headers.get('content-length');
+          const isEmptyBody = contentLength === '0' || (contentLength === null && !error.data);
+          if (isEmptyBody) {
+            return wdErrAsync(
+              new AMCHttpError(
+                `AMC responded with HTTP 500 and an empty body for action "${body.action}"` +
+                  `/"${body.event ?? ''}" (likely an unsupported action/event)`,
+                500
+              )
+            );
+          }
+        }
+
         // Retry on all errors (HTTP errors, network errors, timeouts, etc.)
         // Wikidot server has a relatively high error rate, so retry is essential
         retryCount++;
