@@ -10,22 +10,26 @@
  * - Permissions / License / Navigation / Templates / PageRate /
  *   PerPageDiscussion / Appearance: thin wrappers over `updateCategories`
  *   (Task 1-4)
- * - General / Domain / Access policy: standalone form saves (Task 1-3)
+ * - General / Domain / Access policy: read-modify-write form saves
+ *   (Task 1-3)
  * - Everything else (CustomFooter / Toolbars / GoogleAnalytics /
  *   Autonumerate / Pingbacks / API / OpenID / Backup / Icons / Newsletter):
  *   single-shot settings (Task 1-5)
  *
- * Only the *save* side is implemented for General/Domain/Access policy.
- * Reading the current values back would require scraping the rendered
- * `sm-general-form` / `sm-private-form` / `sm-domain` HTML, and the survey
- * this plan is based on did not capture a real HTML sample for those forms
- * (only the field name/type list) -- see the P1 completion report for this
- * as a flagged, deliberate scope decision rather than a silent omission.
+ * General/Domain/Access policy have both a `get*` and a `save*` method.
+ * `save*`'s options all default to undefined, meaning "keep the current
+ * value" (fetched via `get*` first); pass "" explicitly to clear a text
+ * field. This matters because Wikidot's save events resubmit the whole
+ * form, not a diff -- omitting a field silently blanks it (`saveGeneral`
+ * called with only `name` would otherwise wipe subtitle/description/
+ * defaultPage/welcomePage and reset language to "en").
  */
 
+import * as cheerio from 'cheerio';
 import type { WikidotError } from '../../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../../common/types';
 import { checkbox, flag, jsonParam, omitFalsy } from '../../../connector/amc-body';
+import { requireBody } from '../../../connector/amc-client';
 import type { AMCRequestBody } from '../../../connector/amc-types';
 import type { AbstractUser } from '../../user';
 import type { Site } from '../site';
@@ -54,6 +58,113 @@ type UserOrId = AbstractUser | number;
 
 function toId(u: UserOrId): number {
   return typeof u === 'number' ? u : u.id;
+}
+
+/**
+ * Read a form field's current value by its `name` attribute.
+ *
+ * Handles the three form control shapes formToArray understands (text-like
+ * input, textarea, select); returns undefined if the element is missing or
+ * (for select) nothing is marked selected, rather than guessing a value.
+ */
+function formField($: cheerio.CheerioAPI, name: string): string | undefined {
+  const el = $(`[name="${name}"]`).first();
+  if (el.length === 0) {
+    return undefined;
+  }
+  if (el.is('textarea')) {
+    return el.text();
+  }
+  if (el.is('select')) {
+    const selected = el.find('option[selected]').first();
+    if (selected.length === 0) {
+      return undefined;
+    }
+    return selected.attr('value') ?? selected.text();
+  }
+  return el.attr('value');
+}
+
+/** Read a checkbox's current checked state by its `name` attribute */
+function formCheckbox($: cheerio.CheerioAPI, name: string): boolean | undefined {
+  const el = $(`input[name="${name}"]`).first();
+  if (el.length === 0) {
+    return undefined;
+  }
+  return el.attr('checked') !== undefined;
+}
+
+/** Read the checked option's value from a radio button group */
+function formRadio($: cheerio.CheerioAPI, name: string): string | undefined {
+  const el = $(`input[name="${name}"][checked]`).first();
+  if (el.length === 0) {
+    return undefined;
+  }
+  return el.attr('value');
+}
+
+/**
+ * Read an element's current value by its `id`.
+ *
+ * For the handful of fields Wikidot's own JS reads by id instead of via
+ * formToArray (e.g. Domain's fields).
+ */
+function elementValue($: cheerio.CheerioAPI, elementId: string): string | undefined {
+  const el = $(`#${elementId}`).first();
+  if (el.length === 0) {
+    return undefined;
+  }
+  return el.attr('value');
+}
+
+/** Read a checkbox's current checked state by its `id` */
+function elementCheckbox($: cheerio.CheerioAPI, elementId: string): boolean | undefined {
+  const el = $(`#${elementId}`).first();
+  if (el.length === 0) {
+    return undefined;
+  }
+  return el.attr('checked') !== undefined;
+}
+
+/**
+ * Current values of the site's General settings form (`sm-general-form`).
+ *
+ * Any field is undefined when the corresponding form element could not be
+ * found in the rendered HTML; this library does not guess a value in that
+ * case.
+ */
+export interface GeneralSettings {
+  name: string | undefined;
+  subtitle: string | undefined;
+  language: string | undefined;
+  description: string | undefined;
+  defaultPage: string | undefined;
+  welcomePage: string | undefined;
+}
+
+/** Current values of the site's Domain settings */
+export interface DomainSettings {
+  domain: string | undefined;
+  domainDefault: boolean | undefined;
+  redirects: string[] | undefined;
+}
+
+/**
+ * Current values of the site's Access policy settings (`sm-private-form`).
+ *
+ * `viewers` (extra allowed users for a private site) is intentionally
+ * absent: it is not part of this form, see `saveAccessPolicy`'s docstring
+ * for why it cannot be read back.
+ */
+export interface AccessPolicySettings {
+  privacy: 'open' | 'closed' | 'private' | undefined;
+  byApply: boolean | undefined;
+  byDomain: string | undefined;
+  byPassword: boolean | undefined;
+  password: string | undefined;
+  allowHotlink: boolean | undefined;
+  landingPage: string | undefined;
+  hideNav: boolean | undefined;
 }
 
 /** Accessor for Manage Site (`_admin`) settings. Access through `Site.settings`. */
@@ -293,31 +404,74 @@ export class SettingsAccessor {
   // ------------------------------------------------------------------
 
   /**
-   * Save the site's title/subtitle/language/description/entry pages
+   * Fetch the site's current General settings.
+   *
+   * Renders `managesite/ManageSiteGeneralModule` and reads the current
+   * values out of `sm-general-form` by its documented field names.
+   */
+  getGeneral(): WikidotResultAsync<GeneralSettings> {
+    const moduleName = 'managesite/ManageSiteGeneralModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const $ = cheerio.load(requireBody(result.value, moduleName));
+        return {
+          name: formField($, 'name'),
+          subtitle: formField($, 'subtitle'),
+          language: formField($, 'language'),
+          description: formField($, 'description'),
+          defaultPage: formField($, 'default_page'),
+          welcomePage: formField($, 'welcome_page'),
+        };
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Save the site's title/subtitle/language/description/entry pages.
+   *
+   * `saveGeneral` resubmits the whole form rather than a diff, so this
+   * fetches the current settings (`getGeneral`) first and only overrides
+   * the fields the caller passed explicitly. Undefined keeps the current
+   * value; pass "" to clear a field.
+   * @param options.name - Site title. Undefined keeps the current title. An
+   * empty string (or a current title this library could not read) raises
+   * FormErrorsError, since the title is required
    * @returns New unix name, only returned when the site's unix name changed
    * as a result
    * @throws {FormErrorsError} (in the returned Result's error channel) when
    * validation fails (e.g. an empty title)
    */
-  saveGeneral(options: {
-    name: string;
-    subtitle?: string;
-    language?: string;
-    description?: string;
-    defaultPage?: string;
-    welcomePage?: string;
-  }): WikidotResultAsync<string | null> {
+  saveGeneral(
+    options: {
+      name?: string;
+      subtitle?: string;
+      language?: string;
+      description?: string;
+      defaultPage?: string;
+      welcomePage?: string;
+    } = {}
+  ): WikidotResultAsync<string | null> {
     return fromPromise(
       (async () => {
+        const currentResult = await this.getGeneral();
+        if (currentResult.isErr()) {
+          throw currentResult.error;
+        }
+        const current = currentResult.value;
         const result = await this.site.amcRequestSingle({
           action: 'ManageSiteAction',
           event: 'saveGeneral',
-          name: options.name,
-          subtitle: options.subtitle ?? '',
-          language: options.language ?? 'en',
-          description: options.description ?? '',
-          default_page: options.defaultPage ?? '',
-          welcome_page: options.welcomePage ?? '',
+          name: options.name ?? current.name ?? '',
+          subtitle: options.subtitle ?? current.subtitle ?? '',
+          language: options.language ?? current.language ?? 'en',
+          description: options.description ?? current.description ?? '',
+          default_page: options.defaultPage ?? current.defaultPage ?? '',
+          welcome_page: options.welcomePage ?? current.welcomePage ?? '',
           moduleName: 'Empty',
         });
         if (result.isErr()) {
@@ -331,30 +485,75 @@ export class SettingsAccessor {
   }
 
   /**
-   * Save the site's custom domain and redirect domains
-   * @param redirects - Additional domains that redirect to this site. At
-   * most 10 (Wikidot's own client also allows empty entries through, which
-   * show up as consecutive ";" in the joined string; this method does not
-   * filter them out to match observed behavior)
+   * Fetch the site's current Domain settings.
+   *
+   * Renders `managesite/ManageSiteDomainModule`. Unlike General/Access
+   * policy these fields are read by element id, not `name` (Wikidot's own
+   * JS reads them the same way).
+   */
+  getDomain(): WikidotResultAsync<DomainSettings> {
+    const moduleName = 'managesite/ManageSiteDomainModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const $ = cheerio.load(requireBody(result.value, moduleName));
+        const redirectsBox = $('#sm-redirects-box');
+        const redirects =
+          redirectsBox.length === 0
+            ? undefined
+            : redirectsBox
+                .find('input')
+                .toArray()
+                .map((el) => $(el).attr('value'))
+                .filter((value): value is string => value !== undefined);
+        return {
+          domain: elementValue($, 'sm-domain-field'),
+          domainDefault: elementCheckbox($, 'sm-domain-default'),
+          redirects,
+        };
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Save the site's custom domain and redirect domains.
+   *
+   * Fetches the current settings (`getDomain`) first; undefined keeps the
+   * current value for each option.
+   * @param options.redirects - Additional domains that redirect to this
+   * site. Undefined keeps the current redirect list; pass [] to clear it.
+   * At most 10 (Wikidot's own client also allows empty entries through,
+   * which show up as consecutive ";" in the joined string; this method does
+   * not filter them out to match observed behavior)
    * @returns New domain, only returned when it changed
    * @throws {Error} If more than 10 redirects are given
    */
   saveDomain(
-    domain: string,
-    options: { redirects?: string[]; domainDefault?: boolean } = {}
+    options: { domain?: string; redirects?: string[]; domainDefault?: boolean } = {}
   ): WikidotResultAsync<string | null> {
     if (options.redirects && options.redirects.length > 10) {
       throw new Error('redirects supports at most 10 entries');
     }
     return fromPromise(
       (async () => {
+        const currentResult = await this.getDomain();
+        if (currentResult.isErr()) {
+          throw currentResult.error;
+        }
+        const current = currentResult.value;
+        const resolvedRedirects = options.redirects ?? current.redirects ?? [];
+        const resolvedDomainDefault = options.domainDefault ?? current.domainDefault ?? false;
         const result = await this.site.amcRequestSingle({
           action: 'ManageSiteAction',
           event: 'saveDomain',
-          domain,
-          redirects: options.redirects ? options.redirects.join(';') : '',
+          domain: options.domain ?? current.domain ?? '',
+          redirects: resolvedRedirects.join(';'),
           moduleName: 'Empty',
-          ...omitFalsy({ domainDefault: flag(options.domainDefault) }),
+          ...omitFalsy({ domainDefault: flag(resolvedDomainDefault) }),
         });
         if (result.isErr()) {
           throw result.error;
@@ -367,11 +566,70 @@ export class SettingsAccessor {
   }
 
   /**
+   * Fetch the site's current Access policy settings.
+   *
+   * Renders `managesite/ManageSiteAccessPolicyModule` and reads
+   * `sm-private-form`. Does not include `viewers` -- see `saveAccessPolicy`
+   * for why that field cannot be read back.
+   */
+  getAccessPolicy(): WikidotResultAsync<AccessPolicySettings> {
+    const moduleName = 'managesite/ManageSiteAccessPolicyModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const $ = cheerio.load(requireBody(result.value, moduleName));
+        const privacyRaw = formRadio($, 'privacy');
+        const privacy: AccessPolicySettings['privacy'] =
+          privacyRaw === 'open' || privacyRaw === 'closed' || privacyRaw === 'private'
+            ? privacyRaw
+            : undefined;
+        return {
+          privacy,
+          byApply: formCheckbox($, 'by_apply'),
+          byDomain: formField($, 'by_domain'),
+          byPassword: formCheckbox($, 'by_password'),
+          password: formField($, 'password'),
+          allowHotlink: formCheckbox($, 'allowHotlink'),
+          landingPage: formField($, 'landingPage'),
+          hideNav: formCheckbox($, 'hideNav'),
+        };
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
    * Save the site's access policy (privacy level, apply/password/domain
-   * gating, extra viewers, hotlinking, landing page, nav visibility)
+   * gating, extra viewers, hotlinking, landing page, nav visibility).
+   *
+   * Fetches the current settings (`getAccessPolicy`) first; undefined keeps
+   * the current value for each option (except `viewers`, see below).
+   * @param privacy - Undefined keeps the current value. Throws if it cannot
+   * be determined (this library will not guess between open / closed /
+   * private, since a wrong guess could expose a private site)
+   * @param options.password - Undefined keeps the current value. **Note**:
+   * it is unconfirmed whether Wikidot actually echoes the real current
+   * password back in this form (services commonly blank password fields
+   * for security) -- if you are changing another field on a
+   * password-gated site, pass the password explicitly rather than relying
+   * on this
+   * @param options.viewers - Extra users allowed to view a private site.
+   * **Not** part of `sm-private-form` -- Wikidot assembles it client-side
+   * via an autocomplete widget with no static representation of the
+   * current selection, so it cannot be read back the way the other fields
+   * can. Undefined omits the `viewers` parameter from the request entirely
+   * (rather than sending an empty string, which would actively clear it),
+   * but this is *not* the same guarantee as the other fields' "keeps the
+   * current value": if the site has extra viewers configured, pass them
+   * explicitly to preserve them
+   * @throws {Error} If `privacy` is undefined and the current value could
+   * not be determined
    */
   saveAccessPolicy(
-    privacy: 'open' | 'closed' | 'private',
+    privacy?: 'open' | 'closed' | 'private',
     options: {
       byApply?: boolean;
       byDomain?: string;
@@ -385,23 +643,36 @@ export class SettingsAccessor {
   ): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
-        const viewersStr = options.viewers ? options.viewers.map(toId).join(',') : '';
-        const result = await this.site.amcRequestSingle({
+        const currentResult = await this.getAccessPolicy();
+        if (currentResult.isErr()) {
+          throw currentResult.error;
+        }
+        const current = currentResult.value;
+        const resolvedPrivacy = privacy ?? current.privacy;
+        if (resolvedPrivacy === undefined) {
+          throw new Error(
+            "privacy could not be determined from the site's current settings; pass it explicitly"
+          );
+        }
+        const body: AMCRequestBody = {
           action: 'ManageSiteAction',
           event: 'savePrivateSettings',
-          privacy,
-          by_domain: options.byDomain ?? '',
-          password: options.password ?? '',
-          landingPage: options.landingPage ?? '',
-          viewers: viewersStr,
+          privacy: resolvedPrivacy,
+          by_domain: options.byDomain ?? current.byDomain ?? '',
+          password: options.password ?? current.password ?? '',
+          landingPage: options.landingPage ?? current.landingPage ?? '',
           moduleName: 'Empty',
           ...omitFalsy({
-            by_apply: checkbox(options.byApply),
-            by_password: checkbox(options.byPassword),
-            allowHotlink: checkbox(options.allowHotlink),
-            hideNav: checkbox(options.hideNav),
+            by_apply: checkbox(options.byApply ?? current.byApply),
+            by_password: checkbox(options.byPassword ?? current.byPassword),
+            allowHotlink: checkbox(options.allowHotlink ?? current.allowHotlink),
+            hideNav: checkbox(options.hideNav ?? current.hideNav),
           }),
-        });
+        };
+        if (options.viewers !== undefined) {
+          body.viewers = options.viewers.map(toId).join(',');
+        }
+        const result = await this.site.amcRequestSingle(body);
         if (result.isErr()) {
           throw result.error;
         }

@@ -112,6 +112,9 @@ export const amcFixtures = {
     applications: () => loadJsonFixture('site', 'applications.json'),
     applicationsEmpty: () => loadJsonFixture('site', 'applications_empty.json'),
     categoriesSingle: () => loadJsonFixture('site', 'categories_single.json'),
+    generalForm: () => loadJsonFixture('site', 'general_form.json'),
+    domainModule: () => loadJsonFixture('site', 'domain_module.json'),
+    accessPolicyForm: () => loadJsonFixture('site', 'access_policy_form.json'),
   },
 };
 

@@ -229,29 +229,98 @@ describe('categories-backed settings (Task 1-4)', () => {
   });
 });
 
-describe('General / Domain / Access policy (Task 1-3)', () => {
-  test('saveGeneral with no unixName change', async () => {
-    const { site, calls } = createMockSite(
-      queuedResponses([{ status: 'ok', CURRENT_TIMESTAMP: 1785204323 }])
-    );
-    const accessor = new SettingsAccessor(site);
+function generalFormResponse(): AMCResponse {
+  return amcFixtures.site.generalForm() as AMCResponse;
+}
 
-    const result = await accessor.saveGeneral({ name: 'Test Site' });
+function domainModuleResponse(): AMCResponse {
+  return amcFixtures.site.domainModule() as AMCResponse;
+}
+
+function accessPolicyFormResponse(): AMCResponse {
+  return amcFixtures.site.accessPolicyForm() as AMCResponse;
+}
+
+describe('getGeneral', () => {
+  test('reads all fields', async () => {
+    const { site } = createMockSite(queuedResponses([generalFormResponse()]));
+
+    const result = await new SettingsAccessor(site).getGeneral();
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value).toBeNull();
+      expect(result.value).toEqual({
+        name: 'My Site',
+        subtitle: 'A subtitle',
+        language: 'ja',
+        description: 'A description',
+        defaultPage: 'start',
+        welcomePage: 'welcome',
+      });
     }
-    expect(calls[0]?.action).toBe('ManageSiteAction');
-    expect(calls[0]?.event).toBe('saveGeneral');
-    expect(calls[0]?.name).toBe('Test Site');
   });
 
-  test('saveGeneral returns the new unix name when it changes', async () => {
-    const { site } = createMockSite(queuedResponses([{ status: 'ok', unixName: 'new-name' }]));
-    const accessor = new SettingsAccessor(site);
+  test('missing field is undefined, not guessed', async () => {
+    const { site } = createMockSite(queuedResponses([{ status: 'ok', body: '<div></div>' }]));
 
-    const result = await accessor.saveGeneral({ name: 'Test Site' });
+    const result = await new SettingsAccessor(site).getGeneral();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.name).toBeUndefined();
+      expect(result.value.language).toBeUndefined();
+    }
+  });
+});
+
+describe('saveGeneral read-modify-write', () => {
+  test('only name given preserves other fields', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([generalFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveGeneral({ name: 'New Title' });
+
+    const saveBody = calls[1];
+    expect(saveBody?.name).toBe('New Title');
+    expect(saveBody?.subtitle).toBe('A subtitle');
+    expect(saveBody?.language).toBe('ja');
+    expect(saveBody?.description).toBe('A description');
+    expect(saveBody?.default_page).toBe('start');
+    expect(saveBody?.welcome_page).toBe('welcome');
+  });
+
+  test('explicit empty string clears a field', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([generalFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveGeneral({ subtitle: '' });
+
+    const saveBody = calls[1];
+    expect(saveBody?.subtitle).toBe('');
+    expect(saveBody?.name).toBe('My Site');
+  });
+
+  test('no arguments resends all current values', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([generalFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveGeneral();
+
+    const saveBody = calls[1];
+    expect(saveBody?.name).toBe('My Site');
+    expect(saveBody?.subtitle).toBe('A subtitle');
+    expect(saveBody?.language).toBe('ja');
+  });
+
+  test('returns the new unix name when it changes', async () => {
+    const { site } = createMockSite(
+      queuedResponses([generalFormResponse(), { status: 'ok', unixName: 'new-name' }])
+    );
+
+    const result = await new SettingsAccessor(site).saveGeneral({ name: 'Test Site' });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -259,18 +328,33 @@ describe('General / Domain / Access policy (Task 1-3)', () => {
     }
   });
 
-  test('saveGeneral with an empty name surfaces FormErrorsError', async () => {
-    const { site } = createMockSite(() =>
-      errAsync(
+  test('returns null without a unixName change', async () => {
+    const { site } = createMockSite(queuedResponses([generalFormResponse(), { status: 'ok' }]));
+
+    const result = await new SettingsAccessor(site).saveGeneral({ name: 'Test Site' });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toBeNull();
+    }
+  });
+
+  test('empty name surfaces FormErrorsError', async () => {
+    let callIndex = 0;
+    const { site } = createMockSite(() => {
+      callIndex++;
+      if (callIndex === 1) {
+        return okAsync(generalFormResponse());
+      }
+      return errAsync(
         new FormErrorsError('form_errors', 'form_errors', {
           status: 'form_errors',
           formErrors: { name: 'Please provide the site title' },
         })
-      )
-    );
-    const accessor = new SettingsAccessor(site);
+      );
+    });
 
-    const result = await accessor.saveGeneral({ name: '' });
+    const result = await new SettingsAccessor(site).saveGeneral({ name: '' });
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
@@ -278,45 +362,141 @@ describe('General / Domain / Access policy (Task 1-3)', () => {
       expect((result.error as FormErrorsError).errors.name).toBe('Please provide the site title');
     }
   });
+});
 
-  test('saveDomain rejects more than 10 redirects', () => {
-    const { site } = createMockSite(queuedResponses([okResponse]));
-    const accessor = new SettingsAccessor(site);
+describe('getDomain', () => {
+  test('reads fields by id', async () => {
+    const { site } = createMockSite(queuedResponses([domainModuleResponse()]));
+
+    const result = await new SettingsAccessor(site).getDomain();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.domain).toBe('example.com');
+      expect(result.value.domainDefault).toBe(true);
+      expect(result.value.redirects).toEqual(['a.com', 'b.com']);
+    }
+  });
+});
+
+describe('saveDomain read-modify-write', () => {
+  test('rejects more than 10 redirects without any request', () => {
+    const { site, calls } = createMockSite(queuedResponses([okResponse]));
 
     expect(() =>
-      accessor.saveDomain('example.com', {
+      new SettingsAccessor(site).saveDomain({
         redirects: Array.from({ length: 11 }, (_, i) => `r${i}.com`),
       })
     ).toThrow();
+    expect(calls.length).toBe(0);
   });
 
-  test('saveDomain joins redirects with a semicolon', async () => {
-    const { site, calls } = createMockSite(queuedResponses([okResponse]));
-    const accessor = new SettingsAccessor(site);
+  test('joins redirects with a semicolon', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([domainModuleResponse(), { status: 'ok' }])
+    );
 
-    await accessor.saveDomain('example.com', { redirects: ['a.com', 'b.com'] });
+    await new SettingsAccessor(site).saveDomain({ redirects: ['a.com', 'b.com'] });
 
-    expect(calls[0]?.redirects).toBe('a.com;b.com');
+    expect(calls[1]?.redirects).toBe('a.com;b.com');
   });
 
-  test('saveAccessPolicy converts user ids into a comma list', async () => {
-    const { site, calls } = createMockSite(queuedResponses([okResponse]));
-    const accessor = new SettingsAccessor(site);
+  test('only domain given preserves redirects and default flag', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([domainModuleResponse(), { status: 'ok' }])
+    );
 
-    await accessor.saveAccessPolicy('private', { viewers: [111, 222] });
+    await new SettingsAccessor(site).saveDomain({ domain: 'new.example.com' });
 
-    expect(calls[0]?.viewers).toBe('111,222');
-    expect(calls[0]?.privacy).toBe('private');
+    const saveBody = calls[1];
+    expect(saveBody?.domain).toBe('new.example.com');
+    expect(saveBody?.redirects).toBe('a.com;b.com');
+    expect(saveBody?.domainDefault).toBe('true');
+  });
+});
+
+describe('getAccessPolicy', () => {
+  test('reads all fields', async () => {
+    const { site } = createMockSite(queuedResponses([accessPolicyFormResponse()]));
+
+    const result = await new SettingsAccessor(site).getAccessPolicy();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value).toEqual({
+        privacy: 'closed',
+        byApply: true,
+        byDomain: 'example.com',
+        byPassword: false,
+        password: '',
+        allowHotlink: true,
+        landingPage: 'start',
+        hideNav: false,
+      });
+    }
+  });
+});
+
+describe('saveAccessPolicy read-modify-write', () => {
+  test('no privacy given keeps the current value', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([accessPolicyFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveAccessPolicy();
+
+    const saveBody = calls[1];
+    expect(saveBody?.privacy).toBe('closed');
+    expect(saveBody?.by_domain).toBe('example.com');
+    expect(saveBody?.landingPage).toBe('start');
+    // by_apply / allowHotlink were checked in the fixture, so they must
+    // still be sent even though this call didn't touch them
+    expect(saveBody?.by_apply).toBe('on');
+    expect(saveBody?.allowHotlink).toBe('on');
+    expect(saveBody?.hideNav).toBeUndefined();
   });
 
-  test('saveAccessPolicy omits unchecked checkboxes', async () => {
-    const { site, calls } = createMockSite(queuedResponses([okResponse]));
-    const accessor = new SettingsAccessor(site);
+  test('privacy cannot be determined surfaces an error result', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: "<form id='sm-private-form'></form>" }])
+    );
 
-    await accessor.saveAccessPolicy('open');
+    const result = await new SettingsAccessor(site).saveAccessPolicy();
 
-    expect(calls[0]?.by_apply).toBeUndefined();
-    expect(calls[0]?.allowHotlink).toBeUndefined();
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain('privacy');
+    }
+  });
+
+  test('viewers from ids', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([accessPolicyFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveAccessPolicy(undefined, { viewers: [111, 222] });
+
+    expect(calls[1]?.viewers).toBe('111,222');
+  });
+
+  test('viewers omitted when not given', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([accessPolicyFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveAccessPolicy();
+
+    expect(calls[1]?.viewers).toBeUndefined();
+  });
+
+  test('explicit privacy overrides the current value', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([accessPolicyFormResponse(), { status: 'ok' }])
+    );
+
+    await new SettingsAccessor(site).saveAccessPolicy('private');
+
+    expect(calls[1]?.privacy).toBe('private');
   });
 });
 
