@@ -32,10 +32,22 @@ import type { Site } from '../site';
 import { SiteCategory, SiteCategoryCollection, SiteLicense } from '../site-category';
 import type { PagePermissions, RatingSettings } from '../site-permissions';
 
-/** Any categories-rendering module works as the fetch source for updateCategories
- * (they all embed the same full-schema array); this one is used because it's the
- * module the categories schema was captured from during the survey. */
-const CATEGORIES_FETCH_MODULE = 'managesite/ManageSitePermissionsModule';
+/**
+ * Module names that render each categories-backed settings area. Each of these
+ * embeds the site's full `categories` array (same 24-field schema), so
+ * updateCategories fetches from the module matching the area being changed
+ * rather than a single fixed one -- a module that only echoes back a subset of
+ * fields would otherwise cause the categories round trip (SiteCategory.raw,
+ * see 30_plan.md D3) to lose the fields it didn't include on the next save of
+ * a *different* area.
+ */
+const MODULE_PERMISSIONS = 'managesite/ManageSitePermissionsModule';
+const MODULE_LICENSE = 'managesite/ManageSiteLicenseModule';
+const MODULE_NAVIGATION = 'managesite/ManageSiteNavigationModule';
+const MODULE_TEMPLATES = 'managesite/ManageSiteTemplatesModule';
+const MODULE_PAGE_RATE = 'managesite/pagerate/ManageSitePageRateSettingsModule';
+const MODULE_PER_PAGE_DISCUSSION = 'managesite/ManageSitePerPageDiscussionModule';
+const MODULE_APPEARANCE = 'managesite/themes/ManageSiteAppearanceModule';
 
 /** Accepts a user object, or a raw user id, wherever a viewer/recipient list is needed */
 type UserOrId = AbstractUser | number;
@@ -66,19 +78,26 @@ export class SettingsAccessor {
    * here (never cached), because a partial-update API does not exist and
    * holding a stale snapshot risks reverting another admin's concurrent
    * change.
+   * @param moduleName - Manage Site module to fetch the `categories` array
+   * from before mutating (e.g. "managesite/ManageSitePermissionsModule").
+   * Matches the module that would render the area being changed -- it is
+   * unconfirmed whether every categories-rendering module echoes back the
+   * same full 24-field schema, so this fetches from the module for the area
+   * actually being saved rather than a single fixed one
    * @param action - AMC action for the save request (e.g. "ManageSiteAction")
    * @param event - AMC event for the save request (e.g. "savePermissions")
    * @param mutator - Called with the freshly fetched collection; mutate
    * categories in place
    */
   updateCategories(
+    moduleName: string,
     action: string,
     event: string,
     mutator: (categories: SiteCategoryCollection) => void
   ): WikidotResultAsync<void> {
     return fromPromise(
       (async () => {
-        const fetchResult = await SiteCategoryCollection.fetch(this.site, CATEGORIES_FETCH_MODULE);
+        const fetchResult = await SiteCategoryCollection.fetch(this.site, moduleName);
         if (fetchResult.isErr()) {
           throw fetchResult.error;
         }
@@ -102,20 +121,30 @@ export class SettingsAccessor {
    * `permissionsDefault` flag (it stops inheriting the site default).
    */
   setPagePermissions(categoryName: string, permissions: PagePermissions): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'savePermissions', (cats) => {
-      const category = cats.get(categoryName);
-      category.permissions = permissions;
-      category.permissionsDefault = false;
-    });
+    return this.updateCategories(
+      MODULE_PERMISSIONS,
+      'ManageSiteAction',
+      'savePermissions',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.permissions = permissions;
+        category.permissionsDefault = false;
+      }
+    );
   }
 
   /** Make a category inherit the site's default page permissions */
   useDefaultPagePermissions(categoryName: string): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'savePermissions', (cats) => {
-      const category = cats.get(categoryName);
-      category.permissions = null;
-      category.permissionsDefault = true;
-    });
+    return this.updateCategories(
+      MODULE_PERMISSIONS,
+      'ManageSiteAction',
+      'savePermissions',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.permissions = null;
+        category.permissionsDefault = true;
+      }
+    );
   }
 
   /**
@@ -128,7 +157,7 @@ export class SettingsAccessor {
     if (license === SiteLicense.OTHER && !other) {
       throw new Error('licenseOther is required when license is SiteLicense.OTHER');
     }
-    return this.updateCategories('ManageSiteAction', 'saveLicense', (cats) => {
+    return this.updateCategories(MODULE_LICENSE, 'ManageSiteAction', 'saveLicense', (cats) => {
       const category = cats.get(categoryName);
       category.licenseId = license;
       category.licenseOther = other;
@@ -138,7 +167,7 @@ export class SettingsAccessor {
 
   /** Make a category inherit the site's default license */
   useDefaultLicense(categoryName: string): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'saveLicense', (cats) => {
+    return this.updateCategories(MODULE_LICENSE, 'ManageSiteAction', 'saveLicense', (cats) => {
       cats.get(categoryName).licenseDefault = true;
     });
   }
@@ -149,33 +178,48 @@ export class SettingsAccessor {
     topBarPageName: string,
     sideBarPageName: string
   ): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'saveNavigation', (cats) => {
-      const category = cats.get(categoryName);
-      category.topBarPageName = topBarPageName;
-      category.sideBarPageName = sideBarPageName;
-      category.navDefault = false;
-    });
+    return this.updateCategories(
+      MODULE_NAVIGATION,
+      'ManageSiteAction',
+      'saveNavigation',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.topBarPageName = topBarPageName;
+        category.sideBarPageName = sideBarPageName;
+        category.navDefault = false;
+      }
+    );
   }
 
   /** Make a category inherit the site's default navigation */
   useDefaultNavigation(categoryName: string): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'saveNavigation', (cats) => {
-      cats.get(categoryName).navDefault = true;
-    });
+    return this.updateCategories(
+      MODULE_NAVIGATION,
+      'ManageSiteAction',
+      'saveNavigation',
+      (cats) => {
+        cats.get(categoryName).navDefault = true;
+      }
+    );
   }
 
   /** Set (or clear, with null) the page template for a category */
   setTemplate(categoryName: string, templateId: number | null): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'saveTemplates', (cats) => {
+    return this.updateCategories(MODULE_TEMPLATES, 'ManageSiteAction', 'saveTemplates', (cats) => {
       cats.get(categoryName).templateId = templateId;
     });
   }
 
   /** Set the rating (vote) configuration for a category */
   setPageRateSettings(categoryName: string, rating: RatingSettings): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteAction', 'savePageRateSettings', (cats) => {
-      cats.get(categoryName).rating = rating;
-    });
+    return this.updateCategories(
+      MODULE_PAGE_RATE,
+      'ManageSiteAction',
+      'savePageRateSettings',
+      (cats) => {
+        cats.get(categoryName).rating = rating;
+      }
+    );
   }
 
   /**
@@ -183,21 +227,31 @@ export class SettingsAccessor {
    * @param enabled - true/false to force on/off, or null to use the site default
    */
   setPerPageDiscussion(categoryName: string, enabled: boolean | null): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteForumAction', 'savePerPageDiscussion', (cats) => {
-      const category = cats.get(categoryName);
-      category.perPageDiscussion = enabled;
-      category.perPageDiscussionDefault = enabled === null;
-    });
+    return this.updateCategories(
+      MODULE_PER_PAGE_DISCUSSION,
+      'ManageSiteForumAction',
+      'savePerPageDiscussion',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.perPageDiscussion = enabled;
+        category.perPageDiscussionDefault = enabled === null;
+      }
+    );
   }
 
   /** Apply a built-in theme to a category */
   setAppearanceTheme(categoryName: string, themeId: number): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteThemeAction', 'saveAppearance', (cats) => {
-      const category = cats.get(categoryName);
-      category.themeId = themeId;
-      category.themeExternalUrl = '';
-      category.themeDefault = false;
-    });
+    return this.updateCategories(
+      MODULE_APPEARANCE,
+      'ManageSiteThemeAction',
+      'saveAppearance',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.themeId = themeId;
+        category.themeExternalUrl = '';
+        category.themeDefault = false;
+      }
+    );
   }
 
   /**
@@ -209,19 +263,29 @@ export class SettingsAccessor {
     categoryName: string,
     themeExternalUrl: string
   ): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteThemeAction', 'saveAppearance', (cats) => {
-      const category = cats.get(categoryName);
-      category.themeId = '';
-      category.themeExternalUrl = themeExternalUrl;
-      category.themeDefault = false;
-    });
+    return this.updateCategories(
+      MODULE_APPEARANCE,
+      'ManageSiteThemeAction',
+      'saveAppearance',
+      (cats) => {
+        const category = cats.get(categoryName);
+        category.themeId = '';
+        category.themeExternalUrl = themeExternalUrl;
+        category.themeDefault = false;
+      }
+    );
   }
 
   /** Make a category inherit the site's default appearance */
   useDefaultAppearance(categoryName: string): WikidotResultAsync<void> {
-    return this.updateCategories('ManageSiteThemeAction', 'saveAppearance', (cats) => {
-      cats.get(categoryName).themeDefault = true;
-    });
+    return this.updateCategories(
+      MODULE_APPEARANCE,
+      'ManageSiteThemeAction',
+      'saveAppearance',
+      (cats) => {
+        cats.get(categoryName).themeDefault = true;
+      }
+    );
   }
 
   // ------------------------------------------------------------------

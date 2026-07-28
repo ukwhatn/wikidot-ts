@@ -54,6 +54,7 @@ describe('updateCategories', () => {
     const seen: number[] = [];
 
     const result = await accessor.updateCategories(
+      'managesite/ManageSitePermissionsModule',
       'ManageSiteAction',
       'savePermissions',
       (cats) => {
@@ -69,14 +70,38 @@ describe('updateCategories', () => {
     expect(calls[1]?.event).toBe('savePermissions');
   });
 
+  test('fetches from the moduleName passed in', async () => {
+    const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
+    const accessor = new SettingsAccessor(site);
+
+    await accessor.updateCategories(
+      'managesite/ManageSiteLicenseModule',
+      'ManageSiteAction',
+      'saveLicense',
+      () => {}
+    );
+
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSiteLicenseModule');
+  });
+
   test('never caches: two calls issue two fetch+save round trips', async () => {
     const { site, calls } = createMockSite(
       queuedResponses([categoriesResponse(), okResponse, categoriesResponse(), okResponse])
     );
     const accessor = new SettingsAccessor(site);
 
-    await accessor.updateCategories('ManageSiteAction', 'savePermissions', () => {});
-    await accessor.updateCategories('ManageSiteAction', 'saveLicense', () => {});
+    await accessor.updateCategories(
+      'managesite/ManageSitePermissionsModule',
+      'ManageSiteAction',
+      'savePermissions',
+      () => {}
+    );
+    await accessor.updateCategories(
+      'managesite/ManageSiteLicenseModule',
+      'ManageSiteAction',
+      'saveLicense',
+      () => {}
+    );
 
     expect(calls.length).toBe(4);
   });
@@ -91,6 +116,7 @@ describe('categories-backed settings (Task 1-4)', () => {
     const result = await accessor.setPagePermissions('_default', newPerms);
 
     expect(result.isOk()).toBe(true);
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSitePermissionsModule');
     expect(calls[1]?.event).toBe('savePermissions');
     expect(calls[1]?.categories as string).toContain('v:arm');
   });
@@ -104,13 +130,14 @@ describe('categories-backed settings (Task 1-4)', () => {
     expect(result.isErr()).toBe(true);
   });
 
-  test('setLicense sends the license id', async () => {
+  test('setLicense fetches from the License module and sends the license id', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     const result = await accessor.setLicense('_default', SiteLicense.CC_ATTRIBUTION_3_0);
 
     expect(result.isOk()).toBe(true);
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSiteLicenseModule');
     expect(calls[1]?.event).toBe('saveLicense');
     expect(calls[1]?.categories as string).toContain('"license_id":13');
   });
@@ -131,39 +158,43 @@ describe('categories-backed settings (Task 1-4)', () => {
     expect(result.isOk()).toBe(true);
   });
 
-  test('setNavigation', async () => {
+  test('setNavigation fetches from the Navigation module', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     await accessor.setNavigation('_default', 'nav:top', 'nav:side2');
 
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSiteNavigationModule');
     expect(calls[1]?.event).toBe('saveNavigation');
   });
 
-  test('setTemplate', async () => {
+  test('setTemplate fetches from the Templates module', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     await accessor.setTemplate('_default', 42);
 
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSiteTemplatesModule');
     expect(calls[1]?.categories as string).toContain('"template_id":42');
   });
 
-  test('setPageRateSettings', async () => {
+  test('setPageRateSettings fetches from the PageRate module', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     await accessor.setPageRateSettings('_default', RatingSettings.decode('emaS'));
 
+    expect(calls[0]?.moduleName).toBe('managesite/pagerate/ManageSitePageRateSettingsModule');
     expect(calls[1]?.event).toBe('savePageRateSettings');
   });
 
-  test('setPerPageDiscussion with an explicit value', async () => {
+  test('setPerPageDiscussion with an explicit value fetches from the PerPageDiscussion module', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     await accessor.setPerPageDiscussion('_default', false);
 
+    expect(calls[0]?.moduleName).toBe('managesite/ManageSitePerPageDiscussionModule');
     expect(calls[1]?.action).toBe('ManageSiteForumAction');
     expect(calls[1]?.event).toBe('savePerPageDiscussion');
   });
@@ -177,12 +208,13 @@ describe('categories-backed settings (Task 1-4)', () => {
     expect(calls[1]?.categories as string).toContain('"per_page_discussion_default":true');
   });
 
-  test('setAppearanceTheme', async () => {
+  test('setAppearanceTheme fetches from the Appearance module', async () => {
     const { site, calls } = createMockSite(queuedResponses([categoriesResponse(), okResponse]));
     const accessor = new SettingsAccessor(site);
 
     await accessor.setAppearanceTheme('_default', 7);
 
+    expect(calls[0]?.moduleName).toBe('managesite/themes/ManageSiteAppearanceModule');
     expect(calls[1]?.action).toBe('ManageSiteThemeAction');
     expect(calls[1]?.event).toBe('saveAppearance');
   });
