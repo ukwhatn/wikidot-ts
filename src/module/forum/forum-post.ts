@@ -176,6 +176,38 @@ export class ForumPost {
   }
 
   /**
+   * Delete the post. Destructive and irreversible.
+   * @param confirm - Must be explicitly true to proceed (safety gate for a
+   * destructive operation)
+   * @throws {Error} If confirm is not true
+   */
+  @RequireLogin
+  delete(confirm: boolean): WikidotResultAsync<void> {
+    if (!confirm) {
+      throw new Error('delete is destructive; pass confirm=true to proceed');
+    }
+    return fromPromise(
+      (async () => {
+        const result = await this.thread.site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'deletePost',
+            moduleName: 'Empty',
+            postId: this.id,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+      })(),
+      (error) => {
+        if (error instanceof LoginRequiredError) return error;
+        return new UnexpectedError(`Failed to delete post: ${String(error)}`);
+      }
+    );
+  }
+
+  /**
    * Whether the post has been edited (has revisions)
    */
   get hasRevisions(): boolean {
