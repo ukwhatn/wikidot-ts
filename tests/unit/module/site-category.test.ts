@@ -166,4 +166,15 @@ describe('SiteLicense', () => {
   test('all 15 values are present', () => {
     expect(Object.keys(SiteLicense).length).toBe(15);
   });
+
+  test('NonCommercial variants are uniquely named by id', () => {
+    // Regression check for the VARIANT_A/B/C placeholders replaced after
+    // lead confirmed the real option text via a live read-only fetch
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_2_5).toBe(5);
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_2_5).toBe(6);
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_2_5).toBe(7);
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_3_0).toBe(15);
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_3_0).toBe(16);
+    expect(SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_3_0).toBe(17);
+  });
 });
