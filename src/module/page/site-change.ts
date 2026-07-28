@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
@@ -102,7 +103,7 @@ export class SiteChangeCollection extends Array<SiteChange> {
           throw new NoElementError('Empty response');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'changes/SiteChangesListModule');
         const $ = cheerio.load(html);
         const changes: SiteChange[] = [];
 

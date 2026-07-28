@@ -1,5 +1,6 @@
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import type { PageRef } from '../types';
 
 /**
@@ -92,7 +93,7 @@ export class PageMetaCollection extends Array<PageMeta> {
           throw new NoElementError('Empty response');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'edit/EditMetaModule');
         const metas: PageMeta[] = [];
 
         // Parse HTML-encoded meta tags with regex

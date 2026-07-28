@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import type { AbstractUser } from '../user';
 import type { Page } from './page';
 import type { PageSource } from './page-source';
@@ -124,7 +125,7 @@ export class PageRevision {
           throw new NoElementError('Empty response from PageSourceModule');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'history/PageSourceModule');
         const $ = cheerio.load(html);
 
         // Source code is inside <div class="page-source">
@@ -173,7 +174,7 @@ export class PageRevision {
           throw new NoElementError('Empty response from PageVersionModule');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'history/PageVersionModule');
         const $ = cheerio.load(html);
 
         // HTML content is inside <div id="page-content">

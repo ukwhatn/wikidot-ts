@@ -65,6 +65,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Ensure an AMC response carries a `body` field, throwing `ResponseDataError` if not.
+ *
+ * An unknown `moduleName` doesn't error at the AMC layer — Wikidot just returns
+ * `{"status":"ok"}` with no `body` — so a typo in a module path would otherwise silently
+ * produce an empty parse result instead of a clear failure. Callers that need `body`
+ * should route through this instead of reading `response.body` directly.
+ * @param response - AMC response (or undefined, e.g. a missing array element)
+ * @param moduleName - Module name/path (or action/event) used in the request, for the error message
+ * @returns The response body
+ * @throws ResponseDataError if `response` or `response.body` is missing
+ */
+export function requireBody(response: AMCResponse | undefined, moduleName: string): string {
+  if (response === undefined || response.body === undefined) {
+    throw new ResponseDataError(
+      `AMC response for "${moduleName}" is missing "body" (module may not exist)`
+    );
+  }
+  return response.body;
+}
+
+/**
  * Resolve the backoff duration for a `try_again` response.
  * Honors the server-supplied `time_to_wait` (seconds) when present, falling back to
  * exponential backoff otherwise. The server value is still capped by `maxBackoff` so a

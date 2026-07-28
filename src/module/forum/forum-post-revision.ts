@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import { NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { ForumPostRef } from '../types';
@@ -257,7 +258,7 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
           throw new NoElementError('Empty response from ForumPostRevisionsModule');
         }
 
-        const body = String(response.body ?? '');
+        const body = requireBody(response, 'forum/sub/ForumPostRevisionsModule');
         const $ = cheerio.load(body);
 
         const revisions = ForumPostRevisionCollection._parse(post, $);
@@ -309,7 +310,7 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
           const response = revisionsResult.value[i];
           if (!response) continue;
 
-          const body = String(response.body ?? '');
+          const body = requireBody(response, 'forum/sub/ForumPostRevisionsModule');
           const $ = cheerio.load(body);
           const revisions = ForumPostRevisionCollection._parse(post, $);
           result.set(post.id, new ForumPostRevisionCollection(post, revisions));

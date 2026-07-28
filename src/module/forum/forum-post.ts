@@ -4,6 +4,7 @@ import type { AnyNode, Element } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { ForumThreadRef } from '../types';
@@ -130,7 +131,7 @@ export class ForumPost {
           throw new NoElementError('Empty form response');
         }
 
-        const $ = cheerio.load(String(formResponse.body ?? ''));
+        const $ = cheerio.load(requireBody(formResponse, 'forum/sub/ForumEditPostFormModule'));
         const revisionInput = $("input[name='currentRevisionId']");
         if (revisionInput.length === 0) {
           throw new NoElementError('Current revision ID input not found');
@@ -352,7 +353,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           throw new NoElementError('Empty response');
         }
 
-        const firstBody = String(firstResponse.body ?? '');
+        const firstBody = requireBody(firstResponse, 'forum/ForumViewThreadPostsModule');
         const $first = cheerio.load(firstBody);
 
         posts.push(...ForumPostCollection._parse(thread, $first));
@@ -394,7 +395,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         }
 
         for (const response of additionalResults.value) {
-          const body = String(response?.body ?? '');
+          const body = requireBody(response, 'forum/ForumViewThreadPostsModule');
           const $ = cheerio.load(body);
           posts.push(...ForumPostCollection._parse(thread, $));
         }
@@ -444,7 +445,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           const response = firstPageResult.value[i];
           if (!response) continue;
 
-          const body = String(response.body ?? '');
+          const body = requireBody(response, 'forum/ForumViewThreadPostsModule');
           const $ = cheerio.load(body);
 
           const posts = ForumPostCollection._parse(thread, $);
@@ -488,7 +489,7 @@ export class ForumPostCollection extends Array<ForumPost> {
             const response = additionalResult.value[i];
             if (!response) continue;
 
-            const body = String(response.body ?? '');
+            const body = requireBody(response, 'forum/ForumViewThreadPostsModule');
             const $ = cheerio.load(body);
             const posts = ForumPostCollection._parse(thread, $);
 
@@ -539,7 +540,7 @@ export class ForumPostCollection extends Array<ForumPost> {
           const post = targetPosts[i];
           const response = result.value[i];
           if (!post || !response) continue;
-          const $ = cheerio.load(String(response.body ?? ''));
+          const $ = cheerio.load(requireBody(response, 'forum/sub/ForumEditPostFormModule'));
           const sourceElem = $("textarea[name='source']");
           if (sourceElem.length === 0) {
             throw new NoElementError(`Source textarea not found for post: ${post.id}`);

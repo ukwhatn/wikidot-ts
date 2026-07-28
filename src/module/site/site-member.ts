@@ -7,6 +7,7 @@ import {
   WikidotStatusError,
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { AbstractUser } from '../user';
 import type { Site } from './site';
@@ -97,7 +98,7 @@ export class SiteMember {
           throw new UnexpectedError('Empty response');
         }
 
-        const firstHtml = String(firstResponse.body ?? '');
+        const firstHtml = requireBody(firstResponse, 'membership/MembersListModule');
         members.push(...SiteMember.parse(site, firstHtml));
 
         // Check pager
@@ -131,7 +132,7 @@ export class SiteMember {
         }
 
         for (const response of additionalResults.value) {
-          const html = String(response?.body ?? '');
+          const html = requireBody(response, 'membership/MembersListModule');
           members.push(...SiteMember.parse(site, html));
         }
 

@@ -4,6 +4,7 @@ import type { AnyNode } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
 import { NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
@@ -188,7 +189,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
           throw new NoElementError('Empty response');
         }
 
-        const firstBody = String(firstResponse.body ?? '');
+        const firstBody = requireBody(firstResponse, 'forum/ForumViewCategoryModule');
         const $first = cheerio.load(firstBody);
 
         $first('table.table tr.head~tr').each((_i, elem) => {
@@ -266,7 +267,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
 
         for (const response of additionalResults.value) {
           if (!response) continue;
-          const body = String(response?.body ?? '');
+          const body = requireBody(response, 'forum/ForumViewCategoryModule');
           const $ = cheerio.load(body);
 
           $('table.table tr.head~tr').each((_i, elem) => {
@@ -371,7 +372,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
           const threadId = threadIds[i];
           if (!response || !threadId) continue;
 
-          const body = String(response.body ?? '');
+          const body = requireBody(response, 'forum/ForumViewThreadModule');
           const $ = cheerio.load(body);
 
           // Parse thread info from page
