@@ -631,10 +631,13 @@ export class PrivateMessageSentBox extends PrivateMessageCollection {
 // Site invitations / applications / contacts (/account/messages tabs)
 //
 // These represent the account's own outgoing/incoming relationships to sites and
-// other users, rendered by dashboard/messages/DM*Module. Row markup for these list
-// modules was not captured during the investigation (unlike the inbox/sent
-// tr.message structure above), so listing functions return the raw rendered HTML
-// rather than a parsed collection.
+// other users, rendered by dashboard/messages/DM*Module. Row markup for
+// DMApplicationsModule/DMContactsModule was measured 2026-07-29 and is parsed
+// into SiteJoinApplication/Contact below (DMApplicationsModule rows follow the
+// same tr.message[data-href] pattern as inbox/sent). Row markup for
+// DMInvitationsModule was not captured (no invitations existed on the
+// investigation account), so its listing function still returns raw rendered
+// HTML.
 // ----------------------------------------------------------------------
 
 /**
@@ -682,6 +685,7 @@ export function getInvitationDetailHtml(client: Client, item: number): WikidotRe
 /** Data backing a {@link SiteJoinApplication} */
 export interface SiteJoinApplicationData {
   client: Client;
+  itemId: number;
   fromSite: string;
   subject: string;
   preview: string;
@@ -697,15 +701,21 @@ export interface SiteJoinApplicationData {
  *
  * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
  * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
- * 行マークアップ"): each row is a `tr` with `span.from` / `span.subject` /
- * `span.preview` / `span.date > span.odate`. The measurement did not find a
- * site-id/application-id-bearing attribute on the row, so this object cannot
- * drive DMViewApplicationModule or DashboardSitesAction/removeApplication
- * directly; use `SiteAccessor.removeApplication(siteId)` with a siteId obtained
- * elsewhere if you need to withdraw an application.
+ * 行マークアップ" / "行の属性"): each row is `tr.message` with
+ * `data-href="#/applications/<itemId>"` (the same pattern as the inbox/sent
+ * `tr.message[data-href]`), plus `span.from` / `span.subject` /
+ * `span.preview` / `span.date > span.odate`. The row does not carry a siteId,
+ * so this object cannot drive `DashboardSitesAction/removeApplication` (which
+ * takes a siteId, not this itemId) directly; use
+ * `SiteAccessor.removeApplication(siteId)` with a siteId obtained elsewhere if
+ * you need to withdraw an application. Extracting a siteId from
+ * `DMViewApplicationModule`'s response was not attempted since that
+ * response's structure is unmeasured.
  */
 export class SiteJoinApplication {
   public readonly client: Client;
+  /** Application ID (tail of tr.message's data-href), usable as the `item` parameter of DMViewApplicationModule */
+  public readonly itemId: number;
   /** Text of span.from (the site the application was submitted to) */
   public readonly fromSite: string;
   /** Text of span.subject */
@@ -717,14 +727,22 @@ export class SiteJoinApplication {
 
   constructor(data: SiteJoinApplicationData) {
     this.client = data.client;
+    this.itemId = data.itemId;
     this.fromSite = data.fromSite;
     this.subject = data.subject;
     this.preview = data.preview;
     this.submittedAt = data.submittedAt;
   }
 
+  /**
+   * Fetch the detail HTML of this application (DMViewApplicationModule)
+   */
+  fetchDetailHtml(): WikidotResultAsync<string> {
+    return getApplicationDetailHtml(this.client, this.itemId);
+  }
+
   toString(): string {
-    return `SiteJoinApplication(fromSite=${this.fromSite}, subject=${this.subject})`;
+    return `SiteJoinApplication(itemId=${this.itemId}, fromSite=${this.fromSite}, subject=${this.subject})`;
   }
 }
 
@@ -732,7 +750,7 @@ export class SiteJoinApplication {
  * Internal helper to parse a single DMApplicationsModule row
  * @param client - Client instance
  * @param $ - Loaded cheerio document
- * @param elem - `tr` element to parse
+ * @param elem - `tr.message` element to parse
  * @returns Parsed row, or null if a required element is missing
  */
 function parseApplicationRow(
@@ -741,8 +759,14 @@ function parseApplicationRow(
   elem: AnyNode
 ): SiteJoinApplication | null {
   const $row = $(elem);
+  const dataHref = $row.attr('data-href');
   const fromElem = $row.find('span.from').first();
-  if (fromElem.length === 0) {
+  if (dataHref === undefined || fromElem.length === 0) {
+    return null;
+  }
+
+  const itemIdMatch = dataHref.match(/(\d+)$/);
+  if (!itemIdMatch?.[1]) {
     return null;
   }
 
@@ -752,6 +776,7 @@ function parseApplicationRow(
 
   return new SiteJoinApplication({
     client,
+    itemId: Number.parseInt(itemIdMatch[1], 10),
     fromSite: fromElem.text().trim(),
     subject: subjectElem.text().trim(),
     preview: previewElem.text().trim(),
@@ -787,7 +812,7 @@ export function getApplications(client: Client): WikidotResultAsync<SiteJoinAppl
       }
 
       const applications: SiteJoinApplication[] = [];
-      $first('tr').each((_i, elem) => {
+      $first('tr.message').each((_i, elem) => {
         const application = parseApplicationRow(client, $first, elem);
         if (application) applications.push(application);
       });
@@ -802,7 +827,7 @@ export function getApplications(client: Client): WikidotResultAsync<SiteJoinAppl
         for (const response of results.value) {
           const html = requireBody(response, moduleName);
           const $ = cheerio.load(html);
-          $('tr').each((_i, elem) => {
+          $('tr.message').each((_i, elem) => {
             const application = parseApplicationRow(client, $, elem);
             if (application) applications.push(application);
           });

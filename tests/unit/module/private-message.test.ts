@@ -358,7 +358,7 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
       body.moduleName === 'dashboard/messages/DMApplicationsModule'
         ? createOkResponse(`
           <table>
-          <tr>
+          <tr class="message" data-href="#/applications/463303">
               <td>
                   <span class="from">Foo Site</span>
                   <span class="subject">Membership application</span>
@@ -381,6 +381,7 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
     expect(result.value.length).toBe(1);
     const application = result.value[0];
     expect(application).toBeInstanceOf(SiteJoinApplication);
+    expect(application?.itemId).toBe(463303);
     expect(application?.fromSite).toBe('Foo Site');
     expect(application?.subject).toBe('Membership application');
     expect(application?.preview).toBe('Please let me join!');
@@ -391,7 +392,25 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
     const mockAmc = new MockAMCClient();
     mockAmc.addResponseHandler((body) =>
       body.moduleName === 'dashboard/messages/DMApplicationsModule'
-        ? createOkResponse('<table><tr><td>no from span here</td></tr></table>')
+        ? createOkResponse(
+            '<table><tr class="message" data-href="#/applications/1"><td>no from span here</td></tr></table>'
+          )
+        : createOkResponse()
+    );
+    const client = createFullMockClient(mockAmc);
+
+    const result = await getApplications(client);
+
+    expect(result.isOk() && result.value).toEqual([]);
+  });
+
+  test('getApplications skips rows without data-href', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/messages/DMApplicationsModule'
+        ? createOkResponse(
+            '<table><tr class="message"><td><span class="from">Foo</span></td></tr></table>'
+          )
         : createOkResponse()
     );
     const client = createFullMockClient(mockAmc);
@@ -410,6 +429,31 @@ describe('Invitations/applications/contacts module functions (P5)', () => {
     const [body] = mockAmc.getRequestHistory();
     expect(body?.moduleName).toBe('dashboard/messages/DMViewApplicationModule');
     expect(body?.item).toBe(3);
+  });
+
+  test('SiteJoinApplication.fetchDetailHtml delegates to getApplicationDetailHtml', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'dashboard/messages/DMViewApplicationModule'
+        ? createOkResponse('<div>detail</div>')
+        : createOkResponse()
+    );
+    const client = createFullMockClient(mockAmc);
+    const application = new SiteJoinApplication({
+      client,
+      itemId: 463303,
+      fromSite: 'Foo Site',
+      subject: 'Membership application',
+      preview: 'Please let me join!',
+      submittedAt: new Date(1700000000 * 1000),
+    });
+
+    const result = await application.fetchDetailHtml();
+
+    const [body] = mockAmc.getRequestHistory();
+    expect(body?.moduleName).toBe('dashboard/messages/DMViewApplicationModule');
+    expect(body?.item).toBe(463303);
+    expect(result.isOk() && result.value).toBe('<div>detail</div>');
   });
 
   test('getContacts parses DMContactsModule rows (2026-07-29 measured markup)', async () => {
