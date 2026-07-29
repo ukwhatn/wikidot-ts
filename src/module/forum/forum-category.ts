@@ -116,6 +116,39 @@ export class ForumCategory {
     );
   }
 
+  /**
+   * Render a preview of a new thread without creating it.
+   *
+   * Mirrors the fields `createThread` submits (`new-thread-form`), so a
+   * preview and a subsequent `createThread` call with the same arguments
+   * render consistently.
+   * @param title - Thread title
+   * @param description - Thread description
+   * @param source - Thread body (Wikidot syntax)
+   * @returns Rendered preview HTML
+   */
+  previewThread(title: string, description: string, source: string): WikidotResultAsync<string> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            moduleName: 'forum/ForumPreviewPostModule',
+            category_id: this.id,
+            title,
+            description,
+            source,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const response = result.value[0];
+        return requireBody(response, 'forum/ForumPreviewPostModule');
+      })(),
+      (error) => new UnexpectedError(`Failed to preview thread: ${String(error)}`)
+    );
+  }
+
   toString(): string {
     return `ForumCategory(id=${this.id}, title=${this.title})`;
   }

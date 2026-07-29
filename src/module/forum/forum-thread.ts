@@ -2,9 +2,10 @@ import type { Cheerio } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
-import { NoElementError, UnexpectedError } from '../../common/errors';
+import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
+import { flag, omitFalsy } from '../../connector/amc-body';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
@@ -31,12 +32,12 @@ export interface ForumThreadData {
 export class ForumThread {
   public readonly site: Site;
   public readonly id: number;
-  public readonly title: string;
-  public readonly description: string;
+  public title: string;
+  public description: string;
   public readonly createdBy: AbstractUser | null;
   public readonly createdAt: Date;
   public postCount: number;
-  public readonly category: ForumCategory | null;
+  public category: ForumCategory | null;
   private _posts: ForumPostCollection | null = null;
 
   constructor(data: ForumThreadData) {
@@ -111,8 +112,201 @@ export class ForumThread {
     );
   }
 
+  /**
+   * Update the thread's title and/or description.
+   *
+   * Sends both fields on every call (`ForumAction/saveThreadMeta` resubmits
+   * the whole `thread-meta-form`, it does not patch a single field), so
+   * omitted arguments default to the thread's current locally-known
+   * title/description instead of blanking them.
+   * @param title - New title. Keeps the current title if omitted
+   * @param description - New description (1000 character limit). Keeps the
+   * current description if omitted
+   */
+  @RequireLogin
+  saveMeta(title?: string, description?: string): WikidotResultAsync<ForumThread> {
+    const newTitle = title ?? this.title;
+    const newDescription = description ?? this.description;
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'saveThreadMeta',
+            moduleName: 'Empty',
+            threadId: this.id,
+            title: newTitle,
+            description: newDescription,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        this.title = newTitle;
+        this.description = newDescription;
+        return this;
+      })(),
+      (error) => new UnexpectedError(`Failed to save thread meta: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Pin or unpin the thread within its category
+   * @param sticky - true to pin, false to unpin
+   */
+  @RequireLogin
+  setSticky(sticky: boolean): WikidotResultAsync<ForumThread> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'saveSticky',
+            moduleName: 'Empty',
+            threadId: this.id,
+            ...omitFalsy({ sticky: flag(sticky) }),
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return this;
+      })(),
+      (error) => new UnexpectedError(`Failed to set sticky: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Lock or unlock the thread (locked threads reject new posts)
+   * @param block - true to lock, false to unlock
+   */
+  @RequireLogin
+  setBlock(block: boolean): WikidotResultAsync<ForumThread> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'saveBlock',
+            moduleName: 'Empty',
+            threadId: this.id,
+            ...omitFalsy({ block: flag(block) }),
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return this;
+      })(),
+      (error) => new UnexpectedError(`Failed to set block: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Move the thread to a different forum category
+   * @param category - Destination category
+   */
+  @RequireLogin
+  move(category: ForumCategory): WikidotResultAsync<ForumThread> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'moveThread',
+            moduleName: 'Empty',
+            threadId: this.id,
+            categoryId: category.id,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        this.category = category;
+        return this;
+      })(),
+      (error) => new UnexpectedError(`Failed to move thread: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Start watching the thread (email notification on new posts)
+   */
+  @RequireLogin
+  watch(): WikidotResultAsync<ForumThread> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequest([
+          {
+            action: 'WatchAction',
+            event: 'watchThread',
+            moduleName: 'Empty',
+            threadId: this.id,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return this;
+      })(),
+      (error) => new UnexpectedError(`Failed to watch thread: ${String(error)}`)
+    );
+  }
+
   toString(): string {
     return `ForumThread(id=${this.id}, title=${this.title})`;
+  }
+
+  /**
+   * Create a page's discussion (comment) thread if it does not already have one.
+   * @param site - Site the page belongs to
+   * @param pageId - Numeric page ID (not the page's unix name)
+   * @returns The created thread, or `null` if the response did not include a
+   * recognizable thread ID. The survey of `ForumAction/createPageDiscussionThread`
+   * only confirmed the request parameter (`page_id`); the response schema was
+   * not captured, so this does not assume a `threadId` field is present and
+   * guess-parse it -- callers that get `null` back can still locate the
+   * thread via the page's `/comments/show` view
+   */
+  static createForPage(site: Site, pageId: number): WikidotResultAsync<ForumThread | null> {
+    // Static method: `this` inside a decorated function would be the class
+    // itself, not an instance, so `@RequireLogin` (which reads
+    // this.client/this.site/this.thread) does not apply here -- check
+    // manually instead, matching Page.createOrEdit's static factory pattern.
+    const loginResult = site.client.requireLogin();
+    if (loginResult.isErr()) {
+      return fromPromise(
+        Promise.reject(loginResult.error),
+        () => new LoginRequiredError('Login required to create a page discussion thread')
+      );
+    }
+
+    return fromPromise(
+      (async () => {
+        const result = await site.amcRequest([
+          {
+            action: 'ForumAction',
+            event: 'createPageDiscussionThread',
+            moduleName: 'Empty',
+            page_id: pageId,
+          },
+        ]);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const response = result.value[0];
+        const threadId = response?.threadId;
+        if (typeof threadId !== 'number') {
+          return null;
+        }
+        const threadResult = await ForumThread.getFromId(site, threadId);
+        if (threadResult.isErr()) {
+          throw threadResult.error;
+        }
+        return threadResult.value;
+      })(),
+      (error) => new UnexpectedError(`Failed to create page discussion thread: ${String(error)}`)
+    );
   }
 
   /**
