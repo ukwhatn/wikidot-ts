@@ -1,6 +1,6 @@
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
-import { requireBody } from '../../connector';
+import { flag, omitFalsy, requireBody } from '../../connector';
 import type { PageRef } from '../types';
 
 /**
@@ -130,7 +130,12 @@ export class PageMetaCollection extends Array<PageMeta> {
    * @param name - Meta tag name
    * @param content - Meta tag value
    */
-  static setMeta(page: PageRef, name: string, content: string): WikidotResultAsync<void> {
+  static setMeta(
+    page: PageRef,
+    name: string,
+    content: string,
+    options: { allPages?: boolean } = {}
+  ): WikidotResultAsync<void> {
     const loginResult = page.site.client.requireLogin();
     if (loginResult.isErr()) {
       return fromPromise(
@@ -149,6 +154,7 @@ export class PageMetaCollection extends Array<PageMeta> {
             pageId: page.id,
             metaName: name,
             metaContent: content,
+            ...omitFalsy({ allPages: flag(options.allPages) }),
           },
         ]);
 
@@ -170,7 +176,11 @@ export class PageMetaCollection extends Array<PageMeta> {
    * @param page - Page reference
    * @param name - Meta tag name
    */
-  static deleteMeta(page: PageRef, name: string): WikidotResultAsync<void> {
+  static deleteMeta(
+    page: PageRef,
+    name: string,
+    options: { allPages?: boolean } = {}
+  ): WikidotResultAsync<void> {
     const loginResult = page.site.client.requireLogin();
     if (loginResult.isErr()) {
       return fromPromise(
@@ -188,6 +198,7 @@ export class PageMetaCollection extends Array<PageMeta> {
             moduleName: 'edit/EditMetaModule',
             pageId: page.id,
             metaName: name,
+            ...omitFalsy({ allPages: flag(options.allPages) }),
           },
         ]);
 

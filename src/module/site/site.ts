@@ -15,6 +15,7 @@ import { MemberAccessor } from './accessors/member-accessor';
 import { PageAccessor } from './accessors/page-accessor';
 import { PagesAccessor } from './accessors/pages-accessor';
 import { SettingsAccessor } from './accessors/settings-accessor';
+import { ToolsAccessor } from './accessors/tools-accessor';
 
 /**
  * Site data
@@ -62,6 +63,9 @@ export class Site {
 
   /** Settings accessor */
   private _settings: SettingsAccessor | null = null;
+
+  /** Tools accessor */
+  private _tools: ToolsAccessor | null = null;
 
   constructor(client: Client, data: SiteData) {
     this.client = client;
@@ -120,6 +124,16 @@ export class Site {
       this._settings = new SettingsAccessor(this);
     }
     return this._settings;
+  }
+
+  /**
+   * Get tools accessor
+   */
+  get tools(): ToolsAccessor {
+    if (!this._tools) {
+      this._tools = new ToolsAccessor(this);
+    }
+    return this._tools;
   }
 
   /**
