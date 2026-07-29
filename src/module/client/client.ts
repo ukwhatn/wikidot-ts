@@ -9,6 +9,7 @@ import {
 } from '../../common/types';
 import { AMCClient, type AMCConfig, login, logout } from '../../connector';
 import { User } from '../user/user';
+import { AccountAccessor } from './accessors/account-accessor';
 import { PrivateMessageAccessor } from './accessors/pm-accessor';
 import { SiteAccessor } from './accessors/site-accessor';
 import { UserAccessor } from './accessors/user-accessor';
@@ -50,6 +51,9 @@ export class Client {
   /** Private message operations accessor */
   public readonly privateMessage: PrivateMessageAccessor;
 
+  /** Account (Dashboard) settings/profile operations accessor */
+  public readonly account: AccountAccessor;
+
   /** Username of the logged-in user */
   private _username: string | null;
 
@@ -69,6 +73,7 @@ export class Client {
     this.user = new UserAccessor(this);
     this.site = new SiteAccessor(this);
     this.privateMessage = new PrivateMessageAccessor(this);
+    this.account = new AccountAccessor(this);
   }
 
   /**
