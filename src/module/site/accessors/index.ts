@@ -13,3 +13,12 @@ export {
   SearchPagesQuery,
   type SearchPagesQueryParams,
 } from './pages-accessor';
+export {
+  type AccessPolicySettings,
+  type DomainSettings,
+  type GeneralSettings,
+  SettingsAccessor,
+  SiteCategory,
+  SiteCategoryCollection,
+  SiteLicense,
+} from './settings-accessor';

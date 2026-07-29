@@ -14,6 +14,7 @@ import { ForumAccessor } from './accessors/forum-accessor';
 import { MemberAccessor } from './accessors/member-accessor';
 import { PageAccessor } from './accessors/page-accessor';
 import { PagesAccessor } from './accessors/pages-accessor';
+import { SettingsAccessor } from './accessors/settings-accessor';
 
 /**
  * Site data
@@ -58,6 +59,9 @@ export class Site {
 
   /** Member accessor */
   private _member: MemberAccessor | null = null;
+
+  /** Settings accessor */
+  private _settings: SettingsAccessor | null = null;
 
   constructor(client: Client, data: SiteData) {
     this.client = client;
@@ -106,6 +110,16 @@ export class Site {
       this._member = new MemberAccessor(this);
     }
     return this._member;
+  }
+
+  /**
+   * Get settings accessor
+   */
+  get settings(): SettingsAccessor {
+    if (!this._settings) {
+      this._settings = new SettingsAccessor(this);
+    }
+    return this._settings;
   }
 
   /**
