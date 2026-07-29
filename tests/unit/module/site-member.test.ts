@@ -91,3 +91,32 @@ describe('SiteMember data class', () => {
     });
   });
 });
+
+describe('SiteMember.parse', () => {
+  test('skips a th-only header row and still parses a 3-column admin-panel row', () => {
+    // Confirmed live 2026-07-29 (see 40_admin-managesite.md): the admin
+    // panel's ManageSiteMembersListModule has a leading th header row and a
+    // 3rd options-dropdown td alongside name/join-date.
+    const site = createMockSite();
+    const html = `
+      <table>
+        <tr><th>Name</th><th>Member since</th><th></th></tr>
+        <tr>
+          <td><span class="printuser">
+            <a onclick="WIKIDOT.page.listeners.userInfo(12345)" href="#">Test User</a>
+          </span></td>
+          <td><span class="odate time_1704067200">2024-01-01</span></td>
+          <td><div class="btn-group">options</div></td>
+        </tr>
+      </table>
+    `;
+
+    const members = SiteMember.parse(
+      site as unknown as Parameters<typeof SiteMember.parse>[0],
+      html
+    );
+
+    expect(members.length).toBe(1);
+    expect(members[0]?.joinedAt).not.toBeNull();
+  });
+});

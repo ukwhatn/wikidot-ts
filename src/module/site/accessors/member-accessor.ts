@@ -1,19 +1,44 @@
+import * as cheerio from 'cheerio';
 import { RequireLogin } from '../../../common/decorators';
 import {
   LoginRequiredError,
   TargetError,
   UnexpectedError,
+  type WikidotError,
   WikidotStatusError,
 } from '../../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../../common/types';
+import { checkbox, flag, jsonParam, omitFalsy } from '../../../connector/amc-body';
+import { requireBody } from '../../../connector/amc-client';
+import type { AMCRequestBody } from '../../../connector/amc-types';
 import { type QMCUser, QuickModule } from '../../../util/quick-module';
 import type { User } from '../../user/user';
 import type { Site } from '../site';
 import { SiteApplication } from '../site-application';
+import { IpBlock, UserBlock } from '../site-block';
 import { SiteMember } from '../site-member';
 
+/** Accepts a user object, or a raw user id, wherever a member is referenced */
+type UserOrId = User | number;
+
+function toId(user: UserOrId): number {
+  return typeof user === 'number' ? user : user.id;
+}
+
+/** A single result row from `users/UserSearchModule` */
+export interface UserSearchResult {
+  id: number;
+  name: string;
+}
+
 /**
- * Site member operations accessor
+ * Site member operations accessor. Access through `Site.member`.
+ *
+ * Groups administrative operations that require site-admin permissions:
+ * removing/promoting/demoting members, moderator permissions, invitations,
+ * membership-application handling (delegated to SiteApplication, unchanged),
+ * members auto-watching, abuse-flag clearing, and user/IP blocks (see
+ * site-block.ts for the underlying parsing).
  */
 export class MemberAccessor {
   public readonly site: Site;
@@ -106,6 +131,455 @@ export class MemberAccessor {
       }
     );
   }
+
+  // ------------------------------------------------------------------
+  // Task 2-1: admin-view member listing (paginated)
+  // ------------------------------------------------------------------
+
+  /**
+   * Internal helper: fetch a paginated `managesite/members/*` listing.
+   *
+   * Row markup for `ManageSiteMembersListModule` was confirmed live
+   * 2026-07-29 (see 40_admin-managesite.md): 1st `td` is `span.printuser`,
+   * 2nd is `span.odate` (join date), 3rd is a Bootstrap options dropdown; a
+   * leading `th`-only header row is skipped by `SiteMember.parse`.
+   * `ManageSiteModeratorsModule` / `ManageSiteAdminsModule` were **not**
+   * confirmed (the test site had no moderators/admins to render), but are
+   * assumed to share this shape since Wikidot's server templates
+   * consistently render member rows through the shared
+   * `WIKIDOT.render.printuser` partial.
+   *
+   * **Pagination is unconfirmed.** The test site's 6 members did not
+   * render a `div.pager` at all, so whether the admin panel uses the same
+   * `div.pager` markup as the public `membership/MembersListModule` (vs.
+   * Bootstrap-style pagination) could not be verified -- Wikidot's own
+   * client (`loadMemberList`) just re-requests with `page` and does not
+   * itself track a total page count. The `page` parameter is confirmed
+   * correct either way; single-page results (the common case) are
+   * unaffected. Re-verify against a site with enough members to paginate
+   * before relying on multi-page results.
+   */
+  private getPaginated(moduleName: string): WikidotResultAsync<SiteMember[]> {
+    return fromPromise(
+      (async () => {
+        const members: SiteMember[] = [];
+
+        const firstResult = await this.site.amcRequest([{ moduleName, page: 1 }]);
+        if (firstResult.isErr()) {
+          throw firstResult.error;
+        }
+        const firstResponse = firstResult.value[0];
+        if (!firstResponse) {
+          throw new UnexpectedError('Empty response');
+        }
+        const firstHtml = requireBody(firstResponse, moduleName);
+        members.push(...SiteMember.parse(this.site, firstHtml));
+
+        const $first = cheerio.load(firstHtml);
+        const pagerLinks = $first('div.pager a');
+        if (pagerLinks.length < 2) {
+          return members;
+        }
+        const lastPageText = $first(pagerLinks[pagerLinks.length - 2])
+          .text()
+          .trim();
+        const lastPage = Number.parseInt(lastPageText, 10) || 1;
+        if (lastPage <= 1) {
+          return members;
+        }
+
+        const bodies: AMCRequestBody[] = [];
+        for (let page = 2; page <= lastPage; page++) {
+          bodies.push({ moduleName, page });
+        }
+        const additionalResults = await this.site.amcRequest(bodies);
+        if (additionalResults.isErr()) {
+          throw additionalResults.error;
+        }
+        for (const response of additionalResults.value) {
+          const html = requireBody(response, moduleName);
+          members.push(...SiteMember.parse(this.site, html));
+        }
+
+        return members;
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Get the admin-panel view of all site members.
+   *
+   * Uses `managesite/members/ManageSiteMembersListModule`, distinct from
+   * `getAll()` (public `membership/MembersListModule`): this is the view
+   * rendered inside `_admin`, requires site-admin permissions, and is what
+   * Wikidot's own client re-fetches after remove/promote/demote actions to
+   * refresh the panel.
+   */
+  getMembersAdminView(): WikidotResultAsync<SiteMember[]> {
+    return this.getPaginated('managesite/members/ManageSiteMembersListModule');
+  }
+
+  /** Get the admin-panel view of site moderators */
+  getModeratorsAdminView(): WikidotResultAsync<SiteMember[]> {
+    return this.getPaginated('managesite/members/ManageSiteModeratorsModule');
+  }
+
+  /** Get the admin-panel view of site administrators */
+  getAdminsAdminView(): WikidotResultAsync<SiteMember[]> {
+    return this.getPaginated('managesite/members/ManageSiteAdminsModule');
+  }
+
+  // ------------------------------------------------------------------
+  // Task 2-2: member removal / ownership transfer / moderator perms
+  // ------------------------------------------------------------------
+
+  /** Internal: fire-and-forget action helper, mirroring settings-accessor's simpleAction */
+  private simpleAction(body: AMCRequestBody): WikidotResultAsync<void> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName: 'Empty', ...body });
+        if (result.isErr()) {
+          throw result.error;
+        }
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Remove a member from the site. Destructive.
+   * @param user - Member to remove (or their user ID)
+   * @param options.ban - **`ban: true` removes the member and blocks them
+   * in one call** (Wikidot's own client calls this combined flow "remove
+   * and ban" -- it is not merely a removal reason). Sent as `ban="yes"`
+   * when true; omitted entirely when false. If you only want to remove
+   * membership without blocking, leave this false
+   */
+  remove(user: UserOrId, options: { ban?: boolean } = {}): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'removeMember',
+      user_id: toId(user),
+      ...omitFalsy({ ban: options.ban ? 'yes' : false }),
+    });
+  }
+
+  /**
+   * Transfer site master-admin ownership to another admin. Destructive from
+   * the caller's perspective: the caller loses master status. Uses `userId`
+   * (camelCase) -- unlike every other `ManageSiteMembershipAction` event in
+   * this class (which use `user_id`), Wikidot's own client sends this one
+   * parameter name in camelCase for `changeMaster` specifically.
+   * @param user - New master admin (must already be a site admin; or their user ID)
+   */
+  changeMaster(user: UserOrId): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'changeMaster',
+      userId: toId(user),
+    });
+  }
+
+  /**
+   * Fetch the raw `sm-mod-perms-form` HTML for a moderator.
+   *
+   * **未実測**: the test site used for this research had no moderators, so
+   * `sm-mod-perms-form`'s field names could not be captured. Returns the raw
+   * rendered HTML body instead of a typed structure -- inspect it yourself
+   * and pass the exact field names to `saveModeratorPermissions`.
+   * @param moderatorId - Moderator's user ID (obtainable from getModeratorsAdminView())
+   */
+  getModeratorPermissionsForm(moderatorId: number): WikidotResultAsync<string> {
+    const moduleName = 'managesite/ManageSiteModeratorPermissionsModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName, moderatorId });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return requireBody(result.value, moduleName);
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Save moderator permissions (`saveModeratorPermissions`).
+   *
+   * **未実測**: `sm-mod-perms-form`'s field names are unknown (see
+   * `getModeratorPermissionsForm`). Pass the exact field names/values
+   * Wikidot's form uses; this method does not validate, transform, or
+   * default them (unlike the typed `site.settings.*` methods).
+   * @param fields - Raw form fields to submit verbatim
+   */
+  saveModeratorPermissions(
+    fields: Record<string, AMCRequestBody[string]>
+  ): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'saveModeratorPermissions',
+      ...fields,
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Task 2-4: invitations
+  // ------------------------------------------------------------------
+
+  /**
+   * Search for users to invite (`users/UserSearchModule`).
+   *
+   * Confirmed live 2026-07-29 (see 40_admin-managesite.md): `userIds` is a
+   * JSON array of IDs, but `userNames` is **not** a parallel array -- it's
+   * an object keyed by the user ID *as a string*
+   * (`{"3396310": "ukwhatn", ...}`). There is also no `count` key (the
+   * initial research's notes were wrong on both points); use
+   * `result.length` if a count is needed.
+   * @param query - Search query (part of a username)
+   */
+  searchUsers(query: string): WikidotResultAsync<UserSearchResult[]> {
+    const moduleName = 'users/UserSearchModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName, query });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const data = result.value;
+        const ids = (data.userIds as number[] | undefined) ?? [];
+        const namesById = (data.userNames as Record<string, string> | undefined) ?? {};
+        return ids.map((id) => ({ id, name: namesById[String(id)] ?? '' }));
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Send email invitations to join the site.
+   * @param addresses - `[email, name, isContact]` tuples. Encoded as
+   * `addresses=[[email, name, isContact], ...]` (JSON), matching Wikidot's own client
+   * @param message - Message included with the invitation
+   */
+  sendEmailInvitations(
+    addresses: [email: string, name: string, isContact: boolean][],
+    message = ''
+  ): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'sendEmailInvitations',
+      addresses: jsonParam(addresses.map((a) => [...a])),
+      message,
+    });
+  }
+
+  /** Delete a pending email invitation */
+  deleteEmailInvitation(invitationId: number): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'deleteEmailInvitation',
+      invitationId,
+    });
+  }
+
+  /** Resend a pending email invitation */
+  resendEmailInvitation(invitationId: number, message = ''): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'resendEmailInvitation',
+      invitationId,
+      message,
+    });
+  }
+
+  /**
+   * Allow/disallow regular members to invite others via email.
+   * @param enabled - Sent as the literal string "true"/"false" (always
+   * present, not omitted when false -- matches `enableLetUsersInvite(bool)`'s
+   * plain-boolean notation, the same always-sent convention as
+   * `site.settings.saveOpenId`'s `enableOpenID`)
+   */
+  setLetUsersInvite(enabled: boolean): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'letUsersInviteSave',
+      enableLetUsersInvite: enabled ? 'true' : 'false',
+    });
+  }
+
+  /**
+   * Invite a user to become a site admin.
+   * @param user - User to invite (or their user ID)
+   * @returns The invited user's ID, if returned by Wikidot
+   */
+  inviteAdmin(user: UserOrId): WikidotResultAsync<number | null> {
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({
+          moduleName: 'Empty',
+          action: 'ManageSiteAction',
+          event: 'inviteAdmin',
+          user_id: toId(user),
+        });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        const userId = result.value.userId;
+        return typeof userId === 'number' ? userId : null;
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Task 2-5: user / IP blocks
+  // ------------------------------------------------------------------
+
+  /** Get the list of blocked users */
+  getBlockedUsers(): WikidotResultAsync<UserBlock[]> {
+    const moduleName = 'managesite/blocks/ManageSiteUserBlocksModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return UserBlock.parseAll(this.site, requireBody(result.value, moduleName));
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /** Get the list of blocked IP addresses/ranges */
+  getBlockedIps(): WikidotResultAsync<IpBlock[]> {
+    const moduleName = 'managesite/blocks/ManageSiteIpBlocksModule';
+    return fromPromise(
+      (async () => {
+        const result = await this.site.amcRequestSingle({ moduleName });
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return IpBlock.parseAll(this.site, requireBody(result.value, moduleName));
+      })(),
+      (error) => error as WikidotError
+    );
+  }
+
+  /**
+   * Block a user from the site.
+   * @param user - User to block (or their user ID)
+   * @param reason - Block reason (200 characters max per Wikidot's form)
+   */
+  blockUser(user: UserOrId, reason = ''): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteBlockAction',
+      event: 'blockUser',
+      userId: toId(user),
+      reason,
+    });
+  }
+
+  /**
+   * Remove a user block.
+   * @param user - Blocked user (or their user ID). `deleteBlock`'s `userId`
+   * really is a user ID (confirmed 2026-07-29 from
+   * `managesite_blocks_ManageSiteUserBlocksModule.js`) -- do not confuse
+   * with `unblockIp`'s `blockId`, which is a block ID
+   */
+  unblockUser(user: UserOrId): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteBlockAction',
+      event: 'deleteBlock',
+      userId: toId(user),
+    });
+  }
+
+  /**
+   * Block one or more IP addresses/ranges.
+   * @param ips - IP addresses/ranges, one per line (matches the `ips` textarea)
+   * @param reason - Block reason (200 characters max per Wikidot's form)
+   */
+  blockIp(ips: string, reason = ''): WikidotResultAsync<void> {
+    return this.simpleAction({ action: 'ManageSiteBlockAction', event: 'blockIp', ips, reason });
+  }
+
+  /**
+   * Remove an IP block.
+   * @param blockId - Block ID (from getBlockedIps()). `deleteIpBlock`'s
+   * `blockId` is a block ID, not an IP or user ID -- asymmetric with
+   * `unblockUser`'s `userId`, do not confuse the two
+   */
+  unblockIp(blockId: number): WikidotResultAsync<void> {
+    return this.simpleAction({ action: 'ManageSiteBlockAction', event: 'deleteIpBlock', blockId });
+  }
+
+  // ------------------------------------------------------------------
+  // Task 2-6: abuse-flag clearing / members auto-watching / block-link
+  // ------------------------------------------------------------------
+
+  /** Clear abuse flags reported against a user */
+  clearUserFlags(user: UserOrId): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteAbuseAction',
+      event: 'clearUserFlags',
+      userId: toId(user),
+    });
+  }
+
+  /** Clear abuse flags reported against a page */
+  clearPageFlags(path: string): WikidotResultAsync<void> {
+    return this.simpleAction({ action: 'ManageSiteAbuseAction', event: 'clearPageFlags', path });
+  }
+
+  /**
+   * Clear abuse flags reported against an anonymous (IP) address.
+   * @param address - IP address
+   * @param proxy - Sent as `proxy="yes"` when true (matching the `?("yes")`
+   * notation in 40_admin-managesite.md, the same value Wikidot uses for
+   * `remove()`'s `ban`); omitted when false
+   */
+  clearAnonymousFlags(address: string, proxy = false): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteAbuseAction',
+      event: 'clearAnonymousFlags',
+      address,
+      ...omitFalsy({ proxy: proxy ? 'yes' : false }),
+    });
+  }
+
+  /**
+   * Configure members' automatic watching of new pages.
+   * @param options.watchAll - Watch all categories automatically
+   * @param options.selectedCategories - Category IDs to watch when watchAll
+   * is false. Sent as `selected_categories[]=<id>&...` (the AMC client
+   * auto-expands array values into bracket notation)
+   */
+  setMembersWatching(
+    options: { watchAll?: boolean; selectedCategories?: number[] } = {}
+  ): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteMembershipAction',
+      event: 'saveMembersWatching',
+      ...omitFalsy({ watch_all: checkbox(options.watchAll) }),
+      ...(options.selectedCategories !== undefined
+        ? { selected_categories: options.selectedCategories }
+        : {}),
+    });
+  }
+
+  /**
+   * Configure automatic link-blocking by karma level.
+   * @param karmaLevel - Karma threshold (0-5)
+   * @param blockLink - Whether to actually block links below the threshold
+   */
+  setBlockLink(karmaLevel: number, blockLink = false): WikidotResultAsync<void> {
+    return this.simpleAction({
+      action: 'ManageSiteAction',
+      event: 'saveBlockLink',
+      karmaLevel,
+      ...omitFalsy({ blockLink: flag(blockLink) }),
+    });
+  }
 }
 
-export { SiteApplication, SiteMember };
+export { IpBlock, SiteApplication, SiteMember, UserBlock };
