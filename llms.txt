@@ -2,7 +2,7 @@
 
 > A TypeScript library for interacting with Wikidot sites (SCP Foundation, etc.)
 
-- Version: 4.0.x
+- Version: 4.5.0
 - Node.js: 18+
 - Dependencies: cheerio, ky, neverthrow, p-limit, zod
 - License: MIT
@@ -109,6 +109,7 @@ const client = Client.createAnonymous({ domain: 'wikidot.com' });
 | `user` | `UserAccessor` | User operations accessor |
 | `site` | `SiteAccessor` | Site operations accessor |
 | `privateMessage` | `PrivateMessageAccessor` | Private message accessor |
+| `account` | `AccountAccessor` | Account-level (Dashboard) settings/profile accessor |
 | `username` | `string \| null` | Logged-in username |
 | `me` | `User \| null` | Logged-in user object |
 
@@ -171,7 +172,9 @@ const site = siteResult.value;
 | `page` | `PageAccessor` | Single page operations |
 | `pages` | `PagesAccessor` | Page list operations |
 | `forum` | `ForumAccessor` | Forum operations |
-| `member` | `MemberAccessor` | Member management |
+| `settings` | `SettingsAccessor` | Manage Site (`_admin`) settings — see "Site Settings" |
+| `member` | `MemberAccessor` | Member listing and administration — see "Site Member Administration" |
+| `tools` | `ToolsAccessor` | Site Tools / Wanted / Orphaned / Drafts / filtered recent changes — see "Site Tools" |
 
 ### Methods
 
@@ -189,6 +192,57 @@ const site = siteResult.value;
 console.log(`Site: ${site.title}`);
 console.log(`URL: ${site.getBaseUrl()}`);
 console.log(`SSL: ${site.sslSupported}`);
+```
+
+---
+
+## AMC Transport
+
+Low-level details of how requests reach Wikidot's Ajax Module Connector.
+Most callers never need this section — it matters when a `save*`/`set*`
+call's Result carries a `FormErrorsError`, or when building a raw AMC body
+for a method that takes `rawFields`/`fields`.
+
+### FormErrorsError
+
+Returned in the error channel of the `WikidotResultAsync` when Wikidot's
+response status is `"form_errors"` / `"form_error"` (a validation failure,
+not a transport error). The payload key holding per-field messages differs
+by module (`formErrors` for most, `errors` for `WikiPageAction/savePage`, a
+plain `message` string for others); the `errors` getter absorbs this and
+always returns `Record<string, string>`.
+
+```typescript
+import { FormErrorsError } from '@ukwhatn/wikidot';
+
+const result = await site.settings.saveGeneral({ name: '' }); // empty title is invalid
+if (result.isErr() && result.error instanceof FormErrorsError) {
+  for (const [field, message] of Object.entries(result.error.errors)) {
+    console.log(`${field}: ${message}`);
+  }
+}
+```
+
+### Request Body Helpers
+
+`connector/amc-body` — used internally by every typed `site.settings.*` /
+`site.member.*` / `client.account.*` method, and useful when passing raw
+fields to a `rawFields`/`fields` escape hatch yourself.
+
+| Function | Description |
+|----------|-------------|
+| `checkbox(value)` | Encode a checkbox-style bool: `"on"` if truthy, else `undefined` (formToArray semantics — unchecked means the key is omitted, not `"false"`) |
+| `flag(value)` | Encode a JS-boolean-style flag: `"true"` if truthy, else `undefined` |
+| `jsonParam(value)` | JSON-encode a value (e.g. `categories`/`options`/`addresses`), passing `undefined` through for `null`/`undefined` |
+| `omitFalsy(input)` | Drop `false`/`null`/`undefined` values from an object. The single place enforcing that an unchecked checkbox must be *absent*, not `"false"` |
+
+```typescript
+import { checkbox, flag, omitFalsy } from '@ukwhatn/wikidot';
+
+const body = omitFalsy({
+  toolbarTop: checkbox(true),
+  toolbarBottom: checkbox(false), // dropped entirely, not sent as "false"
+});
 ```
 
 ---
@@ -257,6 +311,7 @@ const createResult = await site.page.create({
 |--------|-------------|-------------|
 | `getUrl()` | `string` | Get page URL |
 | `isIdAcquired()` | `boolean` | Check if page ID is cached |
+| `getTemplateSource()` | `WikidotResultAsync<string>` | Get the page's source for use as a page-creation template |
 | `getSource()` | `WikidotResultAsync<PageSource>` | Get page source |
 | `getRevisions()` | `WikidotResultAsync<PageRevisionCollection>` | Get revision history |
 | `getVotes()` | `WikidotResultAsync<PageVoteCollection>` | Get vote information |
@@ -264,14 +319,24 @@ const createResult = await site.page.create({
 | `getMetas()` | `WikidotResultAsync<PageMetaCollection>` | Get meta tags |
 | `getDiscussion()` | `WikidotResultAsync<ForumThread \| null>` | Get discussion thread |
 | `edit(options)` | `WikidotResultAsync<void>` | Edit page (login required) |
+| `openEditor(options?)` | `PageEditSession` | Get an unopened manual edit session — see "PageEditSession". `options`: `mode`/`section`/`forceLock` |
 | `destroy()` | `WikidotResultAsync<void>` | Delete page (login required) |
-| `rename(newFullname)` | `WikidotResultAsync<void>` | Rename page (login required) |
+| `rename(newFullname, options?)` | `WikidotResultAsync<void>` | Rename page (login required). `options.fixdeps`: backlink page IDs to update (see `getRenameBacklinks()`); `options.force`: override another user's lock |
+| `getRenameBacklinks()` | `WikidotResultAsync<string>` | Rendered HTML of pages linking to this page, for building `fixdeps` |
 | `setParent(fullname)` | `WikidotResultAsync<void>` | Set parent page (login required) |
+| `getParentForm()` | `WikidotResultAsync<string>` | Rendered parent-page selection form (raw HTML) |
 | `commitTags()` | `WikidotResultAsync<void>` | Save tag changes (login required) |
+| `getTagsForm()` | `WikidotResultAsync<string>` | Rendered tags editing form (raw HTML) |
+| `updateTagsByButton(tags)` | `WikidotResultAsync<void>` | Update tags via the quick-tag button UI (space-separated tag string, distinct from `commitTags()`) |
 | `vote(value)` | `WikidotResultAsync<number>` | Vote (+1/-1), returns new rating (login required) |
 | `cancelVote()` | `WikidotResultAsync<number>` | Cancel vote, returns new rating (login required) |
-| `setMeta(name, content)` | `WikidotResultAsync<void>` | Set meta tag (login required) |
-| `deleteMeta(name)` | `WikidotResultAsync<void>` | Delete meta tag (login required) |
+| `setMeta(name, content, options?)` | `WikidotResultAsync<void>` | Set meta tag (login required). `options.allPages`: apply to every page sharing the template |
+| `deleteMeta(name, options?)` | `WikidotResultAsync<void>` | Delete meta tag (login required) |
+| `getBlockForm()` | `WikidotResultAsync<string>` | Rendered page-block form (raw HTML) |
+| `setBlock(block?)` | `WikidotResultAsync<void>` | Set/clear the edit-block flag (blocked pages are non-moderator-uneditable, login required). Default `true` |
+| `getBacklinks()` | `WikidotResultAsync<string>` | Rendered HTML of pages linking to this page |
+| `watch()` | `WikidotResultAsync<void>` | Watch the page for changes (login required) |
+| `getWatchers()` | `WikidotResultAsync<string>` | Rendered HTML of users watching the page |
 
 ### Edit Options
 
@@ -320,6 +385,74 @@ await page.setParent(null); // Remove parent
 
 // Delete page
 await page.destroy();
+```
+
+---
+
+## PageEditSession
+
+An explicit session object wrapping the lock lifecycle of Wikidot's page
+editor (`edit/PageEditModule`): acquire via `open()`, keep alive via
+`synchronize()`, release via `release()`. TypeScript has no
+context-manager protocol, so `withEditLock()` provides the callback-based
+equivalent of wikidot.py's `with page.open_editor() as ed:` — it opens the
+session, runs the callback, and releases the lock unless `save()`
+succeeded. Wikidot holds the lock for up to 15 minutes. Get one via
+`page.openEditor(...)`.
+
+### Constructor Options (`PageEditSessionOptions`)
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `site` | `Site` | Yes | - | Site the page belongs to |
+| `fullname` | `string` | Yes | - | Fullname of the page being edited |
+| `pageId` | `number \| null` | No | `null` | Page ID for an existing page; must be omitted/`null` when creating a new page |
+| `mode` | `EditMode` (`"page" \| "section" \| "append"`) | No | `"page"` | Edit mode |
+| `section` | `number \| null` | No | `null` | Section number; required when `mode="section"` |
+| `forceLock` | `boolean` | No | `false` | Forcibly take over a lock held by another user when opening |
+
+### Properties (getters)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `lockId` / `lockSecret` | `string \| null` | Lock identifiers, set once open |
+| `revisionId` | `string` | Revision ID submitted with save/synchronize |
+| `timeLeft` | `number \| null` | Remaining lock time in seconds |
+| `isExistingPage` | `boolean` | Whether the page already existed when the lock was acquired |
+| `saved` | `boolean` | Whether `save()` has completed successfully |
+| `isOpen` | `boolean` | Whether the lock is currently held |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `open()` | `WikidotResultAsync<PageEditSession>` | Acquire the edit lock. Errors with `TargetError` if locked by another user |
+| `save(options?)` | `WikidotResultAsync<Record<string, unknown>>` | Save the page (`WikiPageAction/savePage`). `options`: `title`/`source`/`comment`/`andContinue`/`rangeStart`/`rangeEnd`/`tags`/`parentPage`/`dontNotifyWatchers` |
+| `synchronize(sinceLastInput?)` | `WikidotResultAsync<Record<string, unknown>>` | Keep the lock alive; call periodically while the editor stays open |
+| `preview(options?)` | `WikidotResultAsync<{ body: string; title: string }>` | Render a preview. `options`: `title`/`source`/`pageUnixName`/`rangeStart`/`rangeEnd` |
+| `diff(options?)` | `WikidotResultAsync<string>` | Render a diff against the base revision. `options`: `title`/`source`/`rangeStart`/`rangeEnd` |
+| `checkDraftExists(options?)` | `WikidotResultAsync<boolean>` | Check whether a draft already exists for this lock |
+| `forceLockIntercept()` | `WikidotResultAsync<Record<string, unknown>>` | Forcibly take over a newer lock taken by someone else |
+| `recreateExpiredLock()` | `WikidotResultAsync<Record<string, unknown>>` | Recreate an expired lock |
+| `release(leaveDraft?)` | `WikidotResultAsync<void>` | Release the lock. Failures are logged, not thrown |
+
+### `withEditLock(session, callback)`
+
+Opens `session`, runs `callback(session)`, and releases the lock unless
+`save()` succeeded — the callback-based equivalent of a `with` block.
+
+### Usage
+
+```typescript
+import { withEditLock } from '@ukwhatn/wikidot';
+
+const session = page.openEditor();
+const result = await withEditLock(session, async (ed) => {
+  const previewResult = await ed.preview({ source: 'new content' });
+  if (previewResult.isOk()) console.log(previewResult.value.body);
+
+  return ed.save({ source: 'new content', comment: 'edit' });
+});
 ```
 
 ---
@@ -475,6 +608,7 @@ Page revision information.
 | `isHtmlAcquired()` | `boolean` | Check if HTML is cached |
 | `getSource()` | `WikidotResultAsync<string>` | Get revision source |
 | `getHtml()` | `WikidotResultAsync<string>` | Get revision HTML |
+| `revert(options?)` | `WikidotResultAsync<Record<string, unknown>>` | Revert the page to this revision (login required). `options.force`: override another user's active edit lock. On a lock conflict the response carries `locks`/`body` rather than an error — inspect the returned record |
 
 ### PageRevisionCollection Methods
 
@@ -483,6 +617,13 @@ Page revision information.
 | `findById(id)` | `PageRevision \| undefined` | Find revision by ID |
 | `getSources()` | `WikidotResultAsync<string[]>` | Bulk fetch sources |
 | `getHtmls()` | `WikidotResultAsync<string[]>` | Bulk fetch HTML |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PageRevisionCollection.getDiff(page, fromRevisionId, toRevisionId, showType?)` | `WikidotResultAsync<string>` | Rendered HTML diff between two revisions (`showType` default `"inline"`) |
+| `PageRevisionCollection.acquire(page, options?)` | `WikidotResultAsync<PageRevisionCollection>` | Fetch one page of history with server-side filtering. `options`: `options` (change-type flags: `"all"`/`"source"`/`"title"`/`"move"`/`"tags"`/`"files"`/`"meta"`, no `"new"`), `perpage` (20/50/100/200), `pageNo` |
 
 ### Usage
 
@@ -572,12 +713,33 @@ Attached file information.
 | `mimeType` | `string` | MIME type |
 | `size` | `number` | File size in bytes |
 
+### File Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getRenameForm()` | `WikidotResultAsync<string>` | Rendered rename form (raw HTML) |
+| `getMoveForm()` | `WikidotResultAsync<string>` | Rendered move form (raw HTML) |
+| `getInfo()` | `WikidotResultAsync<string>` | Rendered file detail view (raw HTML) |
+| `rename(newName, options?)` | `WikidotResultAsync<PageFile>` | Rename this file (login required). `options.force`: overwrite an existing file with the new name |
+| `move(destinationPageName, options?)` | `WikidotResultAsync<void>` | Move this file to another page (login required) |
+| `delete(options?)` | `WikidotResultAsync<void>` | Delete this file. Destructive; requires `options.confirm: true` |
+
 ### PageFileCollection Methods
 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `findById(id)` | `PageFile \| undefined` | Find file by ID |
 | `findByName(name)` | `PageFile \| undefined` | Find file by name |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PageFileCollection.checkExists(page, filename)` | `WikidotResultAsync<boolean>` | Check whether a file with that name exists on the page |
+| `PageFileCollection.getUploadForm(page)` | `WikidotResultAsync<string>` | Rendered file upload form (raw HTML; the actual upload is a separate multipart endpoint) |
+| `PageFileCollection.getManager(page)` | `WikidotResultAsync<string>` | Rendered site-wide file manager view scoped to a page (raw HTML) |
+| `PageFileCollection.upload(page, filename, content, options?)` | `WikidotResultAsync<Record<string, string>>` | Upload a file (multipart, `content: Uint8Array \| Blob`). **Unverified against a live Wikidot instance.** `options.multikey` groups multiple uploads for `multiUploadComplete()` |
+| `PageFileCollection.multiUploadComplete(page, multikey, filenames)` | `WikidotResultAsync<void>` | Notify Wikidot that a batch of multipart uploads has finished (login required) |
 
 ### Usage
 
@@ -593,6 +755,90 @@ for (const file of filesResult.value) {
 
 // Find specific file
 const image = filesResult.value.findByName('image.png');
+
+// Upload and manage files
+import { PageFileCollection } from '@ukwhatn/wikidot';
+
+await PageFileCollection.upload(page, 'notes.txt', new TextEncoder().encode('content'));
+if (image) {
+  await image.rename('renamed.png');
+  await image.delete({ confirm: true });
+}
+```
+
+---
+
+## Forum Administration
+
+Forum-wide admin operations (Manage Site's Forum panel), accessed through
+`site.forum` alongside the existing category/thread methods.
+
+### ForumAccessor Methods (new)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `activate()` | `WikidotResultAsync<void>` | Enable the forum for a site that doesn't have one yet |
+| `setDefaultNesting(maxNestLevel)` | `WikidotResultAsync<void>` | Set the site-wide default reply nesting depth (0-10, 0=flat) |
+| `getLayout()` | `WikidotResultAsync<ForumLayout>` | Fetch the current group/category layout for editing |
+| `updatePermissions(mutator, defaultPermissions?)` | `WikidotResultAsync<void>` | Fetch → mutate → save forum category permissions (read-modify-write) |
+| `createPageDiscussionThread(pageId)` | `WikidotResultAsync<ForumThread \| null>` | Create a page's discussion thread if it doesn't already have one |
+
+### ForumLayout
+
+The full forum group/category layout (`saveForumLayout`'s read-modify-write
+cycle). Never cached — call `ForumLayout.fetch()` again before each edit.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `ForumLayout.fetch(site)` | `WikidotResultAsync<ForumLayout>` | Fetch the current layout |
+| `addGroup(name, description?, visible?)` | `ForumLayoutGroup` | Add a new empty group |
+| `addCategory(group, name, description?, maxNestLevel?)` | `ForumLayoutCategory` | Add a category to a group in this layout |
+| `removeGroup(group, confirm)` | `void` | Remove a group and all its categories. Destructive; requires `confirm=true` |
+| `removeCategory(group, category, confirm)` | `void` | Remove a single category. Destructive; requires `confirm=true` |
+| `save()` | `WikidotResultAsync<void>` | Send the layout back to Wikidot |
+
+`ForumLayoutGroup` (`name`, `description`, `visible`) and
+`ForumLayoutCategory` (`name`, `description`, `maxNestLevel`, `categoryId`,
+`numberThreads`) are the group/category elements the above methods operate
+on.
+
+### ForumCategoryPermissionsCollection
+
+The full forum-category `permissions` array from a *different* module than
+`ForumLayout` (13 fields vs. layout's smaller shape) — always fetch from
+the matching module rather than mixing the two. Never cached.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `ForumCategoryPermissionsCollection.fetch(site)` | `WikidotResultAsync<ForumCategoryPermissionsCollection>` | Fetch current forum category permissions |
+| `collection.get(categoryId)` | `ForumCategoryPermissions` | Look up a category by ID (throws if missing) |
+| `save(defaultPermissions?)` | `WikidotResultAsync<void>` | Send the array back. `defaultPermissions` (site-wide) is only sent when explicitly provided — it cannot be fetched and preserved automatically |
+
+`ForumCategoryPermissions.setPermissions(permissions)` updates a single
+category's `ForumPermissions` (`null` = inherit the site default).
+
+### Usage
+
+```typescript
+// Enable and configure a forum
+await site.forum.activate();
+await site.forum.setDefaultNesting(5);
+
+// Edit the group/category layout
+const layoutResult = await site.forum.getLayout();
+if (layoutResult.isOk()) {
+  const layout = layoutResult.value;
+  const group = layout.addGroup('Announcements', 'Site news');
+  layout.addCategory(group, 'General', undefined, 3);
+  await layout.save();
+}
+
+// Read-modify-write forum category permissions
+import { ForumPermissions } from '@ukwhatn/wikidot';
+
+await site.forum.updatePermissions((cats) => {
+  cats.get(7001).setPermissions(ForumPermissions.decode('t:m;p:arm;e:m'));
+});
 ```
 
 ---
@@ -676,6 +922,11 @@ Forum thread operations.
 | `getUrl()` | `string` | Get thread URL |
 | `getPosts()` | `WikidotResultAsync<ForumPostCollection>` | Get all posts |
 | `reply(source, title?, parentPostId?)` | `WikidotResultAsync<ForumThread>` | Reply to thread (login required) |
+| `saveMeta(title?, description?)` | `WikidotResultAsync<ForumThread>` | Update title/description (login required). Both are always resent — omitting an argument keeps the current locally-known value rather than blanking it |
+| `setSticky(sticky)` | `WikidotResultAsync<ForumThread>` | Pin/unpin the thread within its category (login required) |
+| `setBlock(block)` | `WikidotResultAsync<ForumThread>` | Lock/unlock the thread; locked threads reject new posts (login required) |
+| `move(category)` | `WikidotResultAsync<ForumThread>` | Move the thread to a different `ForumCategory` (login required) |
+| `watch()` | `WikidotResultAsync<ForumThread>` | Start watching the thread for new-post notifications (login required) |
 
 ### Static Methods
 
@@ -726,13 +977,16 @@ Forum post operations.
 | `editedBy` | `AbstractUser \| null` | Last editor |
 | `editedAt` | `Date \| null` | Last edit date |
 | `parentId` | `number \| null` | Parent post ID |
+| `source` | `string \| null` | Cached post source; `null` until `getSource()` has been called |
 
 ### Methods
 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
-| `getSource()` | `WikidotResultAsync<string>` | Get source (Wikidot markup) |
+| `getSource()` | `WikidotResultAsync<string>` | Get source (Wikidot markup); populates the `source` getter |
+| `getRevisions()` | `WikidotResultAsync<ForumPostRevisionCollection>` | Edit history (lazy loaded) — see "ForumPostRevision" |
 | `edit(source, title?)` | `WikidotResultAsync<void>` | Edit post (login required) |
+| `delete(confirm)` | `WikidotResultAsync<void>` | Delete the post. Destructive and irreversible; pass `confirm: true` |
 
 ### ForumPostCollection Methods
 
@@ -756,6 +1010,50 @@ for (const post of postsResult.value) {
 
 // Edit post (login required)
 await post.edit('Updated content', 'Updated title');
+```
+
+---
+
+## ForumPostRevision
+
+Forum post edit history. Access via `post.getRevisions()`.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `post` | `ForumPost` | Parent post |
+| `id` | `number` | Revision ID |
+| `revNo` | `number` | Revision number (0 = initial version) |
+| `createdBy` | `AbstractUser` | Editor |
+| `createdAt` | `Date` | Edit date |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `isHtmlAcquired()` | `boolean` | Check if HTML is cached |
+| `getHtml()` | `WikidotResultAsync<string>` | Get revision HTML |
+
+### ForumPostRevisionCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `findById(id)` | `ForumPostRevision \| undefined` | Find revision by ID |
+| `findByRevNo(revNo)` | `ForumPostRevision \| undefined` | Find revision by revision number |
+| `getHtmls()` | `WikidotResultAsync<string[]>` | Bulk fetch HTML |
+
+### Usage
+
+```typescript
+const revisionsResult = await post.getRevisions();
+if (revisionsResult.isOk()) {
+  for (const revision of revisionsResult.value) {
+    console.log(`Rev ${revision.revNo} by ${revision.createdBy.name}`);
+    const htmlResult = await revision.getHtml();
+    if (htmlResult.isOk()) console.log(htmlResult.value);
+  }
+}
 ```
 
 ---
@@ -895,6 +1193,35 @@ const sendResult = await client.privateMessage.send(
 );
 ```
 
+### More Accessor Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `client.privateMessage.saveDraft(subject, body, recipient?)` | `WikidotResultAsync<void>` | Save a message draft |
+| `client.privateMessage.checkCanSend(user)` | `WikidotResultAsync<void>` | Errors with `ForbiddenError` if sending to `user` is not allowed |
+| `client.privateMessage.preview(subject, body, recipient?)` | `WikidotResultAsync<string>` | Render a preview without sending |
+| `client.privateMessage.fetchReplyFormHtml(replyMessageId)` | `WikidotResultAsync<string>` | Pre-filled "new message" form HTML for a reply |
+| `client.privateMessage.getInvitationsHtml(page?)` / `getInvitationDetailHtml(item)` | `WikidotResultAsync<string>` | Pending site invitations (raw HTML) |
+| `client.privateMessage.getApplications()` | `WikidotResultAsync<SiteJoinApplication[]>` | The account's own pending outgoing site-join applications |
+| `client.privateMessage.getApplicationDetailHtml(item)` | `WikidotResultAsync<string>` | Detail HTML of a single application |
+| `client.privateMessage.getContacts()` | `WikidotResultAsync<Contact[]>` | Contact list |
+| `client.privateMessage.getContactsListHtml()` | `WikidotResultAsync<string>` | Contact picker HTML used when composing a message |
+| `client.privateMessage.addContact(user)` / `removeContact(user)` | `WikidotResultAsync<void>` | Manage the contact list (`ContactsAction`) |
+| `client.privateMessage.addContactViaProfile(user)` | `WikidotResultAsync<string>` | Add a contact from the user's profile page (a second, module-render-as-action path); returns raw HTML |
+
+### SiteJoinApplication / Contact
+
+`SiteJoinApplication` (`itemId`, `fromSite`, `subject`, `preview`,
+`submittedAt`) is the account's own outgoing application to a site;
+distinct from `SiteApplication`, a site admin's view of *incoming*
+applications. It has no `siteId`, so withdrawing one goes through
+`client.site.removeApplication(siteId)` with a `siteId` obtained
+elsewhere, not through this object. `fetchDetailHtml()` fetches its own
+detail HTML.
+
+`Contact` (`user`) wraps one contact-list entry; `contact.remove()`
+removes it.
+
 ### Usage
 
 ```typescript
@@ -920,6 +1247,381 @@ if (sentResult.isOk()) {
 
 ---
 
+## Site Settings
+
+Manage Site (`_admin`) settings. Access through `site.settings`
+(`SettingsAccessor`). Covers General/Domain/Access policy (get/save
+pairs), the seven `categories`-backed areas (permissions, license,
+navigation, templates, page rate, per-page discussion, appearance), and
+single-shot settings (footer, toolbars, Google Analytics, autonumeration,
+pingbacks, API, OpenID, backup, icons, newsletter).
+
+`saveGeneral`/`saveDomain`/`saveAccessPolicy` resubmit the whole form
+(Wikidot's own save events aren't diffs): each fetches the current
+settings first, and every option defaults to `undefined` meaning "keep
+the current value" — pass `""` explicitly to clear a text field.
+
+### General / Domain / Access Policy
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getGeneral()` | `WikidotResultAsync<GeneralSettings>` | Fetch name/subtitle/language/description/defaultPage/welcomePage |
+| `saveGeneral(options?)` | `WikidotResultAsync<string \| null>` | Save; returns new unix name if it changed. Errors with `FormErrorsError` (e.g. empty title) |
+| `getDomain()` | `WikidotResultAsync<DomainSettings>` | Fetch domain/domainDefault/redirects |
+| `saveDomain(options?)` | `WikidotResultAsync<string \| null>` | Save; returns new domain if changed. `options.redirects` supports at most 10 entries (throws otherwise) |
+| `getAccessPolicy()` | `WikidotResultAsync<AccessPolicySettings>` | Fetch privacy/byApply/byDomain/byPassword/password/allowHotlink/landingPage/hideNav (excludes `viewers`, which cannot be read back) |
+| `saveAccessPolicy(privacy?, options?)` | `WikidotResultAsync<void>` | Save. Throws if `privacy` is `undefined` and cannot be determined. `options.viewers` (extra allowed users for a private site) is only sent when explicitly provided |
+
+### Categories-backed Settings (thin wrappers over `updateCategories`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `updateCategories(moduleName, action, event, mutator)` | `WikidotResultAsync<void>` | The read-modify-write primitive: fetch `categories`, mutate, save back. Every method below wraps this |
+| `setPagePermissions(categoryName, permissions)` / `useDefaultPagePermissions(categoryName)` | `WikidotResultAsync<void>` | Explicit `PagePermissions`, or inherit the site default |
+| `setLicense(categoryName, license, other?)` | `WikidotResultAsync<void>` | `other` required when `license` is `SiteLicense.OTHER` (throws otherwise) |
+| `useDefaultLicense(categoryName)` | `WikidotResultAsync<void>` | Inherit the site default license |
+| `setNavigation(categoryName, topBarPageName, sideBarPageName)` / `useDefaultNavigation(categoryName)` | `WikidotResultAsync<void>` | Top/side nav pages, or inherit default |
+| `setTemplate(categoryName, templateId)` | `WikidotResultAsync<void>` | `templateId: null` unsets it |
+| `setPageRateSettings(categoryName, rating)` | `WikidotResultAsync<void>` | Set a `RatingSettings` |
+| `setPerPageDiscussion(categoryName, enabled)` | `WikidotResultAsync<void>` | `true`/`false` to force, `null` for site default |
+| `setAppearanceTheme(categoryName, themeId)` / `setAppearanceExternalTheme(categoryName, themeExternalUrl)` / `useDefaultAppearance(categoryName)` | `WikidotResultAsync<void>` | Built-in theme, external theme URL, or inherit default |
+
+### Single-shot Settings
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `saveCustomFooter(source, use?)` | `WikidotResultAsync<void>` | Custom footer Wikidot markup |
+| `saveToolbarsPreference(options)` | `WikidotResultAsync<void>` | Edit-toolbar visibility: `toolbarTop`/`toolbarBottom`/`promote` |
+| `saveGoogleAnalytics(key, use?)` | `WikidotResultAsync<void>` | GA tracking key |
+| `addAutonumeration(categoryName, override?)` / `removeAutonumeration(categoryName)` / `setAutonumerateTitleFormat(categoryName, titleFormat)` | `WikidotResultAsync<void>` | Page auto-numbering. `override: true` confirms past a `"non_numeric"` status error |
+| `addPingbacks(categoryName, override?)` / `removePingbacks(categoryName)` / `setGlobalPingback(enabled?)` | `WikidotResultAsync<void>` | Outgoing pingbacks per-category / site-wide |
+| `saveApiSettings(options)` | `WikidotResultAsync<void>` | Public API access levels: `enabled`/`read1`/`read2`/`write1`/`write2` |
+| `saveOpenId(enabled, options?)` | `WikidotResultAsync<void>` | Site-wide OpenID login config: `options.identityUrl`/`serverUrl` |
+| `requestBackup(options?)` | `WikidotResultAsync<void>` | Request a site backup: `backupSources`/`backupFiles`/`backupType` |
+| `deleteBackup(confirm, options?)` | `WikidotResultAsync<void>` | Destructive; throws unless `confirm: true` |
+| `deleteFavicon()` / `setFaviconFromUri(uri)` | `WikidotResultAsync<void>` | Favicon |
+| `deleteIosIcon()` / `setIosIconFromUri(uri)` | `WikidotResultAsync<void>` | iOS home screen icon |
+| `deleteWindowsIcon()` / `setWindowsIconFromUri(uri)` / `setWindowsIconBackgroundColor(color)` | `WikidotResultAsync<void>` | Windows tile icon |
+| `previewNewsletter(title, content)` | `WikidotResultAsync<{ title: string; content: string }>` | Rendered preview |
+| `sendNewsletter(title, content, options?)` | `WikidotResultAsync<void>` | Send a newsletter; `options.others` is a list of extra `User \| number` recipients |
+
+### Usage
+
+```typescript
+// Read-modify-write a single field
+await site.settings.saveGeneral({ subtitle: 'New subtitle' }); // other fields kept
+
+// Categories-backed: explicit page permissions for a category
+import { PagePermissions } from '@ukwhatn/wikidot';
+
+await site.settings.setPagePermissions(
+  '_default',
+  new PagePermissions({ view: ['anonymous', 'registered', 'member'], edit: ['member'] })
+);
+
+// Access policy — privacy is required if it can't be read back
+await site.settings.saveAccessPolicy('closed', { byApply: true });
+```
+
+---
+
+## Site Categories & Permissions
+
+Types behind the `categories` read-modify-write cycle shared by seven
+Manage Site areas. See `module/site/site-category.ts` /
+`module/site/site-permissions.ts`.
+
+### SiteCategory / SiteCategoryCollection
+
+`SiteCategoryCollection` is the full `categories` array for a site, keyed
+by name; never cached (a new one is fetched on every `updateCategories`
+call). `collection.get(name)` looks up a `SiteCategory` by name (throws if
+missing); `collection.names()` lists all names.
+
+`SiteCategory` holds the 24-field per-category schema (`permissions`,
+`licenseId`/`licenseOther`, `topBarPageName`/`sideBarPageName`,
+`templateId`, `perPageDiscussion`, `rating`, `autonumerate`,
+`enablePingbackOut`/`enablePingbackIn`, theme fields, and each area's
+`*Default` inherit flag). `category.setPermissions(updates)` updates only
+the specified fields and clears `permissionsDefault`.
+
+### PagePermissions / ForumPermissions
+
+Decoded form of Wikidot's compact `permissions` strings (e.g.
+`"v:armo;c:m;..."`). Immutable classes holding a `ReadonlySet<Actor>` per
+permission, where `Actor = "anonymous" | "registered" | "member" |
+"author"`.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PagePermissions.decode(s)` / `.encode()` | `PagePermissions` / `string` | Round-trip the category `permissions` string (9 fields: view/create/edit/move/delete/uploadFiles/renameFiles/replaceFiles/showOptions) |
+| `.validate()` | `string[]` | Check the anonymous⊂registered⊂member containment convention (not auto-enforced) |
+| `.withUpdates(updates)` | `PagePermissions` | Copy with only the specified fields replaced |
+| `ForumPermissions.decode(s)` / `.encode()` | `ForumPermissions` / `string` | Round-trip a forum category's `permissions` string (createThreads/addPosts/editPosts) — a distinct encoding from `PagePermissions` |
+
+Unrecognized segments round-trip verbatim through an `unknown` field
+rather than being dropped.
+
+### RatingSettings / SiteLicense
+
+`RatingSettings` decodes a category's 4-character `rating` code (e.g.
+`"drvM"`): `enabled: boolean`, `voters: "registered" | "member"`,
+`anonymous: boolean`, `kind: "plusOnly" | "plusMinus" | "stars"`.
+`RatingSettings.decode(s)` throws on an unrecognized code (unlike
+Page/ForumPermissions, no unknown-but-real variant exists here).
+
+`SiteLicense` is a const object of the 15 known `licenseId` values (e.g.
+`SiteLicense.CC_ATTRIBUTION_SHAREALIKE_3_0`, `SiteLicense.OTHER`).
+
+---
+
+## Site Member Administration
+
+Member listing and site-admin operations. Access through `site.member`
+(`MemberAccessor`), which groups both the public listing (`getAll`,
+`getModerators`, `getAdmins`, `getApplications`, `lookup`, `invite`) and
+admin-panel administration.
+
+### Public Listing
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getAll()` / `getModerators()` / `getAdmins()` | `WikidotResultAsync<SiteMember[]>` | Public `membership/MembersListModule` listing |
+| `getApplications()` | `WikidotResultAsync<SiteApplication[]>` | Pending membership applications (login required) |
+| `lookup(query)` | `WikidotResultAsync<QMCUser[]>` | Search members |
+| `invite(user, text)` | `WikidotResultAsync<void>` | Invite user to site (login required) |
+
+`SiteMember` (`site`, `user`, `joinedAt`) exposes `toModerator()` /
+`removeModerator()` / `toAdmin()` / `removeAdmin()`. `SiteApplication`
+(`site`, `user`, `text`) exposes `accept()` / `decline()`.
+
+### Admin-view Listings
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getMembersAdminView()` / `getModeratorsAdminView()` / `getAdminsAdminView()` | `WikidotResultAsync<SiteMember[]>` | Admin-panel view (distinct module from the public listing above) |
+
+### Membership / Ownership
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `remove(user, options?)` | `WikidotResultAsync<void>` | Remove a member. `options.ban: true` removes **and** blocks in one call — Wikidot's "remove and ban" combined flow |
+| `changeMaster(user)` | `WikidotResultAsync<void>` | Transfer master-admin ownership. Destructive from the caller's side — the caller loses master status |
+| `getModeratorPermissionsForm(moderatorId)` | `WikidotResultAsync<string>` | Raw HTML — **未実測** field names, inspect and pass to `saveModeratorPermissions` |
+| `saveModeratorPermissions(fields)` | `WikidotResultAsync<void>` | Save raw fields verbatim (unvalidated, unlike the typed `site.settings.*` methods) |
+
+### Invitations
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `searchUsers(query)` | `WikidotResultAsync<UserSearchResult[]>` | Search users to invite |
+| `sendEmailInvitations(addresses, message?)` | `WikidotResultAsync<void>` | `addresses`: array of `[email, name, isContact]` tuples |
+| `deleteEmailInvitation(invitationId)` / `resendEmailInvitation(invitationId, message?)` | `WikidotResultAsync<void>` | Manage a pending email invitation |
+| `setLetUsersInvite(enabled)` | `WikidotResultAsync<void>` | Allow/disallow regular members to invite others via email |
+| `inviteAdmin(user)` | `WikidotResultAsync<number \| null>` | Invite a user to become a site admin |
+
+### User / IP Blocks
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getBlockedUsers()` | `WikidotResultAsync<UserBlock[]>` | Blocked users |
+| `getBlockedIps()` | `WikidotResultAsync<IpBlock[]>` | Blocked IP addresses/ranges |
+| `blockUser(user, reason?)` / `unblockUser(user)` | `WikidotResultAsync<void>` | `unblockUser` takes a user ID (`userId`), not a block ID |
+| `blockIp(ips, reason?)` / `unblockIp(blockId)` | `WikidotResultAsync<void>` | `unblockIp` takes a block ID (`blockId`, from `getBlockedIps()`), not an IP — asymmetric with `unblockUser` |
+
+### Abuse Flags / Misc
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `clearUserFlags(user)` / `clearPageFlags(path)` / `clearAnonymousFlags(address, proxy?)` | `WikidotResultAsync<void>` | Clear reported abuse flags |
+| `setMembersWatching(options?)` | `WikidotResultAsync<void>` | Configure members' automatic watching of new pages: `watchAll`/`selectedCategories` |
+| `setBlockLink(karmaLevel, blockLink?)` | `WikidotResultAsync<void>` | Configure automatic link-blocking by karma level (0-5) |
+
+`UserSearchResult` (`id`, `name`), `UserBlock` (`site`, `user`, `reason`),
+`IpBlock` (`site`, `blockId`, `ip`, `reason`) are the row types above.
+Both a user object and a raw user ID (`User | number`) are accepted
+throughout this accessor.
+
+### Usage
+
+```typescript
+// Remove and ban a member
+const membersResult = await site.member.getAll();
+if (membersResult.isOk() && membersResult.value[0]) {
+  await site.member.remove(membersResult.value[0].user, { ban: true });
+}
+
+// Invite an admin, block an abusive IP
+await site.member.inviteAdmin(someUser);
+await site.member.blockIp('203.0.113.0/24', 'spam');
+
+const blockedResult = await site.member.getBlockedUsers();
+if (blockedResult.isOk()) {
+  for (const blocked of blockedResult.value) {
+    console.log(blocked.user.name, blocked.reason);
+  }
+}
+```
+
+---
+
+## Site Tools
+
+Site-wide tooling views. Access through `site.tools` (`ToolsAccessor`).
+Most methods return raw rendered HTML (markup was not captured during
+wire-format research) rather than a parsed structure.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getOverview()` | `WikidotResultAsync<string>` | Site Tools overview page |
+| `getWantedPages(options?)` | `WikidotResultAsync<string>` | Wanted Pages list: `page`/`embed` |
+| `getOrphanedPages()` | `WikidotResultAsync<string>` | Orphaned Pages list |
+| `getDrafts()` | `WikidotResultAsync<string>` | Drafts list, scoped to Site Tools |
+| `getCategories()` | `WikidotResultAsync<string>` | Category list for `manage:listpages` |
+| `expandCategory(categoryId, options?)` | `WikidotResultAsync<string>` | Page list for a single category: `includeHidden` |
+| `getRecentChanges(options?)` | `WikidotResultAsync<SiteChangeCollection>` | Server-side filtered recent changes. `options.options` keys (8): `"all"`/`"source"`/`"title"`/`"tags"`/`"move"`/`"files"`/`"new"`/`"meta"` — differs from page-history's 7 (no `"new"` there) |
+
+### Usage
+
+```typescript
+const changesResult = await site.tools.getRecentChanges({
+  options: { new: true, move: true },
+  perpage: 100,
+});
+if (changesResult.isOk()) {
+  for (const change of changesResult.value) {
+    console.log(change.pageFullname, change.flags);
+  }
+}
+```
+
+---
+
+## Account
+
+The logged-in user's Wikidot account (`www.wikidot.com/account/settings`,
+`/account/recent`), distinct from any single site. Access through
+`client.account` (`AccountAccessor`), which exposes `.settings`
+(`AccountSettings`), `.profile` (`AccountProfile`), and `.recent`
+(`AccountRecentActivity`). All requests go to `www.wikidot.com`, never a
+site's own host.
+
+### AccountSettings (`client.account.settings`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `setReceiveMessages(from)` | `WikidotResultAsync<void>` | `from`: `"a"` (all registered), `"mf"` (co-members+contacts), `"f"` (contacts only), `"n"` (nobody) |
+| `blockUser(user)` / `unblockUser(user)` | `WikidotResultAsync<void>` | Private-message block list (lives here, not on `PrivateMessageAccessor` — Wikidot groups all `DashboardSettingsAction` together) |
+| `startEmailChange(email)` / `confirmEmailChange(evercode)` | `WikidotResultAsync<void>` | Two-step email change flow |
+| `changePassword(oldPassword, newPassword)` | `WikidotResultAsync<void>` | Change account password |
+| `setLanguage(language)` | `WikidotResultAsync<void>` | Account UI language |
+| `setReceiveDigest(receive)` / `setReceiveNewsletter(receive)` / `setReceiveInvitations(receive)` | `WikidotResultAsync<void>` | Subscription toggles |
+| `setToolbars(top?, bottom?)` | `WikidotResultAsync<void>` | Account-wide editor toolbar preference (distinct from `site.settings.saveToolbarsPreference`, a per-site same-named event) |
+| `generateApiKey(readOnly?)` | `WikidotResultAsync<string>` | Regenerate the account's API key |
+| `connectFacebook(fbUser)` / `disconnectFacebook()` | `WikidotResultAsync<Record<string, unknown>>` / `WikidotResultAsync<void>` | Link/unlink Facebook |
+| `getAccountHtml()` / `getAboutHtml()` / `getForumSignatureHtml()` / `getToolbarsHtml()` / `getNewsletterHtml()` / `getMessagesHtml()` / `getInvitationsHtml()` / `getFacebookHtml()` / `getVisibilityHtml()` / `getApiHtml()` | `WikidotResultAsync<string>` | Raw HTML of each `/account/settings` dashboard tab |
+
+All methods error with `LoginRequiredError` if not logged in; the
+save/change methods error with `FormErrorsError` on validation failure.
+
+### AccountProfile (`client.account.profile`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `changeScreenName(screenName)` | `WikidotResultAsync<void>` | Change the display name |
+| `saveAbout(fields?)` | `WikidotResultAsync<void>` | Save the "about" bio section (`SaveAboutFields`: `realName`/`gender`/`birthdayDay`/`birthdayMonth`/`birthdayYear`/`about`/`website`/`imAim`/`imGaduGadu`/`imGoogleTalk`/`imIcq`/`imJabber`/`imMsn`/`imYahoo`/`location`). `about` is capped at 200 chars server-side |
+| `saveForumSignature(source)` | `WikidotResultAsync<void>` | Save forum post signature (capped at 400 chars server-side) |
+| `previewForumSignature(source)` | `WikidotResultAsync<string>` | Render a signature preview without saving |
+| `saveProfileVisibility(rawFields)` | `WikidotResultAsync<void>` | **Unmeasured** field names (observed "no_permission" on non-Pro accounts) — pass exact form fields |
+| `deleteAvatar()` / `uploadAvatarFromUri(uri)` | `WikidotResultAsync<void>` / `WikidotResultAsync<Record<string, unknown>>` | Manage avatar |
+
+### AccountRecentActivity (`client.account.recent`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getChanges(options?, limit?)` | `WikidotResultAsync<UserChange[]>` | The account's own recent page edits, across every site it belongs to. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`, unlike page-history options) — errors on an unknown key |
+| `getPosts(limit?)` | `WikidotResultAsync<RecentPost[]>` | The account's own recent forum posts, across every site |
+
+`UserChange` (`siteTitle`, `siteUrl`, `pageFullname`, `pageTitle`,
+`revisionNo`, `changedAt`, `flags`) mirrors `SiteChange` with an added
+site column. `RecentPost` (`title`, `url`, `createdAt`, `content`) is one
+recent post.
+
+### Usage
+
+```typescript
+// Account settings
+await client.account.settings.setLanguage('ja');
+await client.account.settings.changePassword('old-pw', 'new-pw');
+const keyResult = await client.account.settings.generateApiKey();
+
+// Profile
+await client.account.profile.changeScreenName('New Name');
+await client.account.profile.saveAbout({ about: 'Bio text', website: 'https://example.com' });
+
+// Cross-site recent activity
+const changesResult = await client.account.recent.getChanges(undefined, 50);
+if (changesResult.isOk()) {
+  for (const change of changesResult.value) {
+    console.log(`[${change.siteTitle}] ${change.pageFullname} rev.${change.revisionNo}`);
+  }
+}
+```
+
+---
+
+## Dashboard Sites
+
+The account's relationship to sites — creating a site, listing sites it
+belongs to, invitations, resigning a role — as distinct from `Site`, which
+represents a site's own state independent of any account. Access through
+`client.site` alongside the existing `get()` method (`SiteAccessor`).
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `client.site.create(options)` | `WikidotResultAsync<string>` | Create a new site; returns its unix name (`CreateSiteOptions`: `name`/`unixname`/`subtitle`/`language`/`template`/`privacy`/`tos`). Errors with `FormErrorsError` (e.g. unixname taken) |
+| `client.site.listSites()` | `WikidotResultAsync<DashboardSite[]>` | Every site the account belongs to (all roles), plus deleted sites |
+| `client.site.acceptInvitation(invitationId)` / `throwAwayInvitation(invitationId)` | `WikidotResultAsync<void>` | Accept or discard a pending site invitation |
+| `client.site.removeApplication(siteId)` | `WikidotResultAsync<void>` | Withdraw a pending membership application the account submitted |
+| `client.site.restoreSite(siteId, confirmSiteName)` | `WikidotResultAsync<void>` | Restore a deleted site the account administers (typed-name confirmation) |
+| `client.site.resignAsAdmin(siteId)` / `resignAsModerator(siteId)` / `signOffAsMember(siteId)` | `WikidotResultAsync<void>` | Give up a role on a site |
+| `client.site.setStorageLimit(siteId, rawFields)` | `WikidotResultAsync<void>` | **Unmeasured** field names — pass exact form fields |
+
+`DashboardSite` (one row of the account's site listing: `siteId`, `title`,
+`url`, `unixName`, `tagline`, `activity`, `role`, `deleted`) also exposes
+the per-site operations above as instance methods (`site.restore(...)`,
+`site.resignAsAdmin()`, `site.resignAsModerator()`,
+`site.signOffAsMember()`, `site.setStorageLimit(...)`) — equivalent
+convenience wrappers over the `client.site.*` functions.
+
+`NewSiteTemplate` = `"standard-template" | "blog-template" |
+"blank-template" | "default-template" | "notebooks"`.
+`NewSitePrivacy` = `"open" | "closed" | "private"`.
+
+### Usage
+
+```typescript
+// Create a new site
+const createResult = await client.site.create({
+  name: 'My Site',
+  unixname: 'my-new-site',
+  template: 'blank-template',
+});
+
+// List and manage account's sites
+const sitesResult = await client.site.listSites();
+if (sitesResult.isOk()) {
+  for (const dashSite of sitesResult.value) {
+    console.log(`${dashSite.title} (${dashSite.role})${dashSite.deleted ? ' [deleted]' : ''}`);
+    if (dashSite.deleted) {
+      await dashSite.restore(dashSite.title);
+    }
+  }
+}
+```
+
+---
+
 ## Error Handling
 
 ### Error Hierarchy
@@ -933,6 +1635,7 @@ WikidotError (base)
 ├── AMCError                  # Ajax Module Connector errors
 │   ├── AMCHttpError          # HTTP status error (e.g., 404, 500)
 │   ├── WikidotStatusError    # Wikidot API status error
+│   │   └── FormErrorsError   # Validation failure (status "form_errors"/"form_error")
 │   └── ResponseDataError     # Response parsing failed
 ├── NotFoundException         # Resource not found
 ├── TargetExistsError         # Resource already exists
@@ -946,7 +1649,8 @@ WikidotError (base)
 | Error | Properties | Description |
 |-------|------------|-------------|
 | `AMCHttpError` | `statusCode: number` | HTTP status code |
-| `WikidotStatusError` | `statusCode: string` | Wikidot status (e.g., `'not_ok'`, `'try_again'`) |
+| `WikidotStatusError` | `statusCode: string`, `response?: AMCResponse` | Wikidot status, raw AMC response |
+| `FormErrorsError` | `errors: Record<string, string>` (getter) | Field name → error message, absorbing the `formErrors`/`errors`/`message` key variance across modules (see "AMC Transport") |
 
 ### Usage
 
@@ -1039,7 +1743,7 @@ src/
 │   ├── decorators.ts         # @RequireLogin decorator
 │   ├── errors/               # Error definitions
 │   │   ├── base.ts           # WikidotError base
-│   │   ├── amc.ts            # AMC errors
+│   │   ├── amc.ts            # AMC errors (incl. FormErrorsError)
 │   │   ├── session.ts        # Session errors
 │   │   └── target.ts         # Target errors
 │   ├── logger.ts             # Logging configuration
@@ -1047,29 +1751,42 @@ src/
 │       └── result.ts         # Result type utilities
 ├── connector/
 │   ├── amc-client.ts         # AjaxModuleConnectorClient
+│   ├── amc-body.ts           # checkbox/flag/jsonParam/omitFalsy request-body helpers
 │   ├── amc-config.ts         # Configuration
 │   └── auth.ts               # Authentication handling
 ├── module/
 │   ├── client/
 │   │   ├── client.ts         # Client class
-│   │   └── accessors/        # UserAccessor, SiteAccessor, etc.
+│   │   └── accessors/        # UserAccessor, SiteAccessor, AccountAccessor, PrivateMessageAccessor
 │   ├── site/
 │   │   ├── site.ts           # Site class
-│   │   └── accessors/        # PageAccessor, PagesAccessor, etc.
+│   │   ├── site-category.ts  # SiteCategory, SiteCategoryCollection, SiteLicense
+│   │   ├── site-permissions.ts # PagePermissions, ForumPermissions, RatingSettings
+│   │   ├── site-block.ts     # UserBlock, IpBlock
+│   │   ├── site-application.ts # SiteApplication
+│   │   ├── forum-admin.ts    # ForumLayout, ForumCategoryPermissionsCollection
+│   │   └── accessors/        # PageAccessor, PagesAccessor, ForumAccessor, MemberAccessor, SettingsAccessor, ToolsAccessor
 │   ├── page/
 │   │   ├── page.ts           # Page class
+│   │   ├── page-edit-session.ts # PageEditSession, withEditLock
 │   │   ├── page-collection.ts
 │   │   ├── page-revision.ts
 │   │   ├── page-source.ts
 │   │   ├── page-vote.ts
 │   │   ├── page-file.ts
+│   │   ├── page-meta.ts      # PageMeta, PageMetaCollection
 │   │   └── search-query.ts   # SearchPagesQuery
 │   ├── forum/
 │   │   ├── forum-category.ts
 │   │   ├── forum-thread.ts
-│   │   └── forum-post.ts
+│   │   ├── forum-post.ts
+│   │   └── forum-post-revision.ts
+│   ├── account/
+│   │   └── account.ts        # AccountSettings, AccountProfile, AccountRecentActivity
+│   ├── dashboard-site/
+│   │   └── dashboard-site.ts # DashboardSite, DashboardSites
 │   ├── private-message/
-│   │   └── private-message.ts
+│   │   └── private-message.ts # PrivateMessage, SiteJoinApplication, Contact
 │   ├── user/
 │   │   ├── abstract-user.ts
 │   │   ├── user.ts
@@ -1222,6 +1939,44 @@ if (category) {
       'Re: New Discussion'
     );
   }
+}
+```
+
+### Manual Edit Session with Preview
+
+```typescript
+import { withEditLock } from '@ukwhatn/wikidot';
+
+const pageResult = await site.page.get('scp-173');
+if (pageResult.isOk()) {
+  const session = pageResult.value.openEditor();
+  const result = await withEditLock(session, async (ed) => {
+    const previewResult = await ed.preview({ source: '[[=]]\n++ New content\n[[/=]]' });
+    if (previewResult.isOk()) console.log(previewResult.value.body);
+
+    return ed.save({ source: '[[=]]\n++ New content\n[[/=]]', comment: 'Rewrite intro' });
+  });
+}
+```
+
+### Configure Site Permissions and Invite an Admin
+
+```typescript
+import { PagePermissions } from '@ukwhatn/wikidot';
+
+// Grant registered users edit access on the default category
+await site.settings.setPagePermissions(
+  '_default',
+  new PagePermissions({
+    view: ['anonymous', 'registered', 'member'],
+    edit: ['registered', 'member'],
+  })
+);
+
+// Search for and invite a new admin
+const candidatesResult = await site.member.searchUsers('some-user');
+if (candidatesResult.isOk() && candidatesResult.value[0]) {
+  await site.member.inviteAdmin(candidatesResult.value[0].id);
 }
 ```
 
