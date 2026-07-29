@@ -2,7 +2,9 @@
  * AMCClient unit tests
  */
 import { describe, expect, test } from 'bun:test';
-import { AMCClient, maskSensitiveData } from '../../../src/connector/amc-client';
+import { ResponseDataError } from '../../../src/common/errors';
+import { AMCClient, maskSensitiveData, requireBody } from '../../../src/connector/amc-client';
+import type { AMCResponse } from '../../../src/connector/amc-types';
 import { TEST_AMC_CONFIG } from '../../setup';
 
 describe('AMCClient', () => {
@@ -120,6 +122,34 @@ describe('maskSensitiveData', () => {
     expect(result.login).toBe('***MASKED***');
     expect(result.wikidot_token7).toBe('***MASKED***');
     expect(result.moduleName).toBe('test');
+  });
+});
+
+describe('requireBody', () => {
+  test('returns the body when present', () => {
+    const response: AMCResponse = { status: 'ok', body: '<div>content</div>' };
+
+    expect(requireBody(response, 'some/Module')).toBe('<div>content</div>');
+  });
+
+  test('returns an empty string body as-is (present but empty)', () => {
+    const response: AMCResponse = { status: 'ok', body: '' };
+
+    expect(requireBody(response, 'some/Module')).toBe('');
+  });
+
+  test('throws ResponseDataError when body is missing (e.g. unknown moduleName)', () => {
+    const response: AMCResponse = { status: 'ok' };
+
+    expect(() => requireBody(response, 'managesite/NoSuchModule')).toThrow(ResponseDataError);
+  });
+
+  test('throws ResponseDataError when response itself is undefined', () => {
+    expect(() => requireBody(undefined, 'some/Module')).toThrow(ResponseDataError);
+  });
+
+  test('error message includes the moduleName for debuggability', () => {
+    expect(() => requireBody(undefined, 'managesite/NoSuchModule')).toThrow(/NoSuchModule/);
   });
 });
 

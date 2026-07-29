@@ -1,4 +1,5 @@
-export { AMCClient, type AMCRequestOptions, maskSensitiveData } from './amc-client';
+export { checkbox, flag, jsonParam, type OmittableBodyValue, omitFalsy } from './amc-body';
+export { AMCClient, type AMCRequestOptions, maskSensitiveData, requireBody } from './amc-client';
 export { type AMCConfig, DEFAULT_AMC_CONFIG } from './amc-config';
 export { AMCHeader } from './amc-header';
 export {

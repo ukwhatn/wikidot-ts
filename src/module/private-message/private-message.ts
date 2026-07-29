@@ -6,6 +6,7 @@ import {
   UnexpectedError,
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Client } from '../client';
 import type { AbstractUser } from '../user';
@@ -175,7 +176,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           const messageId = messageIds[i];
           if (!response || messageId === undefined) continue;
 
-          const html = String(response.body ?? '');
+          const html = requireBody(response, 'dashboard/messages/DMViewMessageModule');
           const $ = cheerio.load(html);
 
           // Get user information
@@ -255,7 +256,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           throw new NoElementError('Empty response');
         }
 
-        const firstHtml = String(firstResponse.body ?? '');
+        const firstHtml = requireBody(firstResponse, moduleName);
         const $first = cheerio.load(firstHtml);
 
         // Get page count
@@ -282,7 +283,7 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           }
 
           for (const response of additionalResults.value) {
-            const html = String(response?.body ?? '');
+            const html = requireBody(response, moduleName);
             const $ = cheerio.load(html);
             $('tr.message').each((_i, elem) => {
               const dataHref = $(elem).attr('data-href') ?? '';

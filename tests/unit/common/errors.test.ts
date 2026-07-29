@@ -6,6 +6,7 @@ import {
   AMCError,
   AMCHttpError,
   ForbiddenError,
+  FormErrorsError,
   LoginRequiredError,
   NoElementError,
   NotFoundException,
@@ -16,6 +17,7 @@ import {
   WikidotError,
   WikidotStatusError,
 } from '../../../src/common/errors';
+import type { AMCResponse } from '../../../src/connector/amc-types';
 
 describe('WikidotError', () => {
   test('Can create basic error', () => {
@@ -94,6 +96,80 @@ describe('WikidotStatusError', () => {
     expect(tryAgain.statusCode).toBe('try_again');
     expect(notOk.statusCode).toBe('not_ok');
   });
+
+  test('response is undefined when not provided (backward compatible)', () => {
+    const error = new WikidotStatusError('failed', 'not_ok');
+
+    expect(error.response).toBeUndefined();
+  });
+
+  test('response carries the raw AMC payload when provided', () => {
+    const response: AMCResponse = { status: 'not_ok', message: 'nope' };
+    const error = new WikidotStatusError('failed', 'not_ok', response);
+
+    expect(error.response).toBe(response);
+  });
+});
+
+describe('FormErrorsError', () => {
+  test('Is a WikidotStatusError', () => {
+    const error = new FormErrorsError('form errors', 'form_errors');
+
+    expect(error).toBeInstanceOf(AMCError);
+    expect(error).toBeInstanceOf(WikidotStatusError);
+    expect(error).toBeInstanceOf(FormErrorsError);
+  });
+
+  test('errors reads from the "formErrors" key (Forum/Clone/saveGeneral, etc.)', () => {
+    const response: AMCResponse = {
+      status: 'form_errors',
+      formErrors: { name: 'Please provide the site title', defaultPage: 'Invalid page name' },
+    };
+    const error = new FormErrorsError('form errors', 'form_errors', response);
+
+    expect(error.errors).toEqual({
+      name: 'Please provide the site title',
+      defaultPage: 'Invalid page name',
+    });
+  });
+
+  test('errors reads from the "errors" key (WikiPageAction/savePage)', () => {
+    const response: AMCResponse = {
+      status: 'form_errors',
+      errors: { title: 'Title is required' },
+    };
+    const error = new FormErrorsError('form errors', 'form_errors', response);
+
+    expect(error.errors).toEqual({ title: 'Title is required' });
+  });
+
+  test('errors falls back to the "message" key (saveTags, form_error singular)', () => {
+    const response: AMCResponse = {
+      status: 'form_error',
+      message: 'Tags could not be saved',
+    };
+    const error = new FormErrorsError('form error', 'form_error', response);
+
+    expect(error.errors).toEqual({ _message: 'Tags could not be saved' });
+  });
+
+  test('errors is an empty record when response is missing', () => {
+    const error = new FormErrorsError('form errors', 'form_errors');
+
+    expect(error.errors).toEqual({});
+  });
+
+  test('formErrors takes priority over errors and message when multiple are present', () => {
+    const response: AMCResponse = {
+      status: 'form_errors',
+      formErrors: { name: 'from formErrors' },
+      errors: { name: 'from errors' },
+      message: 'from message',
+    };
+    const error = new FormErrorsError('form errors', 'form_errors', response);
+
+    expect(error.errors).toEqual({ name: 'from formErrors' });
+  });
 });
 
 describe('ResponseDataError', () => {
@@ -164,6 +240,7 @@ describe('Error hierarchy', () => {
       new AMCError(''),
       new AMCHttpError('', 500),
       new WikidotStatusError('', 'error'),
+      new FormErrorsError('', 'form_errors'),
       new ResponseDataError(''),
       new NotFoundException(''),
       new TargetExistsError(''),
@@ -181,6 +258,7 @@ describe('Error hierarchy', () => {
     const amcErrors = [
       new AMCHttpError('', 500),
       new WikidotStatusError('', 'error'),
+      new FormErrorsError('', 'form_errors'),
       new ResponseDataError(''),
     ];
 

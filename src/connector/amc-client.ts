@@ -1,8 +1,9 @@
-import ky, { type KyInstance } from 'ky';
+import ky, { isHTTPError, type KyInstance } from 'ky';
 import pLimit, { type LimitFunction } from 'p-limit';
 import {
   AMCHttpError,
   ForbiddenError,
+  FormErrorsError,
   NotFoundException,
   ResponseDataError,
   UnexpectedError,
@@ -61,6 +62,54 @@ function calculateBackoff(
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Ensure an AMC response carries a `body` field, throwing `ResponseDataError` if not.
+ *
+ * An unknown `moduleName` doesn't error at the AMC layer — Wikidot just returns
+ * `{"status":"ok"}` with no `body` — so a typo in a module path would otherwise silently
+ * produce an empty parse result instead of a clear failure. Callers that need `body`
+ * should route through this instead of reading `response.body` directly.
+ * @param response - AMC response (or undefined, e.g. a missing array element)
+ * @param moduleName - Module name/path (or action/event) used in the request, for the error message
+ * @returns The response body
+ * @throws ResponseDataError if `response` or `response.body` is missing
+ */
+export function requireBody(response: AMCResponse | undefined, moduleName: string): string {
+  if (response === undefined || response.body === undefined) {
+    throw new ResponseDataError(
+      `AMC response for "${moduleName}" is missing "body" (module may not exist)`
+    );
+  }
+  return response.body;
+}
+
+/**
+ * Resolve the backoff duration for a `try_again` response.
+ * Honors the server-supplied `time_to_wait` (seconds) when present, falling back to
+ * exponential backoff otherwise. The server value is still capped by `maxBackoff` so a
+ * misbehaving/hostile response can't force an unbounded wait.
+ * @param response - AMC response with status `try_again`
+ * @param retryCount - Current retry count (starts from 1)
+ * @param config - AMC configuration
+ * @returns Backoff duration in milliseconds
+ */
+function resolveTryAgainBackoff(
+  response: AMCResponse,
+  retryCount: number,
+  config: AMCConfig
+): number {
+  const timeToWait = response.time_to_wait;
+  if (typeof timeToWait === 'number' && Number.isFinite(timeToWait) && timeToWait >= 0) {
+    return Math.min(timeToWait * 1000, config.maxBackoff);
+  }
+  return calculateBackoff(
+    retryCount,
+    config.retryInterval,
+    config.backoffFactor,
+    config.maxBackoff
+  );
 }
 
 /**
@@ -265,11 +314,20 @@ export class AMCClient {
         const requestBody = { ...body, wikidot_token7: WIKIDOT_TOKEN7 };
 
         // Create URL-encoded body
+        // Arrays are expanded to key[]=v1&key[]=v2, matching jQuery.param's bracket
+        // notation (the format the Wikidot frontend actually sends).
         const formData = new URLSearchParams();
         for (const [key, value] of Object.entries(requestBody)) {
-          if (value !== undefined) {
-            formData.append(key, String(value));
+          if (value === undefined) {
+            continue;
           }
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              formData.append(`${key}[]`, String(item));
+            }
+            continue;
+          }
+          formData.append(key, String(value));
         }
 
         const response = await this.ky.post(url, {
@@ -314,14 +372,11 @@ export class AMCClient {
         if (amcResponse.status === 'try_again') {
           retryCount++;
           if (retryCount >= this.config.retryLimit) {
-            return wdErrAsync(new WikidotStatusError('AMC responded with try_again', 'try_again'));
+            return wdErrAsync(
+              new WikidotStatusError('AMC responded with try_again', 'try_again', amcResponse)
+            );
           }
-          const backoff = calculateBackoff(
-            retryCount,
-            this.config.retryInterval,
-            this.config.backoffFactor,
-            this.config.maxBackoff
-          );
+          const backoff = resolveTryAgainBackoff(amcResponse, retryCount, this.config);
           await sleep(backoff);
           continue;
         }
@@ -342,16 +397,47 @@ export class AMCClient {
 
         // Error if status is not ok
         if (amcResponse.status !== 'ok') {
+          // form_errors / form_error carry validation payloads (formErrors / errors / message)
+          // that callers need to inspect, so surface them via a dedicated subclass.
+          if (amcResponse.status === 'form_errors' || amcResponse.status === 'form_error') {
+            return wdErrAsync(
+              new FormErrorsError(
+                `AMC responded with error status: "${amcResponse.status}"`,
+                amcResponse.status,
+                amcResponse
+              )
+            );
+          }
           return wdErrAsync(
             new WikidotStatusError(
               `AMC responded with error status: "${amcResponse.status}"`,
-              amcResponse.status
+              amcResponse.status,
+              amcResponse
             )
           );
         }
 
         return wdOkAsync(amcResponse);
       } catch (error) {
+        // Fail fast on an unknown action/event: Wikidot returns HTTP 500 with an empty
+        // (0-byte, not even JSON) body when `action` is set but the event doesn't exist
+        // server-side. This isn't a transient failure, so retrying just wastes cycles.
+        // ky consumes the body while populating `error.data`, so Content-Length is the
+        // only reliable way left to check "empty" here.
+        if (isHTTPError(error) && error.response.status === 500 && body.action) {
+          const contentLength = error.response.headers.get('content-length');
+          const isEmptyBody = contentLength === '0' || (contentLength === null && !error.data);
+          if (isEmptyBody) {
+            return wdErrAsync(
+              new AMCHttpError(
+                `AMC responded with HTTP 500 and an empty body for action "${body.action}"` +
+                  `/"${body.event ?? ''}" (likely an unsupported action/event)`,
+                500
+              )
+            );
+          }
+        }
+
         // Retry on all errors (HTTP errors, network errors, timeouts, etc.)
         // Wikidot server has a relatively high error rate, so retry is essential
         retryCount++;

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { RequireLogin } from '../../common/decorators';
 import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import type { Site } from '../site';
 import { ForumThread, ForumThreadCollection } from './forum-thread';
 
@@ -163,7 +164,7 @@ export class ForumCategoryCollection extends Array<ForumCategory> {
           throw new NoElementError('Empty response');
         }
 
-        const body = String(response.body ?? '');
+        const body = requireBody(response, 'forum/ForumStartModule');
         const $ = cheerio.load(body);
 
         const categories: ForumCategory[] = [];

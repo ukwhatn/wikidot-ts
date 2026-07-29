@@ -8,6 +8,7 @@ import {
   WikidotStatusError,
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import { parseUser } from '../../util/parser';
 import type { AbstractUser } from '../user';
 import type { Site } from './site';
@@ -63,7 +64,7 @@ export class SiteApplication {
           throw new UnexpectedError('Empty response');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'managesite/ManageSiteMembersApplicationsModule');
 
         // Permission check
         if (html.includes('WIKIDOT.page.listeners.loginClick(event)')) {

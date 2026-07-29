@@ -12,8 +12,9 @@ import {
   TargetExistsError,
   UnexpectedError,
 } from '../../common/errors';
+import { logger } from '../../common/logger';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
-import type { AMCRequestBody } from '../../connector';
+import { type AMCRequestBody, requireBody } from '../../connector';
 import { fetchWithRetry } from '../../util/http';
 import { parseOdate, parseUser } from '../../util/parser';
 import type { Site } from '../site';
@@ -503,7 +504,7 @@ export class Page {
           return null;
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'forum/ForumCommentsListModule');
         // Extract thread ID
         const match = html.match(
           /WIKIDOT\.modules\.ForumViewThreadModule\.vars\.threadId\s*=\s*(\d+)/
@@ -759,7 +760,7 @@ export class PageCollection extends Array<Page> {
           const response = result.value[i];
           if (!page || !response) continue;
 
-          const html = String(response.body ?? '');
+          const html = requireBody(response, 'files/PageFilesModule');
           const $ = cheerio.load(html);
           const files = PageFileCollection._parseFromHtml(page, $);
           page._files = new PageFileCollection(page, files);
@@ -845,7 +846,7 @@ export class PageCollection extends Array<Page> {
           const page = targetPages[i];
           const response = result.value[i];
           if (!page || !response) continue;
-          const body = String(response.body ?? '').replace(/&nbsp;/g, ' ');
+          const body = requireBody(response, 'viewsource/ViewSourceModule').replace(/&nbsp;/g, ' ');
           const $ = cheerio.load(body);
           const sourceElement = $('div.page-source');
           if (sourceElement.length === 0) {
@@ -895,7 +896,7 @@ export class PageCollection extends Array<Page> {
           const response = result.value[i];
           if (!page || !response) continue;
 
-          const body = String(response.body ?? '');
+          const body = requireBody(response, 'history/PageRevisionListModule');
           const $ = cheerio.load(body);
           const revisions: PageRevision[] = [];
 
@@ -974,7 +975,7 @@ export class PageCollection extends Array<Page> {
           const response = result.value[i];
           if (!page || !response) continue;
 
-          const body = String(response.body ?? '');
+          const body = requireBody(response, 'pagerate/WhoRatedPageModule');
           const $ = cheerio.load(body);
 
           const $userElems = $('span.printuser');
@@ -1159,7 +1160,7 @@ export class PageCollection extends Array<Page> {
         }
 
         const firstResponse = result.value[0];
-        const body = String(firstResponse?.body ?? '');
+        const body = requireBody(firstResponse, 'list/ListPagesModule');
         const $first = cheerio.load(body);
 
         let total = 1;
@@ -1196,7 +1197,7 @@ export class PageCollection extends Array<Page> {
           }
 
           for (const response of additionalResults.value) {
-            const respBody = String(response?.body ?? '');
+            const respBody = requireBody(response, 'list/ListPagesModule');
             htmlBodies.push(cheerio.load(respBody));
           }
         }
@@ -1270,42 +1271,70 @@ export class PageCollection extends Array<Page> {
 
         const lockResponse = lockResult.value[0];
         if (lockResponse?.locked || lockResponse?.other_locks) {
+          // We never acquired a lock here (someone else holds it), so there's nothing to release.
           throw new UnexpectedError(`Page ${fullname} is locked or other locks exist`);
         }
 
         const isExist = 'page_revision_id' in (lockResponse ?? {});
-
-        if (raiseOnExists && isExist) {
-          throw new TargetExistsError(`Page ${fullname} already exists`);
-        }
-
-        if (isExist && pageId === null) {
-          throw new UnexpectedError('page_id must be specified when editing existing page');
-        }
-
         const lockId = String(lockResponse?.lock_id ?? '');
         const lockSecret = String(lockResponse?.lock_secret ?? '');
         const pageRevisionId = String(lockResponse?.page_revision_id ?? '');
 
-        // Save page
-        const editRequestBody: AMCRequestBody = {
-          action: 'WikiPageAction',
-          event: 'savePage',
-          moduleName: 'Empty',
-          mode: 'page',
-          lock_id: lockId,
-          lock_secret: lockSecret,
-          revision_id: pageRevisionId,
-          wiki_page: fullname,
-          page_id: pageId ?? '',
-          title,
-          source,
-          comments: comment,
+        // From here on we hold the edit lock (Wikidot keeps it for up to 15 minutes).
+        // Every exit path below must release it explicitly unless the save succeeds -
+        // Wikidot does not auto-release on our own validation/save errors.
+        const releaseEditLock = async (): Promise<void> => {
+          const releaseResult = await site.amcRequest([
+            {
+              action: 'WikiPageAction',
+              event: 'removePageEditLock',
+              moduleName: 'Empty',
+              lock_id: lockId,
+              lock_secret: lockSecret,
+              page_id: pageId ?? '',
+              wiki_page: fullname,
+            },
+          ]);
+          if (releaseResult.isErr()) {
+            // Don't let a release failure mask the original error - just log it.
+            logger.warn(
+              `Failed to release page edit lock for ${fullname}: ${String(releaseResult.error)}`
+            );
+          }
         };
 
-        const editResult = await site.amcRequest([editRequestBody]);
-        if (editResult.isErr()) {
-          throw editResult.error;
+        try {
+          if (raiseOnExists && isExist) {
+            throw new TargetExistsError(`Page ${fullname} already exists`);
+          }
+
+          if (isExist && pageId === null) {
+            throw new UnexpectedError('page_id must be specified when editing existing page');
+          }
+
+          // Save page
+          const editRequestBody: AMCRequestBody = {
+            action: 'WikiPageAction',
+            event: 'savePage',
+            moduleName: 'Empty',
+            mode: 'page',
+            lock_id: lockId,
+            lock_secret: lockSecret,
+            revision_id: pageRevisionId,
+            wiki_page: fullname,
+            page_id: pageId ?? '',
+            title,
+            source,
+            comments: comment,
+          };
+
+          const editResult = await site.amcRequest([editRequestBody]);
+          if (editResult.isErr()) {
+            throw editResult.error;
+          }
+        } catch (innerError) {
+          await releaseEditLock();
+          throw innerError;
         }
       })(),
       (error) => {

@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { UnexpectedError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
+import { requireBody } from '../../connector';
 import type { Page } from './page';
 
 /**
@@ -167,7 +168,7 @@ export class PageFileCollection extends Array<PageFile> {
           throw new UnexpectedError('Empty response');
         }
 
-        const html = String(response.body ?? '');
+        const html = requireBody(response, 'files/PageFilesModule');
         const $ = cheerio.load(html);
         const files = PageFileCollection._parseFromHtml(page, $);
 

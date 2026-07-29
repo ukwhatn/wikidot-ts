@@ -1,3 +1,4 @@
+import type { AMCResponse } from '../../connector/amc-types';
 import { WikidotError } from './base';
 
 /**
@@ -31,13 +32,65 @@ export class WikidotStatusError extends AMCError {
   /** Wikidot status code string */
   public readonly statusCode: string;
 
+  /** Raw AMC response, when available (e.g. to inspect form_errors payloads) */
+  public readonly response?: AMCResponse;
+
   /**
    * @param message - Error message
    * @param statusCode - Status code (e.g., 'not_ok', 'try_again')
+   * @param response - Raw AMC response (optional, keeps existing call sites intact)
    */
-  constructor(message: string, statusCode: string) {
+  constructor(message: string, statusCode: string, response?: AMCResponse) {
     super(message);
     this.statusCode = statusCode;
+    this.response = response;
+  }
+}
+
+/**
+ * Extract a field-name -> message record from an AMC response, absorbing the
+ * key naming differences between modules (formErrors / errors / message).
+ * @param response - Raw AMC response
+ * @returns Field-name -> message record (empty if none of the known keys are present)
+ */
+function extractFormErrors(response: AMCResponse | undefined): Record<string, string> {
+  if (!response) {
+    return {};
+  }
+
+  for (const key of ['formErrors', 'errors']) {
+    const value = response[key];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const result: Record<string, string> = {};
+      for (const [field, message] of Object.entries(value as Record<string, unknown>)) {
+        result[field] = String(message);
+      }
+      return result;
+    }
+  }
+
+  if (typeof response.message === 'string' && response.message.length > 0) {
+    // Sentinel key, not a field name: some modules (saveTags, the singular
+    // form_error status) return only a plain message with no field. "_message"
+    // rather than "message" because Wikidot has real form fields named
+    // "message" (ManageSiteMembershipAction/sendEmailInvitations), which would
+    // otherwise be indistinguishable. Matches wikidot.py's FormErrorsException.
+    return { _message: response.message };
+  }
+
+  return {};
+}
+
+/**
+ * Form validation error
+ * Thrown when AMC response status is 'form_errors' or 'form_error'.
+ * Absorbs the payload key differences across modules (formErrors / errors / message)
+ * behind a single `errors` accessor.
+ */
+export class FormErrorsError extends WikidotStatusError {
+  /** Field-name -> message record, regardless of the underlying payload key */
+  get errors(): Record<string, string> {
+    return extractFormErrors(this.response);
   }
 }
 
