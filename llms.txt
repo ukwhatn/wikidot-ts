@@ -1178,6 +1178,30 @@ const messageResult = await client.privateMessage.getMessage(12345);
 const searchResult = await client.privateMessage.search('query', 'all');
 ```
 
+#### Partial success (`failures`)
+
+`getMessages(ids)` / `inbox()` / `sentBox()` follow a partial-success
+contract: a message that fails to fetch (per-request transport error,
+missing body, unparseable markup) is skipped instead of failing the whole
+call. The returned collection carries the skipped IDs as
+`failures: PrivateMessageFetchFailure[]` (`{ id: number; error: WikidotError }`),
+in request order; successful messages keep the input ID order. If every
+message fails, the result is still `Ok` with an empty collection and all
+IDs in `failures`. Only systemic failures (login missing, SSL/site
+resolution, listing-page fetch) return `Err`. Callers that persist or
+delete fetched messages must check `failures` to know the fetch was
+partial.
+
+```typescript
+const inboxResult = await client.privateMessage.inbox();
+if (inboxResult.isOk()) {
+  const inbox = inboxResult.value;
+  for (const failure of inbox.failures) {
+    console.warn(`Message ${failure.id} could not be fetched: ${failure.error}`);
+  }
+}
+```
+
 ### Sending Messages
 
 ```typescript

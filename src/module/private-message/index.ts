@@ -12,6 +12,7 @@ export {
   PrivateMessage,
   PrivateMessageCollection,
   type PrivateMessageData,
+  type PrivateMessageFetchFailure,
   PrivateMessageInbox,
   PrivateMessageSentBox,
   removeContact,
