@@ -120,16 +120,13 @@ export class PrivateMessage {
     subject: string,
     body: string
   ): WikidotResultAsync<void> {
-    const loginResult = client.requireLogin();
-    if (loginResult.isErr()) {
-      return fromPromise(
-        Promise.reject(loginResult.error),
-        () => new LoginRequiredError('Login required to send message')
-      );
-    }
-
-    return fromPromise(
-      (async () => {
+    // withLogin so WikidotError subclasses pass through unchanged: callers
+    // distinguishing a definitive rejection (FormErrorsError etc.) from an
+    // unknown transport outcome need the original error type, and the sibling
+    // wikidot.py raises typed exceptions here
+    return withLogin(
+      client,
+      async () => {
         const result = await client.amcClient.request([
           {
             source: body,
@@ -140,10 +137,8 @@ export class PrivateMessage {
             moduleName: 'Empty',
           },
         ]);
-        if (result.isErr()) {
-          throw result.error;
-        }
-      })(),
+        if (result.isErr()) throw result.error;
+      },
       (error) => new UnexpectedError(`Failed to send message: ${String(error)}`)
     );
   }
