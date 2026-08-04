@@ -88,12 +88,18 @@ export class PrivateMessage {
         }
         const message = result.value[0];
         if (!message) {
+          // fromIds is partial-success: a single-message failure comes back
+          // recorded on the collection, not as Err, so surface it here
+          const failure = result.value.failures.find((f) => f.id === messageId);
+          if (failure) {
+            throw failure.error;
+          }
           throw new NoElementError(`Message not found: ${messageId}`);
         }
         return message;
       })(),
       (error) => {
-        if (error instanceof ForbiddenError || error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get message: ${String(error)}`);
@@ -289,14 +295,37 @@ export class PrivateMessage {
 }
 
 /**
+ * A message that could not be fetched, with the ID it was requested by
+ */
+export interface PrivateMessageFetchFailure {
+  /** Requested message ID */
+  id: number;
+  /** The error that made this message unfetchable (transport or parse failure) */
+  error: WikidotError;
+}
+
+/**
  * Private message collection
  */
 export class PrivateMessageCollection extends Array<PrivateMessage> {
   public readonly client: Client;
 
-  constructor(client: Client, messages?: PrivateMessage[]) {
+  /**
+   * Messages that could not be fetched when this collection was built.
+   * A single unfetchable message no longer fails the whole fetch: it is
+   * skipped and reported here instead, so callers processing the successful
+   * messages must check this to know the fetch was partial.
+   */
+  public readonly failures: PrivateMessageFetchFailure[];
+
+  constructor(
+    client: Client,
+    messages?: PrivateMessage[],
+    failures?: PrivateMessageFetchFailure[]
+  ) {
     super();
     this.client = client;
+    this.failures = failures ? [...failures] : [];
     if (messages) {
       this.push(...messages);
     }
@@ -310,7 +339,15 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
   }
 
   /**
-   * Get messages from list of message IDs
+   * Get messages from list of message IDs.
+   *
+   * Partial-success contract: a message that fails to fetch (per-request
+   * transport error, missing body, or unparseable markup) is skipped and
+   * reported in the returned collection's `failures`, in request order, so
+   * one broken message cannot block the rest. Successful messages keep the
+   * input ID order. If every message fails, the result is still Ok with an
+   * empty collection and all IDs in `failures`. Only systemic failures
+   * (login missing, SSL/site resolution) return Err.
    */
   static fromIds(
     client: Client,
@@ -331,60 +368,80 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
           moduleName: 'dashboard/messages/DMViewMessageModule',
         }));
 
-        const result = await client.amcClient.request(bodies);
+        const result = await client.amcClient.requestWithOptions(bodies, {
+          returnExceptions: true,
+        });
         if (result.isErr()) {
           throw result.error;
         }
 
         const messages: PrivateMessage[] = [];
+        const failures: PrivateMessageFetchFailure[] = [];
 
         for (let i = 0; i < messageIds.length; i++) {
-          const response = result.value[i];
           const messageId = messageIds[i];
-          if (!response || messageId === undefined) continue;
+          if (messageId === undefined) continue;
+          const response = result.value[i];
 
-          const html = requireBody(response, 'dashboard/messages/DMViewMessageModule');
-          const $ = cheerio.load(html);
+          try {
+            if (response === undefined) {
+              throw new NoElementError(`Empty response for message: ${messageId}`);
+            }
+            if (response instanceof WikidotError) {
+              throw response;
+            }
 
-          // Get user information
-          const printuserElems = $('div.pmessage div.header span.printuser');
-          if (printuserElems.length < 2) {
-            throw new ForbiddenError(`Failed to get message: ${messageId}`);
-          }
+            const html = requireBody(response, 'dashboard/messages/DMViewMessageModule');
+            const $ = cheerio.load(html);
 
-          const senderElem = $(printuserElems[0]);
-          const recipientElem = $(printuserElems[1]);
+            // Get user information
+            const printuserElems = $('div.pmessage div.header span.printuser');
+            if (printuserElems.length < 2) {
+              throw new ForbiddenError(`Failed to get message: ${messageId}`);
+            }
 
-          const sender = parseUser(client, senderElem);
-          const recipient = parseUser(client, recipientElem);
+            const senderElem = $(printuserElems[0]);
+            const recipientElem = $(printuserElems[1]);
 
-          // Subject
-          const subjectElem = $('div.pmessage div.header span.subject');
-          const subject = subjectElem.text().trim();
+            const sender = parseUser(client, senderElem);
+            const recipient = parseUser(client, recipientElem);
 
-          // Body
-          const bodyElem = $('div.pmessage div.body');
-          const body = bodyElem.text().trim();
+            // Subject
+            const subjectElem = $('div.pmessage div.header span.subject');
+            const subject = subjectElem.text().trim();
 
-          // Timestamp
-          const odateElem = $('div.header span.odate');
-          const createdAt =
-            odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0);
+            // Body
+            const bodyElem = $('div.pmessage div.body');
+            const body = bodyElem.text().trim();
 
-          messages.push(
-            new PrivateMessage({
-              client,
+            // Timestamp
+            const odateElem = $('div.header span.odate');
+            const createdAt =
+              odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0);
+
+            messages.push(
+              new PrivateMessage({
+                client,
+                id: messageId,
+                sender,
+                recipient,
+                subject,
+                body,
+                createdAt,
+              })
+            );
+          } catch (error) {
+            failures.push({
               id: messageId,
-              sender,
-              recipient,
-              subject,
-              body,
-              createdAt,
-            })
-          );
+              error:
+                error instanceof WikidotError
+                  ? error
+                  : new UnexpectedError(`Failed to parse message ${messageId}: ${String(error)}`),
+            });
+          }
         }
 
-        return new PrivateMessageCollection(client, messages);
+        return new PrivateMessageCollection(client, messages, failures);
       })(),
       (error) => {
         if (error instanceof ForbiddenError || error instanceof LoginRequiredError) {
@@ -582,8 +639,7 @@ export class PrivateMessageInbox extends PrivateMessageCollection {
         if (result.isErr()) {
           throw result.error;
         }
-        const inbox = new PrivateMessageInbox(client);
-        inbox.push(...result.value);
+        const inbox = new PrivateMessageInbox(client, [...result.value], result.value.failures);
         return inbox;
       })(),
       (error) => {
@@ -613,8 +669,7 @@ export class PrivateMessageSentBox extends PrivateMessageCollection {
         if (result.isErr()) {
           throw result.error;
         }
-        const sentBox = new PrivateMessageSentBox(client);
-        sentBox.push(...result.value);
+        const sentBox = new PrivateMessageSentBox(client, [...result.value], result.value.failures);
         return sentBox;
       })(),
       (error) => {

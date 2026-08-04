@@ -69,6 +69,26 @@ export class MockAMCClient {
   }
 
   /**
+   * Resolve the mock response for a single request body
+   */
+  private resolveResponse(body: AMCRequestBody): AMCResponse | WikidotError {
+    // Try handlers in order
+    for (const handler of this.responseHandlers) {
+      const result = handler(body);
+      if (result) {
+        return result;
+      }
+    }
+
+    // Default response if no handler matches
+    return {
+      status: 'ok',
+      body: '',
+      CURRENT_TIMESTAMP: Date.now(),
+    };
+  }
+
+  /**
    * Execute mock request
    */
   request(
@@ -81,25 +101,7 @@ export class MockAMCClient {
     const responses: AMCResponse[] = [];
 
     for (const body of bodies) {
-      let response: AMCResponse | WikidotError | null = null;
-
-      // Try handlers in order
-      for (const handler of this.responseHandlers) {
-        const result = handler(body);
-        if (result) {
-          response = result;
-          break;
-        }
-      }
-
-      // Default response if no handler matches
-      if (!response) {
-        response = {
-          status: 'ok',
-          body: '',
-          CURRENT_TIMESTAMP: Date.now(),
-        };
-      }
+      const response = this.resolveResponse(body);
 
       // If error
       if (response instanceof Error) {
@@ -110,6 +112,33 @@ export class MockAMCClient {
     }
 
     return ok(responses) as unknown as ResultAsync<AMCResponse[], WikidotError>;
+  }
+
+  /**
+   * Execute mock request with options (per-item errors when returnExceptions is true)
+   */
+  requestWithOptions(
+    bodies: AMCRequestBody[],
+    options: { siteName?: string; sslSupported?: boolean; returnExceptions?: boolean } = {}
+  ): ResultAsync<(AMCResponse | WikidotError)[], WikidotError> {
+    this.requestHistory.push(...bodies);
+
+    const results: (AMCResponse | WikidotError)[] = [];
+
+    for (const body of bodies) {
+      const response = this.resolveResponse(body);
+
+      if (response instanceof Error && !options.returnExceptions) {
+        return err(response as WikidotError) as unknown as ResultAsync<
+          (AMCResponse | WikidotError)[],
+          WikidotError
+        >;
+      }
+
+      results.push(response);
+    }
+
+    return ok(results) as unknown as ResultAsync<(AMCResponse | WikidotError)[], WikidotError>;
   }
 }
 
