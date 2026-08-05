@@ -405,8 +405,11 @@ export class PrivateMessageCollection extends Array<PrivateMessage> {
             const subjectElem = $('div.pmessage div.header span.subject');
             const subject = subjectElem.text().trim();
 
-            // Body
-            const bodyElem = $('div.pmessage div.body');
+            // The rendered div.body embeds the reply/delete action buttons
+            // (div.message-actions) before the message text (markup measured
+            // 2026-08-05), so drop them before extracting the text
+            const bodyElem = $('div.pmessage div.body').clone();
+            bodyElem.find('div.message-actions').remove();
             const body = bodyElem.text().trim();
 
             // Timestamp
