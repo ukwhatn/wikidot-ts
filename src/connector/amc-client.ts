@@ -137,6 +137,9 @@ function resolveTryAgainBackoff(
   );
 }
 
+/** HTTP status codes treated as a redirect when checking SSL support */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 /**
  * AMC request options
  */
@@ -213,7 +216,7 @@ export class AMCClient {
         const response = await fetchWithRetry(`http://${siteName}.${this.domain}`, this.config, {
           method: 'GET',
           redirect: 'manual',
-          checkOk: false, // Don't retry on HTTP errors (301 is expected)
+          checkOk: false, // Don't retry on HTTP errors (redirect statuses are expected)
         });
 
         // 404 means site does not exist
@@ -221,9 +224,10 @@ export class AMCClient {
           throw new NotFoundException(`Site is not found: ${siteName}.${this.domain}`);
         }
 
-        // SSL supported if 301 redirect to https
+        // SSL supported if redirected to https
         const isSSL =
-          response.status === 301 && response.headers.get('Location')?.startsWith('https') === true;
+          REDIRECT_STATUSES.has(response.status) &&
+          response.headers.get('Location')?.startsWith('https') === true;
 
         // Save to cache
         this.sslCache.set(siteName, isSSL);
