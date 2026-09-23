@@ -16,7 +16,7 @@ import {
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { type AMCRequestBody, flag, omitFalsy, requireBody } from '../../connector';
 import { fetchWithRetry } from '../../util/http';
-import { parseUser } from '../../util/parser';
+import { parsePageSource, parseUser } from '../../util/parser';
 import type { Site } from '../site';
 import type { AbstractUser } from '../user';
 import { type EditMode, PageEditSession, withEditLock } from './page-edit-session';
@@ -1106,13 +1106,11 @@ export class PageCollection extends Array<Page> {
           const page = targetPages[i];
           const response = result.value[i];
           if (!page || !response) continue;
-          const body = requireBody(response, 'viewsource/ViewSourceModule').replace(/&nbsp;/g, ' ');
-          const $ = cheerio.load(body);
-          const sourceElement = $('div.page-source');
-          if (sourceElement.length === 0) {
+          const sourceText = parsePageSource(requireBody(response, 'viewsource/ViewSourceModule'));
+          if (sourceText === null) {
             throw new NoElementError(`Cannot find source element for page: ${page.fullname}`);
           }
-          const wikiText = sourceElement.text().trim().replace(/^\t/, '');
+          const wikiText = sourceText.trim().replace(/^\t/, '');
           page.source = new PageSource({ page, wikiText });
         }
 
