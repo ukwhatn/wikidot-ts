@@ -4,7 +4,7 @@ import { NoElementError, UnexpectedError, WikidotError } from '../../common/erro
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { omitFalsy, requireBody } from '../../connector';
 import type { AMCRequestBody } from '../../connector/amc-types';
-import { parseOdate, parseUser } from '../../util/parser';
+import { parseOdate, parsePageSource, parseUser } from '../../util/parser';
 import type { AbstractUser } from '../user';
 import type { Page } from './page';
 import type { PageSource } from './page-source';
@@ -184,16 +184,10 @@ export class PageRevision {
           throw new NoElementError('Empty response from PageSourceModule');
         }
 
-        const html = requireBody(response, 'history/PageSourceModule');
-        const $ = cheerio.load(html);
-
-        // Source code is inside <div class="page-source">
-        const sourceElem = $('div.page-source');
-        if (sourceElem.length === 0) {
+        const sourceText = parsePageSource(requireBody(response, 'history/PageSourceModule'));
+        if (sourceText === null) {
           throw new NoElementError('Source element not found');
         }
-
-        const sourceText = sourceElem.text();
         return sourceText;
       })(),
       (error) => {
