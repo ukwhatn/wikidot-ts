@@ -1,13 +1,32 @@
 import * as cheerio from 'cheerio';
 import pLimit from 'p-limit';
-import { NoElementError, NotFoundException, UnexpectedError } from '../../common/errors';
+import {
+  NoElementError,
+  NotFoundException,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { DEFAULT_AMC_CONFIG } from '../../connector/amc-config';
 import { fetchWithRetry } from '../../util/http';
 import { toUnix } from '../../util/string-util';
+import type { Client } from '../client';
 import type { ClientRef } from '../types';
 import type { AbstractUser, UserType } from './abstract-user';
 import { UserCollection } from './user-collection';
+import {
+  fetchUserChanges,
+  fetchUserProfile,
+  fetchUserRecentPosts,
+  fetchUserSites,
+  type RecentChangesOptions,
+  type RecentPost,
+  type UserChange,
+  type UserProfile,
+  type UserSiteEntry,
+  type UserSiteListModule,
+  validateRecentChangesOptions,
+} from './user-info';
 
 /**
  * User data
@@ -140,6 +159,98 @@ export class User implements AbstractUser {
       })(),
       (error) => new UnexpectedError(`Failed to get users: ${String(error)}`)
     );
+  }
+
+  // ------------------------------------------------------------------
+  // user:info tabs (www.wikidot.com/user:info/<unix>). None requires login.
+  // A nonexistent user id makes Wikidot respond with HTTP 500, surfaced as the
+  // AMC error unchanged.
+  // ------------------------------------------------------------------
+
+  /**
+   * Run a user:info fetch, passing WikidotErrors through and wrapping anything else
+   */
+  private fetchUserInfo<T>(
+    fetch: (client: Client) => Promise<T>,
+    description: string
+  ): WikidotResultAsync<T> {
+    return fromPromise((async () => fetch(this.client as Client))(), (error) =>
+      error instanceof WikidotError
+        ? error
+        : new UnexpectedError(`Failed to fetch ${description}: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get this user's recent page edits, across all sites (the "Recent contributions" tab).
+   *
+   * Wraps userinfo/UserChangesListModule, fetching pages until exhausted or
+   * `limit` is reached.
+   * @param options - Filter flags. Keys must be a subset of RECENT_CHANGES_OPTION_KEYS; unlike
+   * history/PageHistoryModule's options, there is no "tags" key here
+   * @param limit - Maximum number of entries to retrieve. If omitted, retrieves all
+   * @returns List of change history (in descending order by date)
+   */
+  getChanges(options?: RecentChangesOptions, limit?: number): WikidotResultAsync<UserChange[]> {
+    const optionsError = validateRecentChangesOptions(options);
+    if (optionsError) {
+      return fromPromise(Promise.reject(optionsError), (error) => error as WikidotError);
+    }
+    return this.fetchUserInfo(
+      (client) => fetchUserChanges(client, this.id, options, limit),
+      'user changes'
+    );
+  }
+
+  /**
+   * Get this user's recent forum posts, across all sites (the "Recent posts and comments" tab).
+   *
+   * Wraps userinfo/UserRecentPostsListModule (20 posts per page), fetching pages
+   * until exhausted or `limit` is reached.
+   * @param limit - Maximum number of entries to retrieve. If omitted, retrieves all
+   * @returns List of recent posts (in descending order by date)
+   */
+  getPosts(limit?: number): WikidotResultAsync<RecentPost[]> {
+    return this.fetchUserInfo(
+      (client) => fetchUserRecentPosts(client, this.id, limit),
+      'user posts'
+    );
+  }
+
+  /**
+   * Get this user's profile (the "Profile" tab, userinfo/UserInfoProfileModule)
+   * @returns The profile
+   */
+  getProfile(): WikidotResultAsync<UserProfile> {
+    return this.fetchUserInfo((client) => fetchUserProfile(client, this.id), 'user profile');
+  }
+
+  /**
+   * Get the sites this user is a member of (the "Member of" tab)
+   * @returns Listed sites (empty if none)
+   */
+  getMemberOf(): WikidotResultAsync<UserSiteEntry[]> {
+    return this.fetchSites('userinfo/UserInfoMemberOfModule');
+  }
+
+  /**
+   * Get the sites this user administers (the "Admin of" tab)
+   * @returns Listed sites (empty if none)
+   */
+  getAdminOf(): WikidotResultAsync<UserSiteEntry[]> {
+    return this.fetchSites('userinfo/UserInfoAdminOfModule');
+  }
+
+  /**
+   * Get the sites this user moderates (the "Moderator of" tab)
+   * @returns Listed sites (empty if none)
+   */
+  getModeratorOf(): WikidotResultAsync<UserSiteEntry[]> {
+    return this.fetchSites('userinfo/UserInfoModeratorOfModule');
+  }
+
+  private fetchSites(moduleName: UserSiteListModule): WikidotResultAsync<UserSiteEntry[]> {
+    return this.fetchUserInfo((client) => fetchUserSites(client, this.id, moduleName), moduleName);
   }
 
   // AbstractUser implementation

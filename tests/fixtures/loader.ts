@@ -116,6 +116,20 @@ export const amcFixtures = {
     domainModule: () => loadJsonFixture('site', 'domain_module.json'),
     accessPolicyForm: () => loadJsonFixture('site', 'access_policy_form.json'),
   },
+
+  // user:info tabs (www.wikidot.com, measured 2026-09-28)
+  userInfo: {
+    changesPage1Of2: () => loadJsonFixture('user_info', 'changes_page1_of2.json'),
+    changesPage2Of2: () => loadJsonFixture('user_info', 'changes_page2_of2.json'),
+    changesEmpty: () => loadJsonFixture('user_info', 'changes_empty.json'),
+    postsSingle: () => loadJsonFixture('user_info', 'posts_single.json'),
+    postsPage2: () => loadJsonFixture('user_info', 'posts_page2.json'),
+    postsOutOfRange: () => loadJsonFixture('user_info', 'posts_out_of_range.json'),
+    profile: () => loadJsonFixture('user_info', 'profile.json'),
+    memberOf: () => loadJsonFixture('user_info', 'member_of.json'),
+    adminOf: () => loadJsonFixture('user_info', 'admin_of.json'),
+    moderatorOf: () => loadJsonFixture('user_info', 'moderator_of.json'),
+  },
 };
 
 /**

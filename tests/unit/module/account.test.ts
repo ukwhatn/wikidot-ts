@@ -2,13 +2,19 @@
  * Account module unit tests (client.account: settings/profile/recent)
  */
 import { describe, expect, test } from 'bun:test';
+import type { AMCResponse } from '../../../src/connector/amc-types';
 import {
   AccountProfile,
   AccountRecentActivity,
   AccountSettings,
 } from '../../../src/module/account/account';
 import type { Client } from '../../../src/module/client';
+import { amcFixtures } from '../../fixtures/loader';
 import { createOkResponse, MockAMCClient } from '../../mocks/amc-client.mock';
+
+function asResponse(fixture: Record<string, unknown>): AMCResponse {
+  return fixture as unknown as AMCResponse;
+}
 
 function createMockClient(
   mockAmc: MockAMCClient,
@@ -315,6 +321,62 @@ describe('AccountRecentActivity', () => {
     expect(change?.flags).toEqual(['S']);
   });
 
+  test('getChanges takes pageFullname from the path of a full-URL href (real markup)', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : asResponse(amcFixtures.userInfo.changesPage1Of2())
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getChanges(undefined, 2);
+    if (!result.isOk()) throw result.error;
+
+    expect(result.value[0]?.pageFullname).toBe('scp-9418');
+    expect(result.value[1]?.pageFullname).toBe('departments');
+  });
+
+  test('getChanges parses a "(new)" row as revisionNo 0', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : asResponse(amcFixtures.userInfo.changesPage2Of2())
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getChanges();
+    if (!result.isOk()) throw result.error;
+
+    expect(result.value[1]?.revisionNo).toBe(0);
+  });
+
+  test('getChanges stops at the last page instead of requesting one more', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserChangesModule'
+        ? createOkResponse('<input type="hidden" id="changes-user-id" value="42">')
+        : body.page === 1
+          ? asResponse(amcFixtures.userInfo.changesPage1Of2())
+          : asResponse(amcFixtures.userInfo.changesPage2Of2())
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getChanges();
+    if (!result.isOk()) throw result.error;
+
+    const listPages = mockAmc
+      .getRequestHistory()
+      .filter((body) => body.moduleName === 'userinfo/UserChangesListModule')
+      .map((body) => body.page);
+    expect(listPages).toEqual([1, 2]);
+    expect(result.value.length).toBe(4);
+  });
+
   test('getChanges caches the user id across calls', async () => {
     const mockAmc = new MockAMCClient();
     mockAmc.addResponseHandler((body) =>
@@ -386,5 +448,24 @@ describe('AccountRecentActivity', () => {
     expect(post?.title).toBe('Re: Something');
     expect(post?.url).toBe('http://foo.wikidot.com/forum/t-123#post-456');
     expect(post?.content).toBe('Post content here');
+  });
+
+  test('getPosts parses site/thread/postId from real markup', async () => {
+    const mockAmc = new MockAMCClient();
+    mockAmc.addResponseHandler((body) =>
+      body.moduleName === 'userinfo/UserRecentPostsModule'
+        ? createOkResponse('<input type="hidden" id="recent-posts-user-id" value="42">')
+        : asResponse(amcFixtures.userInfo.postsSingle())
+    );
+    const client = createMockClient(mockAmc);
+    const recent = new AccountRecentActivity(client);
+
+    const result = await recent.getPosts();
+    if (!result.isOk()) throw result.error;
+    const post = result.value[0];
+
+    expect(post?.postId).toBe(9081419);
+    expect(post?.siteTitle).toBe('SCP Foundation');
+    expect(post?.threadUrl).toBe('https://scp-wiki.wikidot.com/scp-9418/comments/show');
   });
 });
