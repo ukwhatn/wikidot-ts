@@ -5,7 +5,7 @@
  * anonymous www.wikidot.com responses measured 2026-09-28.
  */
 import { describe, expect, test } from 'bun:test';
-import { AMCHttpError } from '../../../src/common/errors';
+import { AMCHttpError, NoElementError } from '../../../src/common/errors';
 import type { AMCRequestBody, AMCResponse } from '../../../src/connector/amc-types';
 import type { Client } from '../../../src/module/client';
 import { User } from '../../../src/module/user/user';
@@ -289,6 +289,14 @@ describe('User.getProfile', () => {
     expect(result.value.memberSince).toBeNull();
     expect(result.value.accountType).toBeNull();
     expect(result.value.karmaLevel).toBeNull();
+  });
+
+  test('fails with NoElementError when the profile box is missing', async () => {
+    const { user } = createUser(() => createOkResponse('<div>unexpected</div>'));
+
+    const result = await user.getProfile();
+
+    expect(result.isErr() && result.error).toBeInstanceOf(NoElementError);
   });
 
   test('website falls back to the text when there is no link', async () => {

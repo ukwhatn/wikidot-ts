@@ -504,9 +504,16 @@ export async function fetchUserProfile(client: Client, userId: number): Promise<
   const html = await fetchBody(client, 'userinfo/UserInfoProfileModule', { user_id: userId });
   const $ = cheerio.load(html);
 
+  // Every existing user's profile has the box (a nonexistent id is HTTP 500), so
+  // its absence means the markup changed; fail instead of returning an empty profile
+  const box = $('div.profile-box').first();
+  if (box.length === 0) {
+    throw new NoElementError('Profile box is not found.');
+  }
+
   const fields: Record<string, string> = {};
   const ddByKey = new Map<string, cheerio.Cheerio<AnyNode>>();
-  $('div.profile-box dl dt').each((_i, elem) => {
+  box.find('dl dt').each((_i, elem) => {
     const $dt = $(elem);
     const $dd = $dt.next('dd');
     if ($dd.length === 0) return;
