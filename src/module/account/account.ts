@@ -14,38 +14,34 @@
  */
 
 import * as cheerio from 'cheerio';
-import {
-  LoginRequiredError,
-  NoElementError,
-  UnexpectedError,
-  WikidotError,
-} from '../../common/errors';
+import { LoginRequiredError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
-import { checkbox, flag, jsonParam, omitFalsy, requireBody } from '../../connector';
+import { checkbox, flag, omitFalsy, requireBody } from '../../connector';
 import type { AMCRequestBody, AMCResponse } from '../../connector/amc-types';
-import { parseOdate } from '../../util/parser';
 import type { Client } from '../client';
 import type { AbstractUser } from '../user';
+import {
+  fetchUserChanges,
+  fetchUserRecentPosts,
+  type RecentChangesOptions,
+  type RecentPost,
+  type UserChange,
+  validateRecentChangesOptions,
+} from '../user/user-info';
+
+// UserChange / RecentPost moved to user/user-info.ts (shared with User); re-exported
+// here so the existing import path keeps working
+export {
+  RECENT_CHANGES_OPTION_KEYS,
+  type RecentChangesOptionKey,
+  RecentPost,
+  type RecentPostData,
+  UserChange,
+  type UserChangeData,
+} from '../user/user-info';
 
 /** `from` values accepted by DashboardSettingsAction/saveReceiveMessages */
 export type PrivateMessageReceiveFrom = 'a' | 'mf' | 'f' | 'n';
-
-/**
- * Option keys accepted by userinfo/UserChangesListModule's `options` JSON.
- * Unlike the page-history version (history/PageHistoryModule), there is no "tags" key.
- */
-export const RECENT_CHANGES_OPTION_KEYS = [
-  'all',
-  'source',
-  'title',
-  'move',
-  'files',
-  'new',
-  'meta',
-] as const;
-
-/** Valid key in {@link RECENT_CHANGES_OPTION_KEYS} */
-export type RecentChangesOptionKey = (typeof RECENT_CHANGES_OPTION_KEYS)[number];
 
 /**
  * Run an action requiring login, wrapping the result/error into a WikidotResultAsync
@@ -483,97 +479,6 @@ export class AccountProfile {
   }
 }
 
-/** Data backing a {@link UserChange} */
-export interface UserChangeData {
-  client: Client;
-  siteTitle: string;
-  siteUrl: string;
-  pageFullname: string;
-  pageTitle: string;
-  revisionNo: number;
-  changedAt: Date;
-  flags: string[];
-}
-
-/**
- * A row of the account's own recent page edits (userinfo/UserChangesListModule)
- *
- * Nearly identical in structure to SiteChange (page/site-change.ts's
- * changes/SiteChangesListModule row), with a site column added since this view
- * spans every site the account belongs to (measured 2026-07-29, see the sibling
- * wikidot.py repo's `.local/memory/260728_wikidot-ajax-modules/70_account.md`,
- * "一覧モジュールの行マークアップ").
- */
-export class UserChange {
-  public readonly client: Client;
-  /** Title of the site the change occurred on (td.site > a) */
-  public readonly siteTitle: string;
-  /** URL of the site the change occurred on (td.site > a href) */
-  public readonly siteUrl: string;
-  public readonly pageFullname: string;
-  public readonly pageTitle: string;
-  public readonly revisionNo: number;
-  public readonly changedAt: Date;
-  /** "N"=new, "S"=source change, "T"=title change, "R"=rename, "M"=move, "F"=file, "A"=delete */
-  public readonly flags: string[];
-
-  constructor(data: UserChangeData) {
-    this.client = data.client;
-    this.siteTitle = data.siteTitle;
-    this.siteUrl = data.siteUrl;
-    this.pageFullname = data.pageFullname;
-    this.pageTitle = data.pageTitle;
-    this.revisionNo = data.revisionNo;
-    this.changedAt = data.changedAt;
-    this.flags = data.flags;
-  }
-
-  toString(): string {
-    return `UserChange(siteTitle=${this.siteTitle}, pageFullname=${this.pageFullname}, revisionNo=${this.revisionNo})`;
-  }
-}
-
-/** Data backing a {@link RecentPost} */
-export interface RecentPostData {
-  client: Client;
-  title: string;
-  url: string;
-  createdAt: Date;
-  content: string;
-}
-
-/**
- * A row of the account's own recent forum posts (userinfo/UserRecentPostsListModule)
- *
- * Row markup was measured 2026-07-29 (see the sibling wikidot.py repo's
- * `.local/memory/260728_wikidot-ajax-modules/70_account.md`, "一覧モジュールの
- * 行マークアップ"): each row is `div.post`, with
- * `div.long > div.head > div.title > a` (title/link), `div.info > span.odate`
- * (date), and `div.content` (post text).
- */
-export class RecentPost {
-  public readonly client: Client;
-  /** Post/thread title (div.title > a) */
-  public readonly title: string;
-  /** Link to the post (div.title > a href) */
-  public readonly url: string;
-  public readonly createdAt: Date;
-  /** Post text (div.content) */
-  public readonly content: string;
-
-  constructor(data: RecentPostData) {
-    this.client = data.client;
-    this.title = data.title;
-    this.url = data.url;
-    this.createdAt = data.createdAt;
-    this.content = data.content;
-  }
-
-  toString(): string {
-    return `RecentPost(title=${this.title}, createdAt=${this.createdAt.toISOString()})`;
-  }
-}
-
 /**
  * Operations on the `/account/recent` dashboard tab
  *
@@ -645,121 +550,15 @@ export class AccountRecentActivity {
    * @param limit - Maximum number of entries to retrieve. If omitted, retrieves all
    * @returns List of change history (in descending order by date)
    */
-  getChanges(
-    options?: Partial<Record<RecentChangesOptionKey, boolean>>,
-    limit?: number
-  ): WikidotResultAsync<UserChange[]> {
-    if (options) {
-      const allowed = new Set<string>(RECENT_CHANGES_OPTION_KEYS);
-      const unknown = Object.keys(options).filter((key) => !allowed.has(key));
-      if (unknown.length > 0) {
-        return fromPromise(
-          Promise.reject(
-            new UnexpectedError(
-              `Unknown options for userinfo/UserChangesListModule (no "tags" key here, unlike page-history options): ${unknown.join(', ')}`
-            )
-          ),
-          (error) => error as WikidotError
-        );
-      }
+  getChanges(options?: RecentChangesOptions, limit?: number): WikidotResultAsync<UserChange[]> {
+    const optionsError = validateRecentChangesOptions(options);
+    if (optionsError) {
+      return fromPromise(Promise.reject(optionsError), (error) => error as WikidotError);
     }
 
     return withLogin(
       this.client,
-      async () => {
-        const userId = await this.changesUserId();
-        const perPage = limit !== undefined ? Math.min(limit, 1000) : 1000;
-
-        const changes: UserChange[] = [];
-        let pageNo = 1;
-
-        while (true) {
-          const result = await this.client.amcClient.request([
-            {
-              moduleName: 'userinfo/UserChangesListModule',
-              page: pageNo,
-              perpage: perPage,
-              userId,
-              ...omitFalsy({ options: options ? jsonParam(options) : undefined }),
-            },
-          ]);
-          if (result.isErr()) throw result.error;
-          const html = requireBody(result.value[0], 'userinfo/UserChangesListModule');
-          const $ = cheerio.load(html);
-          const items = $('div.changes-list-item');
-          if (items.length === 0) break;
-
-          let reachedLimit = false;
-          items.each((_i, elem) => {
-            if (reachedLimit) return;
-            const $item = $(elem);
-
-            const titleElem = $item.find('td.title a').first();
-            if (titleElem.length === 0) {
-              throw new NoElementError('Title element is not found.');
-            }
-            const pageTitle = titleElem.text().trim();
-            const pageFullname = (titleElem.attr('href') ?? '').replace(/^\/|\/$/g, '');
-
-            const odateElem = $item.find('td.mod-date span.odate').first();
-            if (odateElem.length === 0) {
-              throw new NoElementError('Odate element is not found.');
-            }
-            const changedAt = parseOdate(odateElem) ?? new Date(0);
-
-            const revElem = $item.find('td.revision-no').first();
-            if (revElem.length === 0) {
-              throw new NoElementError('Revision number element is not found.');
-            }
-            const revMatch = revElem.text().match(/(\d+)/);
-            if (!revMatch?.[1]) {
-              throw new NoElementError('Revision number is not found.');
-            }
-            const revisionNo = Number.parseInt(revMatch[1], 10);
-
-            const flags = $item
-              .find('td.flags span.spantip')
-              .toArray()
-              .map((flagElem) => $(flagElem).text().trim());
-
-            const siteElem = $item.find('td.site a').first();
-
-            changes.push(
-              new UserChange({
-                client: this.client,
-                siteTitle: siteElem.length > 0 ? siteElem.text().trim() : '',
-                siteUrl: siteElem.length > 0 ? (siteElem.attr('href') ?? '') : '',
-                pageFullname,
-                pageTitle,
-                revisionNo,
-                changedAt,
-                flags,
-              })
-            );
-
-            if (limit !== undefined && changes.length >= limit) {
-              reachedLimit = true;
-            }
-          });
-
-          if (reachedLimit) break;
-
-          const pager = $('div.pager').first();
-          if (pager.length === 0) break;
-          const pagerLinks = pager.find('a');
-          if (pagerLinks.length < 2) break;
-          const lastPage = Number.parseInt(
-            $(pagerLinks[pagerLinks.length - 2])
-              .text()
-              .trim(),
-            10
-          );
-          if (pageNo >= lastPage) break;
-          pageNo += 1;
-        }
-
-        return changes;
-      },
+      async () => fetchUserChanges(this.client, await this.changesUserId(), options, limit),
       (error) => new UnexpectedError(`Failed to fetch recent changes: ${String(error)}`)
     );
   }
@@ -775,69 +574,7 @@ export class AccountRecentActivity {
   getPosts(limit?: number): WikidotResultAsync<RecentPost[]> {
     return withLogin(
       this.client,
-      async () => {
-        const userId = await this.postsUserId();
-
-        const posts: RecentPost[] = [];
-        let pageNo = 1;
-
-        while (true) {
-          const result = await this.client.amcClient.request([
-            { moduleName: 'userinfo/UserRecentPostsListModule', page: pageNo, userId },
-          ]);
-          if (result.isErr()) throw result.error;
-          const html = requireBody(result.value[0], 'userinfo/UserRecentPostsListModule');
-          const $ = cheerio.load(html);
-          const items = $('div.post');
-          if (items.length === 0) break;
-
-          let reachedLimit = false;
-          items.each((_i, elem) => {
-            if (reachedLimit) return;
-            const $item = $(elem);
-
-            const titleElem = $item.find('div.long div.head div.title a').first();
-            if (titleElem.length === 0) {
-              throw new NoElementError('Title element is not found.');
-            }
-
-            const odateElem = $item.find('div.info span.odate').first();
-            const contentElem = $item.find('div.content').first();
-
-            posts.push(
-              new RecentPost({
-                client: this.client,
-                title: titleElem.text().trim(),
-                url: titleElem.attr('href') ?? '',
-                createdAt:
-                  odateElem.length > 0 ? (parseOdate(odateElem) ?? new Date(0)) : new Date(0),
-                content: contentElem.length > 0 ? contentElem.text().trim() : '',
-              })
-            );
-
-            if (limit !== undefined && posts.length >= limit) {
-              reachedLimit = true;
-            }
-          });
-
-          if (reachedLimit) break;
-
-          const pager = $('div.pager').first();
-          if (pager.length === 0) break;
-          const pagerLinks = pager.find('a');
-          if (pagerLinks.length < 2) break;
-          const lastPage = Number.parseInt(
-            $(pagerLinks[pagerLinks.length - 2])
-              .text()
-              .trim(),
-            10
-          );
-          if (pageNo >= lastPage) break;
-          pageNo += 1;
-        }
-
-        return posts;
-      },
+      async () => fetchUserRecentPosts(this.client, await this.postsUserId(), limit),
       (error) => new UnexpectedError(`Failed to fetch recent posts: ${String(error)}`)
     );
   }

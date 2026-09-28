@@ -1119,6 +1119,32 @@ const usersResult = await client.user.getBulk(['user1', 'user2', 'user3']);
 | `findById(id)` | `User \| undefined` | Find user by ID |
 | `filterNonNull()` | `User[]` | Get only found users |
 
+### User Info Tabs (`User` methods)
+
+The six tabs of `www.wikidot.com/user:info/<unix>`, for any user. None
+requires login. A nonexistent user id makes Wikidot respond with HTTP 500,
+surfaced as `AMCHttpError` (not wrapped).
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `getChanges(options?, limit?)` | `WikidotResultAsync<UserChange[]>` | "Recent contributions": page edits across every site (`userinfo/UserChangesListModule`). `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`) — errors on an unknown key. Fetches 1000 per page (`perpage = min(limit, 1000)`); all if `limit` is omitted |
+| `getPosts(limit?)` | `WikidotResultAsync<RecentPost[]>` | "Recent posts and comments": forum posts across every site (`userinfo/UserRecentPostsListModule`, fixed 20 per page); all if `limit` is omitted |
+| `getProfile()` | `WikidotResultAsync<UserProfile>` | "Profile" tab (`userinfo/UserInfoProfileModule`) |
+| `getMemberOf()` | `WikidotResultAsync<UserSiteEntry[]>` | "Member of" tab |
+| `getAdminOf()` | `WikidotResultAsync<UserSiteEntry[]>` | "Admin of" tab |
+| `getModeratorOf()` | `WikidotResultAsync<UserSiteEntry[]>` | "Moderator of" tab (empty list when none) |
+
+- `UserChange`: `siteTitle`, `siteUrl`, `pageFullname` (page name from the
+  link path, e.g. `"scp-9418"`), `pageTitle`, `revisionNo` (`0` for a
+  page-creation row shown as "(new)"), `changedAt`, `flags`
+- `RecentPost`: `title`, `url` (post link, `...#post-<id>`), `createdAt`,
+  `content`, `postId`, `siteTitle`, `siteUrl`, `threadTitle`, `threadUrl`
+  (the last five are `null` when absent)
+- `UserProfile`: `fields` (every row, `Record<string, string>` keyed by the
+  row label without `:`), `realName`, `website`, `memberSince` (`Date`),
+  `accountType`, `karmaLevel` (e.g. `"high"`) — each `null` if the row is absent
+- `UserSiteEntry`: `title`, `url`, `subtitle`, `description` (`null` when absent)
+
 ### Usage
 
 ```typescript
@@ -1141,6 +1167,20 @@ if (user.isUser()) {
 const users = usersResult.value.filterNonNull();
 for (const u of users) {
   console.log(u.name);
+}
+
+// user:info tabs (no login needed)
+const changesResult = await user.getChanges({ new: true }, 100);
+const postsResult = await user.getPosts(40);
+const profileResult = await user.getProfile();
+if (profileResult.isOk()) {
+  console.log(`Karma: ${profileResult.value.karmaLevel}`);
+}
+const adminOfResult = await user.getAdminOf();
+if (adminOfResult.isOk()) {
+  for (const site of adminOfResult.value) {
+    console.log(`${site.title} (${site.url})`);
+  }
 }
 ```
 
@@ -1566,10 +1606,11 @@ save/change methods error with `FormErrorsError` on validation failure.
 | `getChanges(options?, limit?)` | `WikidotResultAsync<UserChange[]>` | The account's own recent page edits, across every site it belongs to. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`, unlike page-history options) — errors on an unknown key |
 | `getPosts(limit?)` | `WikidotResultAsync<RecentPost[]>` | The account's own recent forum posts, across every site |
 
-`UserChange` (`siteTitle`, `siteUrl`, `pageFullname`, `pageTitle`,
-`revisionNo`, `changedAt`, `flags`) mirrors `SiteChange` with an added
-site column. `RecentPost` (`title`, `url`, `createdAt`, `content`) is one
-recent post.
+`UserChange` and `RecentPost` are the same types `User.getChanges()` /
+`User.getPosts()` return (see "User Info Tabs" under User). These two
+methods read the account's own user id from the tab's shell module first,
+then fetch the same list; to read another user's activity, call the
+methods on that `User` instead (no login needed).
 
 ### Usage
 
@@ -1814,7 +1855,8 @@ src/
 │   ├── user/
 │   │   ├── abstract-user.ts
 │   │   ├── user.ts
-│   │   └── user-collection.ts
+│   │   ├── user-collection.ts
+│   │   └── user-info.ts      # user:info tabs (UserChange, RecentPost, UserProfile, UserSiteEntry)
 │   └── types.ts              # Shared interfaces (Ref types)
 └── util/
     ├── parser/               # HTML parsers
