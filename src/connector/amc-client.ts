@@ -417,9 +417,11 @@ export class AMCClient {
             : body.action
               ? `action: ${body.action}/${body.event ?? ''}`
               : 'unknown';
+          // Wikidot explains the refusal in `message`; without it the cause cannot be told apart
+          const reason = amcResponse.message?.trim();
           return wdErrAsync(
             new ForbiddenError(
-              `Your account has no permission to perform this action: ${targetStr}`
+              `Your account has no permission to perform this action: ${targetStr}${reason ? ` (${reason})` : ''}`
             )
           );
         }
