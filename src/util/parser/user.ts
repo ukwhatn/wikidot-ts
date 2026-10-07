@@ -63,7 +63,8 @@ export function parseUser(client: ClientRef, elem: cheerio.Cheerio<AnyNode>): Ab
 
   // Last link is the user link
   const userLink = links.last();
-  const userName = userLink.text().trim();
+  // Do not trim: Wikidot display names can end with whitespace, and wikidot.py keeps it
+  const userName = userLink.text();
   const href = userLink.attr('href') ?? '';
   const onclick = userLink.attr('onclick') ?? '';
 

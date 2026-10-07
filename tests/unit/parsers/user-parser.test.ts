@@ -56,6 +56,18 @@ describe('parseUser', () => {
       expect(result).toBeInstanceOf(User);
       expect((result as User).id).toBe(789012);
     });
+
+    test('Keeps trailing whitespace in user name as wikidot.py does', () => {
+      const html = `<span class="printuser"><a href="http://www.wikidot.com/user:info/ceilingcat" onclick="WIKIDOT.page.listeners.userInfo(345678); return false;">CeilingCat </a></span>`;
+      const $ = cheerio.load(html);
+      const elem = $('span.printuser');
+
+      const result = parseUser(client, elem);
+
+      expect(result).toBeInstanceOf(User);
+      expect((result as User).name).toBe('CeilingCat ');
+      expect((result as User).unixName).toBe('ceilingcat');
+    });
   });
 
   describe('Deleted user', () => {
