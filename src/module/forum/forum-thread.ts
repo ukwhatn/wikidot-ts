@@ -287,12 +287,8 @@ export class ForumThread {
    * Create a page's discussion (comment) thread if it does not already have one.
    * @param site - Site the page belongs to
    * @param pageId - Numeric page ID (not the page's unix name)
-   * @returns The created thread, or `null` if the response did not include a
-   * recognizable thread ID. The survey of `ForumAction/createPageDiscussionThread`
-   * only confirmed the request parameter (`page_id`); the response schema was
-   * not captured, so this does not assume a `threadId` field is present and
-   * guess-parse it -- callers that get `null` back can still locate the
-   * thread via the page's `/comments/show` view
+   * @returns The created thread, or `null` if the response carried no numeric
+   * `thread_id` (the key observed on pseudo-scp-jp, 2026-10-08)
    */
   static createForPage(site: Site, pageId: number): WikidotResultAsync<ForumThread | null> {
     // Static method: `this` inside a decorated function would be the class
@@ -321,7 +317,7 @@ export class ForumThread {
           throw result.error;
         }
         const response = result.value[0];
-        const threadId = response?.threadId;
+        const threadId = response?.thread_id;
         if (typeof threadId !== 'number') {
           return null;
         }

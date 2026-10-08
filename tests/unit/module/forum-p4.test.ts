@@ -200,7 +200,7 @@ describe('ForumThread.createForPage', () => {
     if (result.isErr()) expect(result.error).toBeInstanceOf(LoginRequiredError);
   });
 
-  test('returns null when threadId is absent (unconfirmed response schema)', async () => {
+  test('returns null when thread_id is absent', async () => {
     const { site } = createMockSite({
       handler: () => okAsync([{ status: 'ok' }] as AMCResponse[]),
     });
@@ -209,13 +209,13 @@ describe('ForumThread.createForPage', () => {
     if (result.isOk()) expect(result.value).toBeNull();
   });
 
-  test('returns the thread when threadId is present', async () => {
+  test('returns the thread when thread_id is present', async () => {
     let callCount = 0;
     const { site, calls } = createMockSite({
       handler: (bodies) => {
         callCount++;
         if (callCount === 1) {
-          return okAsync([{ status: 'ok', threadId: TEST_FORUM_THREAD_DATA.id }] as AMCResponse[]);
+          return okAsync([{ status: 'ok', thread_id: TEST_FORUM_THREAD_DATA.id }] as AMCResponse[]);
         }
         // second call: ForumThread.getFromId -> forum/ForumViewThreadModule
         expect(bodies[0]?.moduleName).toBe('forum/ForumViewThreadModule');

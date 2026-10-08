@@ -552,6 +552,9 @@ export class Page {
 
   /**
    * Get the discussion thread for the page
+   *
+   * Wikidot creates the discussion thread when ForumCommentsListModule is
+   * first requested, so this returns a thread even for a page that had none.
    */
   getDiscussion(): WikidotResultAsync<import('../forum').ForumThread | null> {
     return fromPromise(
@@ -575,10 +578,7 @@ export class Page {
         }
 
         const html = requireBody(response, 'forum/ForumCommentsListModule');
-        // Extract thread ID
-        const match = html.match(
-          /WIKIDOT\.modules\.ForumViewThreadModule\.vars\.threadId\s*=\s*(\d+)/
-        );
+        const match = html.match(/WIKIDOT\.forumThreadId\s*=\s*(\d+)/);
         if (!match?.[1]) {
           return null;
         }
