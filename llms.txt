@@ -223,6 +223,22 @@ if (result.isErr() && result.error instanceof FormErrorsError) {
 }
 ```
 
+### WikidotStatusError
+
+Any other non-`"ok"` response status (e.g. `"need_captcha"`, `"not_ok"`)
+is returned as a `WikidotStatusError` whose `statusCode` holds the raw
+status. Page and forum operations return it unchanged rather than wrapping
+it in `UnexpectedError`, so callers can branch on the status.
+
+```typescript
+import { WikidotStatusError } from '@ukwhatn/wikidot';
+
+const result = await page.destroy();
+if (result.isErr() && result.error instanceof WikidotStatusError && result.error.statusCode === 'need_captcha') {
+  // stop and ask a human
+}
+```
+
 ### Request Body Helpers
 
 `connector/amc-body` — used internally by every typed `site.settings.*` /

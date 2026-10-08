@@ -12,6 +12,7 @@ import {
   TargetError,
   TargetExistsError,
   UnexpectedError,
+  WikidotError,
 } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { type AMCRequestBody, flag, omitFalsy, requireBody } from '../../connector';
@@ -220,9 +221,7 @@ export class Page {
     if (this._id === null) {
       const result = await PageCollection.acquirePageIds(this.site, [this]);
       if (result.isErr()) {
-        throw new UnexpectedError(
-          `Failed to acquire page ID for ${operation}: ${result.error.message}`
-        );
+        throw result.error;
       }
     }
     if (this._id === null) {
@@ -251,7 +250,10 @@ export class Page {
           throw result.error;
         }
       })(),
-      (error) => new UnexpectedError(`Failed to delete page: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to delete page: ${String(error)}`)
     );
   }
 
@@ -276,7 +278,10 @@ export class Page {
           throw result.error;
         }
       })(),
-      (error) => new UnexpectedError(`Failed to save tags: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to save tags: ${String(error)}`)
     );
   }
 
@@ -303,7 +308,10 @@ export class Page {
         }
         this.parentFullname = parentFullname;
       })(),
-      (error) => new UnexpectedError(`Failed to set parent: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to set parent: ${String(error)}`)
     );
   }
 
@@ -338,7 +346,10 @@ export class Page {
         this.rating = newRating;
         return newRating;
       })(),
-      (error) => new UnexpectedError(`Failed to vote: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to vote: ${String(error)}`)
     );
   }
 
@@ -370,7 +381,10 @@ export class Page {
         this.rating = newRating;
         return newRating;
       })(),
-      (error) => new UnexpectedError(`Failed to cancel vote: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to cancel vote: ${String(error)}`)
     );
   }
 
@@ -418,7 +432,7 @@ export class Page {
         }
       })(),
       (error) => {
-        if (error instanceof LoginRequiredError || error instanceof ForbiddenError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to edit page: ${String(error)}`);
@@ -477,7 +491,7 @@ export class Page {
         });
       })(),
       (error) => {
-        if (error instanceof TargetError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to rename page: ${String(error)}`);
       }
     );
@@ -502,7 +516,10 @@ export class Page {
         }
         return this._files;
       })(),
-      (error) => new UnexpectedError(`Failed to get files: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get files: ${String(error)}`)
     );
   }
 
@@ -549,7 +566,10 @@ export class Page {
         }
         return threadResult.value;
       })(),
-      (error) => new UnexpectedError(`Failed to get discussion: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get discussion: ${String(error)}`)
     );
   }
 
@@ -567,7 +587,10 @@ export class Page {
         }
         return result.value;
       })(),
-      (error) => new UnexpectedError(`Failed to get metas: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get metas: ${String(error)}`)
     );
   }
 
@@ -591,7 +614,10 @@ export class Page {
           throw result.error;
         }
       })(),
-      (error) => new UnexpectedError(`Failed to set meta: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to set meta: ${String(error)}`)
     );
   }
 
@@ -610,7 +636,10 @@ export class Page {
           throw result.error;
         }
       })(),
-      (error) => new UnexpectedError(`Failed to delete meta: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to delete meta: ${String(error)}`)
     );
   }
 
@@ -637,7 +666,7 @@ export class Page {
         return this._source;
       })(),
       (error) => {
-        if (error instanceof NotFoundException) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get source: ${String(error)}`);
       }
     );
@@ -666,7 +695,7 @@ export class Page {
         return this._revisions;
       })(),
       (error) => {
-        if (error instanceof NotFoundException) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get revisions: ${String(error)}`);
       }
     );
@@ -695,7 +724,7 @@ export class Page {
         return this._votes;
       })(),
       (error) => {
-        if (error instanceof NotFoundException) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get votes: ${String(error)}`);
       }
     );
@@ -741,7 +770,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'edit/TemplateSourceModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get template source: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get template source: ${String(error)}`)
     );
   }
 
@@ -758,7 +790,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'pageblock/PageBlockModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get block form: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get block form: ${String(error)}`)
     );
   }
 
@@ -784,7 +819,10 @@ export class Page {
         ]);
         if (result.isErr()) throw result.error;
       })(),
-      (error) => new UnexpectedError(`Failed to set block: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to set block: ${String(error)}`)
     );
   }
 
@@ -805,7 +843,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'backlinks/BacklinksModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get backlinks: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get backlinks: ${String(error)}`)
     );
   }
 
@@ -822,7 +863,10 @@ export class Page {
         ]);
         if (result.isErr()) throw result.error;
       })(),
-      (error) => new UnexpectedError(`Failed to watch page: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to watch page: ${String(error)}`)
     );
   }
 
@@ -839,7 +883,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'watch/WhoWatchesModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get watchers: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get watchers: ${String(error)}`)
     );
   }
 
@@ -856,7 +903,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'pagetags/PageTagsModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get tags form: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get tags form: ${String(error)}`)
     );
   }
 
@@ -885,7 +935,10 @@ export class Page {
         ]);
         if (result.isErr()) throw result.error;
       })(),
-      (error) => new UnexpectedError(`Failed to update tags by button: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to update tags by button: ${String(error)}`)
     );
   }
 
@@ -902,7 +955,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'parent/ParentPageModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get parent form: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get parent form: ${String(error)}`)
     );
   }
 
@@ -925,7 +981,10 @@ export class Page {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'rename/RenameBacklinksModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get rename backlinks: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get rename backlinks: ${String(error)}`)
     );
   }
 
@@ -1028,7 +1087,10 @@ export class PageCollection extends Array<Page> {
 
         return new PageCollection(site, pages);
       })(),
-      (error) => new UnexpectedError(`Failed to acquire page files: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire page files: ${String(error)}`)
     );
   }
 
@@ -1073,7 +1135,7 @@ export class PageCollection extends Array<Page> {
         return new PageCollection(site, pages);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire page IDs: ${String(error)}`);
       }
     );
@@ -1117,7 +1179,7 @@ export class PageCollection extends Array<Page> {
         return new PageCollection(site, pages);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire page sources: ${String(error)}`);
       }
     );
@@ -1161,7 +1223,10 @@ export class PageCollection extends Array<Page> {
 
         return new PageCollection(site, pages);
       })(),
-      (error) => new UnexpectedError(`Failed to acquire page revisions: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire page revisions: ${String(error)}`)
     );
   }
 
@@ -1229,7 +1294,10 @@ export class PageCollection extends Array<Page> {
 
         return new PageCollection(site, pages);
       })(),
-      (error) => new UnexpectedError(`Failed to acquire page votes: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire page votes: ${String(error)}`)
     );
   }
 
@@ -1431,7 +1499,7 @@ export class PageCollection extends Array<Page> {
         return new PageCollection(site, pages);
       })(),
       (error) => {
-        if (error instanceof ForbiddenError || error instanceof NotFoundException) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to search pages: ${String(error)}`);
@@ -1492,7 +1560,7 @@ export class PageCollection extends Array<Page> {
           }
         })(),
         (error) => {
-          if (error instanceof TargetExistsError) {
+          if (error instanceof WikidotError) {
             return error;
           }
           return new UnexpectedError(`Failed to create/edit page: ${String(error)}`);

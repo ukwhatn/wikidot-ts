@@ -2,7 +2,12 @@ import type { Cheerio } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
-import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
+import {
+  LoginRequiredError,
+  NoElementError,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
 import { flag, omitFalsy } from '../../connector/amc-body';
@@ -75,7 +80,10 @@ export class ForumThread {
         this._posts = result.value.get(this.id) ?? new ForumPostCollection(this, []);
         return this._posts;
       })(),
-      (error) => new UnexpectedError(`Failed to get posts: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get posts: ${String(error)}`)
     );
   }
 
@@ -108,7 +116,10 @@ export class ForumThread {
         this.postCount += 1;
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to reply: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to reply: ${String(error)}`)
     );
   }
 
@@ -146,7 +157,10 @@ export class ForumThread {
         this.description = newDescription;
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to save thread meta: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to save thread meta: ${String(error)}`)
     );
   }
 
@@ -172,7 +186,10 @@ export class ForumThread {
         }
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to set sticky: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to set sticky: ${String(error)}`)
     );
   }
 
@@ -198,7 +215,10 @@ export class ForumThread {
         }
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to set block: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to set block: ${String(error)}`)
     );
   }
 
@@ -225,7 +245,10 @@ export class ForumThread {
         this.category = category;
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to move thread: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to move thread: ${String(error)}`)
     );
   }
 
@@ -249,7 +272,10 @@ export class ForumThread {
         }
         return this;
       })(),
-      (error) => new UnexpectedError(`Failed to watch thread: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to watch thread: ${String(error)}`)
     );
   }
 
@@ -305,7 +331,10 @@ export class ForumThread {
         }
         return threadResult.value;
       })(),
-      (error) => new UnexpectedError(`Failed to create page discussion thread: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to create page discussion thread: ${String(error)}`)
     );
   }
 
@@ -330,7 +359,7 @@ export class ForumThread {
         return thread;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get thread: ${String(error)}`);
       }
     );
@@ -507,7 +536,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
         return new ForumThreadCollection(category.site, threads);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire threads: ${String(error)}`);
       }
     );
@@ -532,7 +561,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
         return thread;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get thread: ${String(error)}`);
       }
     );
@@ -600,7 +629,7 @@ export class ForumThreadCollection extends Array<ForumThread> {
         return new ForumThreadCollection(site, threads);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire threads: ${String(error)}`);
       }
     );

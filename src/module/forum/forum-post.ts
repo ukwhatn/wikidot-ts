@@ -2,7 +2,7 @@ import type { Cheerio, CheerioAPI } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode, Element } from 'domhandler';
 import { RequireLogin } from '../../common/decorators';
-import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
+import { NoElementError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
@@ -98,7 +98,7 @@ export class ForumPost {
         return this.source;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get post source: ${String(error)}`);
       }
     );
@@ -167,7 +167,7 @@ export class ForumPost {
         this.source = source;
       })(),
       (error) => {
-        if (error instanceof NoElementError || error instanceof LoginRequiredError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to edit post: ${String(error)}`);
@@ -201,7 +201,7 @@ export class ForumPost {
         }
       })(),
       (error) => {
-        if (error instanceof LoginRequiredError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to delete post: ${String(error)}`);
       }
     );
@@ -233,7 +233,7 @@ export class ForumPost {
         return this._revisions;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to get revisions: ${String(error)}`);
       }
     );
@@ -435,7 +435,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         return new ForumPostCollection(thread, posts);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire posts: ${String(error)}`);
       }
     );
@@ -535,7 +535,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         return result;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire posts: ${String(error)}`);
       }
     );
@@ -583,7 +583,7 @@ export class ForumPostCollection extends Array<ForumPost> {
         return new ForumPostCollection(thread, posts);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire post sources: ${String(error)}`);
       }
     );

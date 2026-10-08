@@ -191,7 +191,7 @@ export class PageRevision {
         return sourceText;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get revision source: ${String(error)}`);
@@ -243,7 +243,7 @@ export class PageRevision {
         return contentHtml;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get revision HTML: ${String(error)}`);
@@ -338,7 +338,7 @@ export class PageRevisionCollection extends Array<PageRevision> {
         return results;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get sources: ${String(error)}`);
@@ -365,7 +365,7 @@ export class PageRevisionCollection extends Array<PageRevision> {
         return results;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get HTMLs: ${String(error)}`);
@@ -395,7 +395,10 @@ export class PageRevisionCollection extends Array<PageRevision> {
         if (result.isErr()) throw result.error;
         return requireBody(result.value[0], 'history/PageDiffModule');
       })(),
-      (error) => new UnexpectedError(`Failed to get revision diff: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get revision diff: ${String(error)}`)
     );
   }
 
@@ -434,7 +437,10 @@ export class PageRevisionCollection extends Array<PageRevision> {
         const $ = cheerio.load(responseBody);
         return new PageRevisionCollection(page, parseRevisionListHtml($, page));
       })(),
-      (error) => new UnexpectedError(`Failed to acquire revision history: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire revision history: ${String(error)}`)
     );
   }
 }
