@@ -330,6 +330,7 @@ const createResult = await site.page.create({
 | `getTemplateSource()` | `WikidotResultAsync<string>` | Get the page's source for use as a page-creation template |
 | `getSource()` | `WikidotResultAsync<PageSource>` | Get page source |
 | `getRevisions()` | `WikidotResultAsync<PageRevisionCollection>` | Get revision history |
+| `getCompleteRevisions()` | `WikidotResultAsync<PageRevisionCollection>` | Fetch the whole revision history (always, not cached) and fail with `ResponseDataError` unless it is provably complete. See `PageRevisionCollection.acquireComplete` |
 | `getVotes()` | `WikidotResultAsync<PageVoteCollection>` | Get vote information |
 | `getFiles()` | `WikidotResultAsync<PageFileCollection>` | Get attached files |
 | `getMetas()` | `WikidotResultAsync<PageMetaCollection>` | Get meta tags |
@@ -639,6 +640,7 @@ Page revision information.
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `PageRevisionCollection.getDiff(page, fromRevisionId, toRevisionId, showType?)` | `WikidotResultAsync<string>` | Rendered HTML diff between two revisions (`showType` default `"inline"`) |
+| `PageRevisionCollection.acquireComplete(page)` | `WikidotResultAsync<PageRevisionCollection>` | Requires `page.id` (use `page.getCompleteRevisions()` otherwise). Fetch the whole history and fail with `ResponseDataError` unless it is provably complete: every row parsed, revision numbers contiguous from 0 or 1, and the latest revision number at least `page.revisionsCount` (a higher number is accepted, as the page may have been edited after it was fetched) |
 | `PageRevisionCollection.acquire(page, options?)` | `WikidotResultAsync<PageRevisionCollection>` | Fetch one page of history with server-side filtering. `options`: `options` (change-type flags: `"all"`/`"source"`/`"title"`/`"move"`/`"tags"`/`"files"`/`"meta"`, no `"new"`), `perpage` (20/50/100/200), `pageNo` |
 
 ### Usage

@@ -1,6 +1,11 @@
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
-import { NoElementError, UnexpectedError, WikidotError } from '../../common/errors';
+import {
+  NoElementError,
+  ResponseDataError,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { omitFalsy, requireBody } from '../../connector';
 import type { AMCRequestBody } from '../../connector/amc-types';
@@ -12,6 +17,9 @@ import type { PageSource } from './page-source';
 /** The 7 change-type flags accepted by history/PageRevisionListModule's
  * `options` JSON. Distinct from changes/SiteChangesListModule's 8
  * (site.tools.getRecentChanges), which adds "new". */
+/** perpage large enough that history/PageRevisionListModule returns the whole history in one response */
+export const ALL_REVISIONS_PERPAGE = 100000000;
+
 export type HistoryOptionKey = 'all' | 'source' | 'title' | 'move' | 'tags' | 'files' | 'meta';
 
 /**
@@ -441,6 +449,83 @@ export class PageRevisionCollection extends Array<PageRevision> {
         error instanceof WikidotError
           ? error
           : new UnexpectedError(`Failed to acquire revision history: ${String(error)}`)
+    );
+  }
+
+  /**
+   * Get a page's whole revision history, failing unless the list is provably complete
+   *
+   * Fails with ResponseDataError when any history row could not be parsed,
+   * when revision numbers are not contiguous from 0 or 1, or when the latest
+   * revision number is below `page.revisionsCount` (a truncated list). A
+   * latest revision above `revisionsCount` is accepted, since the page may
+   * have been edited after `page` was fetched.
+   * @param page - Page with `id` and `revisionsCount` set
+   */
+  static acquireComplete(page: Page): WikidotResultAsync<PageRevisionCollection> {
+    return fromPromise(
+      (async () => {
+        const result = await page.site.amcRequest([
+          {
+            moduleName: 'history/PageRevisionListModule',
+            page_id: page.id,
+            page: 1,
+            perpage: ALL_REVISIONS_PERPAGE,
+            options: JSON.stringify({ all: true }),
+          },
+        ]);
+        if (result.isErr()) throw result.error;
+        const $ = cheerio.load(requireBody(result.value[0], 'history/PageRevisionListModule'));
+        const rowCount = $('table.page-history tr[id^="revision-row-"]').length;
+        const revisions = parseRevisionListHtml($, page);
+        verifyCompleteHistory(
+          page.fullname,
+          revisions.map((revision) => revision.revNo),
+          rowCount,
+          page.revisionsCount
+        );
+        return new PageRevisionCollection(page, revisions);
+      })(),
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire complete revision history: ${String(error)}`)
+    );
+  }
+}
+
+function failIncompleteHistory(fullname: string, reason: string): never {
+  throw new ResponseDataError(`Incomplete revision history for ${fullname}: ${reason}`);
+}
+
+function verifyCompleteHistory(
+  fullname: string,
+  revNos: number[],
+  rowCount: number,
+  revisionsCount: number
+): void {
+  if (revNos.length !== rowCount) {
+    failIncompleteHistory(fullname, `parsed ${revNos.length} of ${rowCount} rows`);
+  }
+  const sorted = [...revNos].sort((a, b) => a - b);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (first === undefined || last === undefined) {
+    failIncompleteHistory(fullname, 'no revisions');
+  }
+  if (first !== 0 && first !== 1) {
+    failIncompleteHistory(fullname, `starts at revision ${first}`);
+  }
+  if (last - first + 1 !== sorted.length || new Set(sorted).size !== sorted.length) {
+    failIncompleteHistory(
+      fullname,
+      `revision numbers ${first}..${last} are not contiguous (${sorted.length} rows)`
+    );
+  }
+  if (last < revisionsCount) {
+    failIncompleteHistory(
+      fullname,
+      `latest revision ${last} is below revisionsCount ${revisionsCount}`
     );
   }
 }

@@ -23,7 +23,12 @@ import type { AbstractUser } from '../user';
 import { type EditMode, PageEditSession, withEditLock } from './page-edit-session';
 import { PageFileCollection } from './page-file';
 import { PageMetaCollection } from './page-meta';
-import { type PageRevision, PageRevisionCollection, parseRevisionListHtml } from './page-revision';
+import {
+  ALL_REVISIONS_PERPAGE,
+  type PageRevision,
+  PageRevisionCollection,
+  parseRevisionListHtml,
+} from './page-revision';
 import { PageSource } from './page-source';
 import { PageVote, PageVoteCollection } from './page-vote';
 import { DEFAULT_MODULE_BODY, DEFAULT_PER_PAGE, SearchPagesQuery } from './search-query';
@@ -188,6 +193,28 @@ export class Page {
    */
   set revisions(value: PageRevisionCollection | null) {
     this._revisions = value;
+  }
+
+  /**
+   * Get the whole revision history, failing unless it is provably complete
+   * (see PageRevisionCollection.acquireComplete). Always fetches; the
+   * result is not cached in `revisions`.
+   */
+  getCompleteRevisions(): WikidotResultAsync<PageRevisionCollection> {
+    return fromPromise(
+      (async () => {
+        await this.ensureId('acquiring complete revisions');
+        const result = await PageRevisionCollection.acquireComplete(this);
+        if (result.isErr()) {
+          throw result.error;
+        }
+        return result.value;
+      })(),
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get complete revisions: ${String(error)}`)
+    );
   }
 
   /**
@@ -1202,7 +1229,7 @@ export class PageCollection extends Array<Page> {
             moduleName: 'history/PageRevisionListModule',
             page_id: page.id,
             options: { all: true },
-            perpage: 100000000,
+            perpage: ALL_REVISIONS_PERPAGE,
           }))
         );
 

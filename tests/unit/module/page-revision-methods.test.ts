@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 import { errAsync, okAsync } from 'neverthrow';
-import { UnexpectedError } from '../../../src/common/errors';
+import { ResponseDataError, UnexpectedError, WikidotStatusError } from '../../../src/common/errors';
 import type { AMCRequestBody, AMCResponse } from '../../../src/connector';
 import { Page, type PageData } from '../../../src/module/page/page';
 import { PageRevision, PageRevisionCollection } from '../../../src/module/page/page-revision';
@@ -212,5 +212,159 @@ describe('PageRevision.revert', () => {
       expect(result.value.locks).toBe(true);
       expect(result.value.body).toBe('<div>locked</div>');
     }
+  });
+});
+
+function revisionRowsHtml(revNos: number[], options: { brokenRevNo?: number } = {}): string {
+  const printuserHtml =
+    '<span class="printuser avatarhover">' +
+    '<a href="http://www.wikidot.com/user:info/test-user" ' +
+    'onclick="WIKIDOT.page.listeners.userInfo(12345); return false;">test-user</a>' +
+    '</span>';
+  const rows = revNos.map((revNo) => {
+    const userCell = revNo === options.brokenRevNo ? '' : printuserHtml;
+    return (
+      `<tr id="revision-row-${1000 + revNo}">` +
+      `<td>${revNo}.</td><td></td><td></td><td></td>` +
+      `<td>${userCell}</td>` +
+      '<td><span class="odate time_1700000000">14 Nov 2023</span></td>' +
+      '<td></td>' +
+      '</tr>'
+    );
+  });
+  return `<table class="page-history">${rows.join('')}</table>`;
+}
+
+describe('PageRevisionCollection.acquireComplete', () => {
+  // TEST_PAGE_DATA.revisionsCount is 3, so a complete history is rev 0..3
+  test('returns every revision when the history is contiguous up to revisionsCount', async () => {
+    const { site, calls } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([3, 2, 1, 0]) }])
+    );
+    const page = createTestPage(site);
+
+    const result = await PageRevisionCollection.acquireComplete(page);
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect([...result.value].map((r) => r.revNo).sort()).toEqual([0, 1, 2, 3]);
+    expect(JSON.parse(String(calls[0]?.[0]?.options))).toEqual({ all: true });
+    expect(calls[0]?.[0]?.page_id).toBe(12345);
+  });
+
+  test('accepts a history numbered from 1', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([1, 2, 3]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  test('accepts revisions newer than revisionsCount (edited after the page was fetched)', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 2, 3, 4]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  test('fails when a row cannot be parsed', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 2, 3], { brokenRevNo: 2 }) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBeInstanceOf(ResponseDataError);
+  });
+
+  test('fails when a revision number is missing', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 3]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBeInstanceOf(ResponseDataError);
+  });
+
+  test('fails when a revision number is duplicated', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 2, 2, 3]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  test('fails when the history starts after 1', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([2, 3]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  test('fails when the latest revision is older than revisionsCount (truncated list)', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 2]) }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBeInstanceOf(ResponseDataError);
+  });
+
+  test('fails on an empty history', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: '<table class="page-history"></table>' }])
+    );
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  test('passes a Wikidot status error through unchanged', async () => {
+    const statusError = new WikidotStatusError('AMC responded with error status', 'need_captcha');
+    const { site } = createMockSite(() => errAsync(statusError));
+
+    const result = await PageRevisionCollection.acquireComplete(createTestPage(site));
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBe(statusError);
+  });
+});
+
+describe('Page.getCompleteRevisions', () => {
+  test('returns the verified whole history', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1, 2, 3]) }])
+    );
+
+    const result = await createTestPage(site).getCompleteRevisions();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value.length).toBe(4);
+  });
+
+  test('fails on a truncated history', async () => {
+    const { site } = createMockSite(
+      queuedResponses([{ status: 'ok', body: revisionRowsHtml([0, 1]) }])
+    );
+
+    const result = await createTestPage(site).getCompleteRevisions();
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) expect(result.error).toBeInstanceOf(ResponseDataError);
   });
 });
