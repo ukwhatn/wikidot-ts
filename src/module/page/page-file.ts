@@ -318,7 +318,10 @@ export class PageFileCollection extends Array<PageFile> {
 
         return new PageFileCollection(page, files);
       })(),
-      (error) => new UnexpectedError(`Failed to acquire files: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to acquire files: ${String(error)}`)
     );
   }
 

@@ -294,3 +294,42 @@ describe('Page.rename extensions', () => {
     expect(page.name).toBe('new-name');
   });
 });
+
+describe('Page.getDiscussion', () => {
+  const threadViewBody = (threadId: number) => `
+    <div class="forum-breadcrumbs">» Discussion</div>
+    <div class="description-block"></div>
+    <div class="statistics"><span class="printuser">tester</span><span class="odate"></span><br><br><br>0 posts</div>
+    <script>WIKIDOT.forumThreadId = ${threadId};</script>
+  `;
+
+  test('reads the thread id that ForumCommentsListModule embeds as WIKIDOT.forumThreadId', async () => {
+    // Shape observed on pseudo-scp-jp (2026-10-08): the module embeds the id
+    // in a script tag and a hidden threadId input
+    const commentsBody =
+      '\n<script type="text/javascript">\n\tWIKIDOT.forumThreadId = 18354379;\n</script>\n' +
+      '<div id="thread-container-posts" style="display: none"></div>' +
+      '<input type="hidden" name="threadId" value="18354379"/>';
+    const { site, calls } = createMockSite(
+      queuedResponses([
+        { status: 'ok', body: commentsBody },
+        { status: 'ok', body: threadViewBody(18354379) },
+      ])
+    );
+
+    const result = await createTestPage(site).getDiscussion();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value?.id).toBe(18354379);
+    expect(calls[0]?.[0]?.moduleName).toBe('forum/ForumCommentsListModule');
+  });
+
+  test('returns null when the module carries no thread id', async () => {
+    const { site } = createMockSite(queuedResponses([{ status: 'ok', body: '<div></div>' }]));
+
+    const result = await createTestPage(site).getDiscussion();
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) expect(result.value).toBeNull();
+  });
+});

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { NoElementError, UnexpectedError } from '../../common/errors';
+import { NoElementError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
@@ -169,7 +169,7 @@ export class SiteChangeCollection extends Array<SiteChange> {
         return new SiteChangeCollection(site, limitedChanges);
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to acquire site changes: ${String(error)}`);

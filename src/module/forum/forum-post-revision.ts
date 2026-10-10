@@ -1,7 +1,7 @@
 import type { Cheerio, CheerioAPI } from 'cheerio';
 import * as cheerio from 'cheerio';
 import type { AnyNode } from 'domhandler';
-import { NoElementError, UnexpectedError } from '../../common/errors';
+import { NoElementError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
 import { parseOdate, parseUser } from '../../util/parser';
@@ -103,7 +103,7 @@ export class ForumPostRevision {
         return content;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get revision HTML: ${String(error)}`);
@@ -167,7 +167,7 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
         return results;
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to get HTMLs: ${String(error)}`);
@@ -265,7 +265,7 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
         return new ForumPostRevisionCollection(post, revisions);
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to acquire revisions: ${String(error)}`);
@@ -350,7 +350,7 @@ export class ForumPostRevisionCollection extends Array<ForumPostRevision> {
         return result;
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire revisions for posts: ${String(error)}`);
       }
     );

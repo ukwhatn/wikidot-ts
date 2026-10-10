@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { RequireLogin } from '../../common/decorators';
-import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
+import { NoElementError, UnexpectedError, WikidotError } from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { requireBody } from '../../connector';
 import type { Site } from '../site';
@@ -56,7 +56,10 @@ export class ForumCategory {
         this._threads = result.value;
         return this._threads;
       })(),
-      (error) => new UnexpectedError(`Failed to get threads: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to get threads: ${String(error)}`)
     );
   }
 
@@ -108,7 +111,7 @@ export class ForumCategory {
         return threadResult.value;
       })(),
       (error) => {
-        if (error instanceof NoElementError || error instanceof LoginRequiredError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to create thread: ${String(error)}`);
@@ -145,7 +148,10 @@ export class ForumCategory {
         const response = result.value[0];
         return requireBody(response, 'forum/ForumPreviewPostModule');
       })(),
-      (error) => new UnexpectedError(`Failed to preview thread: ${String(error)}`)
+      (error) =>
+        error instanceof WikidotError
+          ? error
+          : new UnexpectedError(`Failed to preview thread: ${String(error)}`)
     );
   }
 
@@ -232,7 +238,7 @@ export class ForumCategoryCollection extends Array<ForumCategory> {
         return new ForumCategoryCollection(site, categories);
       })(),
       (error) => {
-        if (error instanceof NoElementError) return error;
+        if (error instanceof WikidotError) return error;
         return new UnexpectedError(`Failed to acquire categories: ${String(error)}`);
       }
     );

@@ -1,4 +1,9 @@
-import { LoginRequiredError, NoElementError, UnexpectedError } from '../../common/errors';
+import {
+  LoginRequiredError,
+  NoElementError,
+  UnexpectedError,
+  WikidotError,
+} from '../../common/errors';
 import { fromPromise, type WikidotResultAsync } from '../../common/types';
 import { flag, omitFalsy, requireBody } from '../../connector';
 import type { PageRef } from '../types';
@@ -116,7 +121,7 @@ export class PageMetaCollection extends Array<PageMeta> {
         return new PageMetaCollection(page, metas);
       })(),
       (error) => {
-        if (error instanceof NoElementError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to acquire page metas: ${String(error)}`);
@@ -163,7 +168,7 @@ export class PageMetaCollection extends Array<PageMeta> {
         }
       })(),
       (error) => {
-        if (error instanceof LoginRequiredError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to set meta tag: ${String(error)}`);
@@ -207,7 +212,7 @@ export class PageMetaCollection extends Array<PageMeta> {
         }
       })(),
       (error) => {
-        if (error instanceof LoginRequiredError) {
+        if (error instanceof WikidotError) {
           return error;
         }
         return new UnexpectedError(`Failed to delete meta tag: ${String(error)}`);
