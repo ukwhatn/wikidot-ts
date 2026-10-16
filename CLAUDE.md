@@ -6,8 +6,8 @@ This document is a project guide for AI agents.
 
 **wikidot-ts** is a utility library for interacting with Wikidot sites in TypeScript. It is a TypeScript port of wikidot.py.
 
-- **Version**: 4.0.x
-- **Node.js Support**: 18 or higher
+- **Version**: `version` in `package.json`
+- **Node.js Support**: `engines.node` in `package.json`
 - **License**: MIT
 - **Package Name**: `@ukwhatn/wikidot`
 
@@ -35,7 +35,9 @@ wikidot-ts/
 │   │   ├── amc-client.ts     # AjaxModuleConnectorClient
 │   │   └── auth.ts           # Authentication handling
 │   ├── module/               # Core modules
+│   │   ├── account/          # Logged-in account
 │   │   ├── client/           # Client (main entry point)
+│   │   ├── dashboard-site/   # Dashboard site operations
 │   │   ├── site/             # Site (site management)
 │   │   ├── page/             # Page (page operations)
 │   │   ├── user/             # User hierarchy
@@ -43,8 +45,10 @@ wikidot-ts/
 │   │   ├── private-message/  # Private messages
 │   │   └── types.ts          # Module common types
 │   └── util/                 # Utilities
+│       ├── http.ts           # HTTP utilities with retry
 │       ├── quick-module.ts   # QuickModule search
-│       ├── string.ts         # String conversion
+│       ├── string-util.ts    # String conversion
+│       ├── table/            # Character tables
 │       └── parser/           # HTML parser
 ├── tests/
 │   ├── unit/                 # Unit tests
@@ -163,10 +167,7 @@ WikidotError (base)
 
 ### Biome (Linter/Formatter)
 
-- Line length: 120 characters
-- Indent: Tabs (width 2)
-- Semicolons: Required
-- Quotes: Double
+- Line width, indent, quotes, and semicolons are set in `biome.json`; run `bun run format` instead of formatting by hand
 
 ### TypeScript
 
@@ -240,30 +241,6 @@ WIKIDOT_PASSWORD=your_password
 
 - **check_code_quality.yml**: On PR: format -> lint -> typecheck -> test
 - **publish.yml**: On release: publish to npm
-
-## Additional Information for Subagent Calls
-
-### quality-checker / lint-runner / format-runner / typecheck-runner / test-runner
-
-```
-lint: bun run lint
-format: bun run format
-typecheck: bun run typecheck
-test: bun test
-```
-
-### self-reviewer / pr-reviewer
-
-```
-Base branch: main
-Architecture rules:
-  - Facade pattern (Client)
-  - Accessor pattern
-  - Result-based error handling
-Additional checks:
-  - Proper use of neverthrow Result type
-  - Avoid circular dependencies (use Ref types in types.ts)
-```
 
 ## Notes
 
